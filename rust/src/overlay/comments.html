@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stosup コメントオーバーレイ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: transparent !important;
+    overflow: hidden;
+    font-family: "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif;
+  }
+  #container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+    padding: 16px;
+  }
+  .comment-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    animation: slideIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    max-width: 100%;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    background: #334155;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+  .bubble {
+    padding: 10px 16px;
+    border-radius: 16px;
+    border-top-left-radius: 4px;
+    border: 2px solid rgba(148, 163, 184, 0.35);
+    background: rgba(30, 41, 59, 0.9);
+    color: #f8fafc;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(6px);
+    max-width: calc(100% - 56px);
+    word-break: break-word;
+  }
+  .bubble.highlighted {
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.22), 0 4px 16px rgba(0, 0, 0, 0.45);
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-size: 0.78em;
+    opacity: 0.92;
+  }
+  .author {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .badge {
+    font-size: 0.72em;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+  .badge-owner { background: #f59e0b; color: #111827; }
+  .badge-mod { background: #3b82f6; color: #ffffff; }
+  .badge-member { background: #10b981; color: #052e16; }
+  .timestamp {
+    margin-left: auto;
+    font-size: 0.72em;
+    opacity: 0.65;
+  }
+  .message {
+    line-height: 1.45;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+</style>
+</head>
+<body>
+  <div id="container"></div>
+<script>
+  const container = document.getElementById('container');
+  let config = {
+    comment_font_size: 18,
+    comment_max_items: 30,
+    show_icons: true,
+    show_timestamps: false,
+    default_bubble_bg: '#1E293BE6',
+    default_text_color: '#F8FAFC'
+  };
+
+  function hexToCss(hex, fallback) {
+    if (!hex || typeof hex !== 'string') return fallback;
+    const h = hex.trim();
+    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(h)) return h;
+    return fallback;
+  }
+
+  function formatTime(ms) {
+    const d = new Date(ms);
+    return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function fallbackAvatar(name) {
+    const ch = (name || '?').slice(0, 1);
+    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%23475569'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
+  }
+
+  function createCommentEl(c) {
+    const row = document.createElement('div');
+    row.className = 'comment-row';
+    row.style.fontSize = `${config.comment_font_size}px`;
+
+    if (config.show_icons) {
+      const img = document.createElement('img');
+      img.className = 'avatar';
+      img.src = c.user_icon_url || fallbackAvatar(c.user_name);
+      img.onerror = () => { img.src = fallbackAvatar(c.user_name); };
+      row.appendChild(img);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble' + (c.bubble_bg_color ? ' highlighted' : '');
+    bubble.style.background = hexToCss(c.bubble_bg_color, hexToCss(config.default_bubble_bg, '#1E293BE6'));
+    bubble.style.color = hexToCss(c.bubble_text_color, hexToCss(config.default_text_color, '#F8FAFC'));
+    if (c.bubble_border_color) {
+      bubble.style.borderColor = hexToCss(c.bubble_border_color, 'rgba(148,163,184,0.35)');
+    }
+
+    const header = document.createElement('div');
+    header.className = 'header';
+    const author = document.createElement('span');
+    author.className = 'author';
+    author.textContent = c.user_name;
+    header.appendChild(author);
+
+    if (c.is_owner) {
+      const b = document.createElement('span');
+      b.className = 'badge badge-owner';
+      b.textContent = '配信者';
+      header.appendChild(b);
+    }
+    if (c.is_moderator) {
+      const b = document.createElement('span');
+      b.className = 'badge badge-mod';
+      b.textContent = 'MOD';
+      header.appendChild(b);
+    }
+    if (c.is_member) {
+      const b = document.createElement('span');
+      b.className = 'badge badge-member';
+      b.textContent = 'メンバー';
+      header.appendChild(b);
+    }
+    if (config.show_timestamps) {
+      const ts = document.createElement('span');
+      ts.className = 'timestamp';
+      ts.textContent = formatTime(c.timestamp_ms);
+      header.appendChild(ts);
+    }
+
+    const msg = document.createElement('div');
+    msg.className = 'message';
+    msg.textContent = c.message;
+
+    bubble.appendChild(header);
+    bubble.appendChild(msg);
+    row.appendChild(bubble);
+    return row;
+  }
+
+  function appendComment(c) {
+    if (c.is_banned) return;
+    container.appendChild(createCommentEl(c));
+    const maxItems = Math.max(5, config.comment_max_items || 30);
+    while (container.children.length > maxItems) {
+      container.removeChild(container.firstChild);
+    }
+  }
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${proto}//${location.host}/ws`);
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === 'snapshot') {
+          config = Object.assign(config, data.config || {});
+          container.innerHTML = '';
+          (data.comments || []).forEach(appendComment);
+        } else if (data.type === 'comment') {
+          appendComment(data.comment);
+        } else if (data.type === 'config_updated') {
+          config = Object.assign(config, data.config || {});
+        }
+      } catch (e) { console.error(e); }
+    };
+    ws.onclose = () => setTimeout(connect, 2000);
+    ws.onerror = () => ws.close();
+  }
+  connect();
+</script>
+</body>
+</html>

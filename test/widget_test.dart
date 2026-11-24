@@ -1,0 +1,55 @@
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:stosup/theme/app_theme.dart';
+import 'package:stosup/widgets/markdown_notes_view.dart';
+import 'package:stosup/widgets/user_avatar.dart';
+
+void main() {
+  test('AppTheme CSS HEX カラー変換が正しく動作する', () {
+    final c6 = AppTheme.parseCssHex('#38BDF8');
+    expect((c6.r * 255).round(), 0x38);
+    expect((c6.g * 255).round(), 0xBD);
+    expect((c6.b * 255).round(), 0xF8);
+    expect((c6.a * 255).round(), 0xFF);
+
+    final c8 = AppTheme.parseCssHex('#065F4680');
+    expect((c8.r * 255).round(), 0x06);
+    expect((c8.g * 255).round(), 0x5F);
+    expect((c8.b * 255).round(), 0x46);
+    expect((c8.a * 255).round(), 0x80);
+
+    expect(AppTheme.toCssHex(c6, includeAlpha: false), '#38BDF8');
+  });
+
+  testWidgets('MarkdownNotesView が見出しと箇条書きを表示する',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: const Scaffold(
+          body: MarkdownNotesView(
+            markdown: '### 新機能\n- **YouTube Live 連携**: コメント取得に対応\n- `OBS` オーバーレイ対応',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('新機能'), findsOneWidget);
+    expect(find.textContaining('YouTube Live 連携'), findsOneWidget);
+    expect(find.textContaining('OBS'), findsOneWidget);
+  });
+
+  testWidgets('UserAvatar が非HTTPのURL時にイニシャルを表示する',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: const Scaffold(
+          body: UserAvatar(name: 'たこやき太郎', iconUrl: ''),
+        ),
+      ),
+    );
+
+    expect(find.text('た'), findsOneWidget);
+  });
+}

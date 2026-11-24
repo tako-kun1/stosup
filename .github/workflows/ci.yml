@@ -1,0 +1,60 @@
+name: CI (ビルド・テスト検証)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-rust:
+    name: Rust テスト ＆ チェック
+    runs-on: windows-latest
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Rust セットアップ
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo キャッシュ
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Rust 単体テスト実行
+        run: cargo test --manifest-path rust/Cargo.toml
+
+  build-flutter-windows:
+    name: Flutter Windows ビルド検証
+    runs-on: windows-latest
+    needs: test-rust
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Rust セットアップ
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo キャッシュ
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Flutter セットアップ
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: 依存パッケージ取得
+        run: flutter pub get
+
+      - name: 静的解析 (flutter analyze)
+        run: flutter analyze
+
+      - name: Flutter テスト
+        run: flutter test
+
+      - name: Windows リリースビルド確認
+        run: flutter build windows --release

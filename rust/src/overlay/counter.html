@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stosup ワードカウンターオーバーレイ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: transparent !important;
+    overflow: hidden;
+    font-family: "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif;
+  }
+  #counters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 16px;
+  }
+  .card {
+    background: rgba(15, 23, 42, 0.88);
+    border-radius: 16px;
+    border: 2px solid #38bdf8;
+    padding: 14px 22px;
+    min-width: 210px;
+    color: #f8fafc;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+  }
+  .label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #cbd5e1;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .mode-tag {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+  }
+  .value {
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    transition: transform 0.15s ease;
+  }
+  .value.bump {
+    transform: scale(1.16);
+  }
+  .sub {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+</style>
+</head>
+<body>
+  <div id="counters"></div>
+<script>
+  const container = document.getElementById('counters');
+  const params = new URLSearchParams(location.search);
+  const filterId = params.get('id');
+  const prevValues = new Map();
+
+  function renderCounters(list) {
+    const visible = (list || []).filter((c) => c.enabled && (!filterId || c.id === filterId));
+    container.innerHTML = '';
+
+    visible.forEach((c) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.borderColor = c.accent_color || '#38bdf8';
+
+      const label = document.createElement('div');
+      label.className = 'label';
+      const title = document.createElement('span');
+      title.textContent = c.name;
+      const tag = document.createElement('span');
+      tag.className = 'mode-tag';
+      tag.textContent = c.max_per_account != null ? `1人${c.max_per_account}回まで` : '上限なし';
+      label.appendChild(title);
+      label.appendChild(tag);
+
+      const val = document.createElement('div');
+      val.className = 'value';
+      val.style.color = c.accent_color || '#38bdf8';
+      val.textContent = String(c.total_count);
+      if (prevValues.has(c.id) && prevValues.get(c.id) !== c.total_count) {
+        val.classList.add('bump');
+        setTimeout(() => val.classList.remove('bump'), 180);
+      }
+      prevValues.set(c.id, c.total_count);
+
+      const sub = document.createElement('div');
+      sub.className = 'sub';
+      sub.textContent = `対象: ${(c.keywords || []).join(', ')} / 参加 ${c.unique_user_count}人`;
+
+      card.appendChild(label);
+      card.appendChild(val);
+      card.appendChild(sub);
+      container.appendChild(card);
+    });
+  }
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${proto}//${location.host}/ws`);
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === 'snapshot' || data.type === 'counters') {
+          renderCounters(data.counters);
+        }
+      } catch (e) { console.error(e); }
+    };
+    ws.onclose = () => setTimeout(connect, 2000);
+    ws.onerror = () => ws.close();
+  }
+  connect();
+</script>
+</body>
+</html>

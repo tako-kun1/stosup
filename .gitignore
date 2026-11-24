@@ -1,0 +1,61 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# 開発者向けローカル専用ファイル（GitHubにはアップロードしない）
+DEVELOPER_README.md
+stosup.md
+oauth_secrets.json
+.env
+.env.local
+
+# データベース・ローカルデータ
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# インストーラー・ビルド成果物
+/dist/
+/rust/target/
+/build/
+/coverage/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Widget Preview related
+.widget_preview/
