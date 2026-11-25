@@ -3,6 +3,7 @@ pub mod db;
 pub mod engine;
 pub mod fonts;
 mod frb_generated;
+pub mod media;
 pub mod models;
 pub mod overlay;
 pub mod platform;

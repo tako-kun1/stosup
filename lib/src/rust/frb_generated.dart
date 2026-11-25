@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 579225428;
+  int get rustContentHash => -1660417204;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -91,7 +91,17 @@ abstract class RustLibApi extends BaseApi {
 
   Future<UpdateInfo> crateApiCheckForUpdates();
 
+  Future<List<MonetizationItem>> crateApiClearMonetizationEvents({
+    required bool checkedOnly,
+  });
+
   Future<void> crateApiClearOverlayLottery();
+
+  Future<void> crateApiClearOverlayMedia();
+
+  Future<void> crateApiClearOverlayPoll();
+
+  Future<PickedCommentState> crateApiClearPickedComment();
 
   Future<void> crateApiClearRecentComments();
 
@@ -106,6 +116,14 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<List<HighlightRule>> crateApiDeleteHighlightRule({required String id});
+
+  Future<List<MediaReactionRule>> crateApiDeleteMediaReactionRule({
+    required String id,
+  });
+
+  Future<List<MonetizationItem>> crateApiDeleteMonetizationEvent({
+    required String id,
+  });
 
   Future<List<UserRecord>> crateApiDeleteUser({
     required String userId,
@@ -144,7 +162,15 @@ abstract class RustLibApi extends BaseApi {
 
   Future<FirstTimeCounterState> crateApiGetFirstTimeState();
 
+  Future<MediaReactionConfig> crateApiGetMediaReactionConfig();
+
   Future<OverlayConfig> crateApiGetOverlayConfig();
+
+  Future<PickedCommentState> crateApiGetPickedComment();
+
+  Future<PollState> crateApiGetPollState();
+
+  Future<QueueState> crateApiGetQueueState();
 
   Future<List<CommentItem>> crateApiGetRecentComments();
 
@@ -155,6 +181,10 @@ abstract class RustLibApi extends BaseApi {
   Future<List<String>> crateApiGetUserLotteryWonIds();
 
   Future<YouTubeOAuthStatus> crateApiGetYoutubeOauthStatus();
+
+  Future<ImportedMediaFile> crateApiImportMediaFile({
+    required String sourcePath,
+  });
 
   Future<void> crateApiInitApp({required bool afterUpdate});
 
@@ -167,17 +197,56 @@ abstract class RustLibApi extends BaseApi {
 
   Future<List<LotteryResult>> crateApiListLotteryHistory({required int limit});
 
+  Future<List<MediaReactionRule>> crateApiListMediaReactionRules();
+
+  Future<List<MonetizationItem>> crateApiListMonetizationEvents({
+    required int limit,
+  });
+
   Future<List<String>> crateApiListSystemFonts();
 
   Future<List<UserRecord>> crateApiListUsers();
 
   Future<List<WordCounterConfig>> crateApiListWordCounters();
 
+  Future<List<MonetizationItem>> crateApiMarkAllMonetizationChecked();
+
   Future<void> crateApiMarkReleaseNotesSeen();
 
   Future<void> crateApiOpenExternalUrl({required String url});
 
+  Future<PickedCommentState> crateApiPickComment({
+    required CommentItem comment,
+  });
+
+  Future<String?> crateApiPickMediaFileDialog();
+
+  Future<String?> crateApiPickSoundFileDialog();
+
   Future<String> crateApiPostChatMessage({required String text});
+
+  Future<QueueState> crateApiQueueAddManual({
+    required String userName,
+    required String note,
+  });
+
+  Future<QueueState> crateApiQueueMoveEntry({
+    required String userId,
+    required int delta,
+  });
+
+  Future<QueueState> crateApiQueuePromoteNext();
+
+  Future<QueueState> crateApiQueueRemoveEntry({required String userId});
+
+  Future<QueueState> crateApiQueueReset({required bool resetPlayCounts});
+
+  Future<QueueState> crateApiQueueRotateActive();
+
+  Future<QueueState> crateApiQueueSetStatus({
+    required String userId,
+    required QueueEntryStatus status,
+  });
 
   Future<CommentLotteryState> crateApiResetCommentLottery({
     required bool clearWinnersOnly,
@@ -186,6 +255,8 @@ abstract class RustLibApi extends BaseApi {
   Future<FirstTimeCounterState> crateApiResetFirstTimeAllHistory();
 
   Future<FirstTimeCounterState> crateApiResetFirstTimeSessionCount();
+
+  Future<PollState> crateApiResetPoll();
 
   Future<void> crateApiResetUserLotteryWinners();
 
@@ -205,9 +276,21 @@ abstract class RustLibApi extends BaseApi {
     required HighlightRule rule,
   });
 
+  Future<MediaReactionConfig> crateApiSaveMediaReactionConfig({
+    required MediaReactionConfig config,
+  });
+
+  Future<List<MediaReactionRule>> crateApiSaveMediaReactionRule({
+    required MediaReactionRule rule,
+  });
+
   Future<OverlayConfig> crateApiSaveOverlayConfig({
     required OverlayConfig config,
   });
+
+  Future<PollState> crateApiSavePollConfig({required PollConfig config});
+
+  Future<QueueState> crateApiSaveQueueConfig({required QueueConfig config});
 
   Future<AppThemeMode> crateApiSaveThemeMode({required AppThemeMode mode});
 
@@ -224,6 +307,18 @@ abstract class RustLibApi extends BaseApi {
     required String userId,
     required String userName,
     required String message,
+  });
+
+  Future<List<MonetizationItem>> crateApiSendDemoMonetization({
+    required MonetizationEventKind kind,
+    required String userName,
+    required String amountDisplay,
+    required String message,
+  });
+
+  Future<List<MonetizationItem>> crateApiSetMonetizationChecked({
+    required String id,
+    required bool checked,
   });
 
   Future<List<UserRecord>> crateApiSetUserBan({
@@ -243,11 +338,17 @@ abstract class RustLibApi extends BaseApi {
     required CommentLotteryConfig config,
   });
 
+  Future<PollState> crateApiStartPoll({required PollConfig config});
+
   Future<YouTubeOAuthStatus> crateApiStartYoutubeOauthLogin();
 
   Future<CommentLotteryState> crateApiStopCommentLottery();
 
+  Future<PollState> crateApiStopPoll();
+
   Stream<AppEvent> crateApiSubscribeEvents();
+
+  Future<void> crateApiTestMediaReactionRule({required String id});
 
   Future<CommentLotteryState> crateApiUpdateCommentLotteryConfig({
     required CommentLotteryConfig config,
@@ -357,6 +458,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "check_for_updates", argNames: []);
 
   @override
+  Future<List<MonetizationItem>> crateApiClearMonetizationEvents({
+    required bool checkedOnly,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_bool(checkedOnly, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 4,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_monetization_item,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiClearMonetizationEventsConstMeta,
+        argValues: [checkedOnly],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiClearMonetizationEventsConstMeta =>
+      const TaskConstMeta(
+        debugName: "clear_monetization_events",
+        argNames: ["checkedOnly"],
+      );
+
+  @override
   Future<void> crateApiClearOverlayLottery() {
     return handler.executeNormal(
       NormalTask(
@@ -365,7 +499,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 5,
             port: port_,
           );
         },
@@ -384,6 +518,87 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "clear_overlay_lottery", argNames: []);
 
   @override
+  Future<void> crateApiClearOverlayMedia() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 6,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiClearOverlayMediaConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiClearOverlayMediaConstMeta =>
+      const TaskConstMeta(debugName: "clear_overlay_media", argNames: []);
+
+  @override
+  Future<void> crateApiClearOverlayPoll() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 7,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiClearOverlayPollConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiClearOverlayPollConstMeta =>
+      const TaskConstMeta(debugName: "clear_overlay_poll", argNames: []);
+
+  @override
+  Future<PickedCommentState> crateApiClearPickedComment() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 8,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_picked_comment_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiClearPickedCommentConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiClearPickedCommentConstMeta =>
+      const TaskConstMeta(debugName: "clear_picked_comment", argNames: []);
+
+  @override
   Future<void> crateApiClearRecentComments() {
     return handler.executeNormal(
       NormalTask(
@@ -392,7 +607,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 9,
             port: port_,
           );
         },
@@ -424,7 +639,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 10,
             port: port_,
           );
         },
@@ -458,7 +673,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 11,
             port: port_,
           );
         },
@@ -490,7 +705,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 12,
             port: port_,
           );
         },
@@ -509,6 +724,72 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "delete_highlight_rule", argNames: ["id"]);
 
   @override
+  Future<List<MediaReactionRule>> crateApiDeleteMediaReactionRule({
+    required String id,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 13,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_media_reaction_rule,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDeleteMediaReactionRuleConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDeleteMediaReactionRuleConstMeta =>
+      const TaskConstMeta(
+        debugName: "delete_media_reaction_rule",
+        argNames: ["id"],
+      );
+
+  @override
+  Future<List<MonetizationItem>> crateApiDeleteMonetizationEvent({
+    required String id,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 14,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_monetization_item,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiDeleteMonetizationEventConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiDeleteMonetizationEventConstMeta =>
+      const TaskConstMeta(
+        debugName: "delete_monetization_event",
+        argNames: ["id"],
+      );
+
+  @override
   Future<List<UserRecord>> crateApiDeleteUser({
     required String userId,
     required PlatformKind platform,
@@ -522,7 +803,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 15,
             port: port_,
           );
         },
@@ -554,7 +835,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 16,
             port: port_,
           );
         },
@@ -581,7 +862,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 17,
             port: port_,
           );
         },
@@ -608,7 +889,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 18,
             port: port_,
           );
         },
@@ -648,7 +929,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 13,
+              funcId: 19,
               port: port_,
             );
           },
@@ -680,7 +961,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 20,
             port: port_,
           );
         },
@@ -710,7 +991,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 21,
             port: port_,
           );
         },
@@ -734,7 +1015,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -759,7 +1040,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 23,
             port: port_,
           );
         },
@@ -786,7 +1067,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 24,
             port: port_,
           );
         },
@@ -813,7 +1094,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 25,
             port: port_,
           );
         },
@@ -840,7 +1121,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 26,
             port: port_,
           );
         },
@@ -867,7 +1148,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 27,
             port: port_,
           );
         },
@@ -886,6 +1167,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "get_first_time_state", argNames: []);
 
   @override
+  Future<MediaReactionConfig> crateApiGetMediaReactionConfig() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 28,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_media_reaction_config,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiGetMediaReactionConfigConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGetMediaReactionConfigConstMeta =>
+      const TaskConstMeta(debugName: "get_media_reaction_config", argNames: []);
+
+  @override
   Future<OverlayConfig> crateApiGetOverlayConfig() {
     return handler.executeNormal(
       NormalTask(
@@ -894,7 +1202,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 29,
             port: port_,
           );
         },
@@ -913,6 +1221,87 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "get_overlay_config", argNames: []);
 
   @override
+  Future<PickedCommentState> crateApiGetPickedComment() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 30,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_picked_comment_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiGetPickedCommentConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGetPickedCommentConstMeta =>
+      const TaskConstMeta(debugName: "get_picked_comment", argNames: []);
+
+  @override
+  Future<PollState> crateApiGetPollState() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 31,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_poll_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiGetPollStateConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGetPollStateConstMeta =>
+      const TaskConstMeta(debugName: "get_poll_state", argNames: []);
+
+  @override
+  Future<QueueState> crateApiGetQueueState() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 32,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_queue_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiGetQueueStateConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGetQueueStateConstMeta =>
+      const TaskConstMeta(debugName: "get_queue_state", argNames: []);
+
+  @override
   Future<List<CommentItem>> crateApiGetRecentComments() {
     return handler.executeNormal(
       NormalTask(
@@ -921,7 +1310,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 33,
             port: port_,
           );
         },
@@ -948,7 +1337,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 34,
             port: port_,
           );
         },
@@ -975,7 +1364,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1002,7 +1391,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 36,
             port: port_,
           );
         },
@@ -1029,7 +1418,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 27,
+            funcId: 37,
             port: port_,
           );
         },
@@ -1048,6 +1437,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "get_youtube_oauth_status", argNames: []);
 
   @override
+  Future<ImportedMediaFile> crateApiImportMediaFile({
+    required String sourcePath,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(sourcePath, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 38,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_imported_media_file,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiImportMediaFileConstMeta,
+        argValues: [sourcePath],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiImportMediaFileConstMeta => const TaskConstMeta(
+    debugName: "import_media_file",
+    argNames: ["sourcePath"],
+  );
+
+  @override
   Future<void> crateApiInitApp({required bool afterUpdate}) {
     return handler.executeNormal(
       NormalTask(
@@ -1057,7 +1478,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 28,
+            funcId: 39,
             port: port_,
           );
         },
@@ -1089,7 +1510,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 29,
+            funcId: 40,
             port: port_,
           );
         },
@@ -1119,7 +1540,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 30,
+            funcId: 41,
             port: port_,
           );
         },
@@ -1147,7 +1568,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 31,
+            funcId: 42,
             port: port_,
           );
         },
@@ -1168,6 +1589,66 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<List<MediaReactionRule>> crateApiListMediaReactionRules() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 43,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_media_reaction_rule,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiListMediaReactionRulesConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiListMediaReactionRulesConstMeta =>
+      const TaskConstMeta(debugName: "list_media_reaction_rules", argNames: []);
+
+  @override
+  Future<List<MonetizationItem>> crateApiListMonetizationEvents({
+    required int limit,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_u_32(limit, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 44,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_monetization_item,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiListMonetizationEventsConstMeta,
+        argValues: [limit],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiListMonetizationEventsConstMeta =>
+      const TaskConstMeta(
+        debugName: "list_monetization_events",
+        argNames: ["limit"],
+      );
+
+  @override
   Future<List<String>> crateApiListSystemFonts() {
     return handler.executeNormal(
       NormalTask(
@@ -1176,7 +1657,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 32,
+            funcId: 45,
             port: port_,
           );
         },
@@ -1203,7 +1684,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 46,
             port: port_,
           );
         },
@@ -1230,7 +1711,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 34,
+            funcId: 47,
             port: port_,
           );
         },
@@ -1249,6 +1730,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "list_word_counters", argNames: []);
 
   @override
+  Future<List<MonetizationItem>> crateApiMarkAllMonetizationChecked() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 48,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_monetization_item,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiMarkAllMonetizationCheckedConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiMarkAllMonetizationCheckedConstMeta =>
+      const TaskConstMeta(
+        debugName: "mark_all_monetization_checked",
+        argNames: [],
+      );
+
+  @override
   Future<void> crateApiMarkReleaseNotesSeen() {
     return handler.executeNormal(
       NormalTask(
@@ -1257,7 +1768,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 35,
+            funcId: 49,
             port: port_,
           );
         },
@@ -1285,7 +1796,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 36,
+            funcId: 50,
             port: port_,
           );
         },
@@ -1304,6 +1815,90 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "open_external_url", argNames: ["url"]);
 
   @override
+  Future<PickedCommentState> crateApiPickComment({
+    required CommentItem comment,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_comment_item(comment, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 51,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_picked_comment_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiPickCommentConstMeta,
+        argValues: [comment],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPickCommentConstMeta =>
+      const TaskConstMeta(debugName: "pick_comment", argNames: ["comment"]);
+
+  @override
+  Future<String?> crateApiPickMediaFileDialog() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 52,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_String,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPickMediaFileDialogConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPickMediaFileDialogConstMeta =>
+      const TaskConstMeta(debugName: "pick_media_file_dialog", argNames: []);
+
+  @override
+  Future<String?> crateApiPickSoundFileDialog() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 53,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_String,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiPickSoundFileDialogConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiPickSoundFileDialogConstMeta =>
+      const TaskConstMeta(debugName: "pick_sound_file_dialog", argNames: []);
+
+  @override
   Future<String> crateApiPostChatMessage({required String text}) {
     return handler.executeNormal(
       NormalTask(
@@ -1313,7 +1908,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 37,
+            funcId: 54,
             port: port_,
           );
         },
@@ -1332,6 +1927,222 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "post_chat_message", argNames: ["text"]);
 
   @override
+  Future<QueueState> crateApiQueueAddManual({
+    required String userName,
+    required String note,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(userName, serializer);
+          sse_encode_String(note, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 55,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_queue_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiQueueAddManualConstMeta,
+        argValues: [userName, note],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiQueueAddManualConstMeta => const TaskConstMeta(
+    debugName: "queue_add_manual",
+    argNames: ["userName", "note"],
+  );
+
+  @override
+  Future<QueueState> crateApiQueueMoveEntry({
+    required String userId,
+    required int delta,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(userId, serializer);
+          sse_encode_i_32(delta, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 56,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_queue_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiQueueMoveEntryConstMeta,
+        argValues: [userId, delta],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiQueueMoveEntryConstMeta => const TaskConstMeta(
+    debugName: "queue_move_entry",
+    argNames: ["userId", "delta"],
+  );
+
+  @override
+  Future<QueueState> crateApiQueuePromoteNext() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 57,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_queue_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiQueuePromoteNextConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiQueuePromoteNextConstMeta =>
+      const TaskConstMeta(debugName: "queue_promote_next", argNames: []);
+
+  @override
+  Future<QueueState> crateApiQueueRemoveEntry({required String userId}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(userId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 58,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_queue_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiQueueRemoveEntryConstMeta,
+        argValues: [userId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiQueueRemoveEntryConstMeta => const TaskConstMeta(
+    debugName: "queue_remove_entry",
+    argNames: ["userId"],
+  );
+
+  @override
+  Future<QueueState> crateApiQueueReset({required bool resetPlayCounts}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_bool(resetPlayCounts, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 59,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_queue_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiQueueResetConstMeta,
+        argValues: [resetPlayCounts],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiQueueResetConstMeta => const TaskConstMeta(
+    debugName: "queue_reset",
+    argNames: ["resetPlayCounts"],
+  );
+
+  @override
+  Future<QueueState> crateApiQueueRotateActive() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 60,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_queue_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiQueueRotateActiveConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiQueueRotateActiveConstMeta =>
+      const TaskConstMeta(debugName: "queue_rotate_active", argNames: []);
+
+  @override
+  Future<QueueState> crateApiQueueSetStatus({
+    required String userId,
+    required QueueEntryStatus status,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(userId, serializer);
+          sse_encode_queue_entry_status(status, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 61,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_queue_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiQueueSetStatusConstMeta,
+        argValues: [userId, status],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiQueueSetStatusConstMeta => const TaskConstMeta(
+    debugName: "queue_set_status",
+    argNames: ["userId", "status"],
+  );
+
+  @override
   Future<CommentLotteryState> crateApiResetCommentLottery({
     required bool clearWinnersOnly,
   }) {
@@ -1343,7 +2154,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 38,
+            funcId: 62,
             port: port_,
           );
         },
@@ -1373,7 +2184,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 63,
             port: port_,
           );
         },
@@ -1403,7 +2214,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 40,
+            funcId: 64,
             port: port_,
           );
         },
@@ -1425,6 +2236,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<PollState> crateApiResetPoll() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 65,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_poll_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiResetPollConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiResetPollConstMeta =>
+      const TaskConstMeta(debugName: "reset_poll", argNames: []);
+
+  @override
   Future<void> crateApiResetUserLotteryWinners() {
     return handler.executeNormal(
       NormalTask(
@@ -1433,7 +2271,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 41,
+            funcId: 66,
             port: port_,
           );
         },
@@ -1464,7 +2302,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 42,
+            funcId: 67,
             port: port_,
           );
         },
@@ -1494,7 +2332,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 43,
+            funcId: 68,
             port: port_,
           );
         },
@@ -1522,7 +2360,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 69,
             port: port_,
           );
         },
@@ -1552,7 +2390,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 70,
             port: port_,
           );
         },
@@ -1585,7 +2423,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 71,
             port: port_,
           );
         },
@@ -1604,6 +2442,72 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "save_highlight_rule", argNames: ["rule"]);
 
   @override
+  Future<MediaReactionConfig> crateApiSaveMediaReactionConfig({
+    required MediaReactionConfig config,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_media_reaction_config(config, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 72,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_media_reaction_config,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSaveMediaReactionConfigConstMeta,
+        argValues: [config],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSaveMediaReactionConfigConstMeta =>
+      const TaskConstMeta(
+        debugName: "save_media_reaction_config",
+        argNames: ["config"],
+      );
+
+  @override
+  Future<List<MediaReactionRule>> crateApiSaveMediaReactionRule({
+    required MediaReactionRule rule,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_media_reaction_rule(rule, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 73,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_media_reaction_rule,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSaveMediaReactionRuleConstMeta,
+        argValues: [rule],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSaveMediaReactionRuleConstMeta =>
+      const TaskConstMeta(
+        debugName: "save_media_reaction_rule",
+        argNames: ["rule"],
+      );
+
+  @override
   Future<OverlayConfig> crateApiSaveOverlayConfig({
     required OverlayConfig config,
   }) {
@@ -1615,7 +2519,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 74,
             port: port_,
           );
         },
@@ -1636,6 +2540,62 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<PollState> crateApiSavePollConfig({required PollConfig config}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_poll_config(config, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 75,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_poll_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSavePollConfigConstMeta,
+        argValues: [config],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSavePollConfigConstMeta =>
+      const TaskConstMeta(debugName: "save_poll_config", argNames: ["config"]);
+
+  @override
+  Future<QueueState> crateApiSaveQueueConfig({required QueueConfig config}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_queue_config(config, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 76,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_queue_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSaveQueueConfigConstMeta,
+        argValues: [config],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSaveQueueConfigConstMeta =>
+      const TaskConstMeta(debugName: "save_queue_config", argNames: ["config"]);
+
+  @override
   Future<AppThemeMode> crateApiSaveThemeMode({required AppThemeMode mode}) {
     return handler.executeNormal(
       NormalTask(
@@ -1645,7 +2605,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 77,
             port: port_,
           );
         },
@@ -1675,7 +2635,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 49,
+            funcId: 78,
             port: port_,
           );
         },
@@ -1709,7 +2669,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 50,
+            funcId: 79,
             port: port_,
           );
         },
@@ -1746,7 +2706,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 51,
+            funcId: 80,
             port: port_,
           );
         },
@@ -1767,6 +2727,80 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<List<MonetizationItem>> crateApiSendDemoMonetization({
+    required MonetizationEventKind kind,
+    required String userName,
+    required String amountDisplay,
+    required String message,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_monetization_event_kind(kind, serializer);
+          sse_encode_String(userName, serializer);
+          sse_encode_String(amountDisplay, serializer);
+          sse_encode_String(message, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 81,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_monetization_item,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSendDemoMonetizationConstMeta,
+        argValues: [kind, userName, amountDisplay, message],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSendDemoMonetizationConstMeta =>
+      const TaskConstMeta(
+        debugName: "send_demo_monetization",
+        argNames: ["kind", "userName", "amountDisplay", "message"],
+      );
+
+  @override
+  Future<List<MonetizationItem>> crateApiSetMonetizationChecked({
+    required String id,
+    required bool checked,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          sse_encode_bool(checked, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 82,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_monetization_item,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSetMonetizationCheckedConstMeta,
+        argValues: [id, checked],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSetMonetizationCheckedConstMeta =>
+      const TaskConstMeta(
+        debugName: "set_monetization_checked",
+        argNames: ["id", "checked"],
+      );
+
+  @override
   Future<List<UserRecord>> crateApiSetUserBan({
     required String userId,
     required PlatformKind platform,
@@ -1784,7 +2818,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 52,
+            funcId: 83,
             port: port_,
           );
         },
@@ -1820,7 +2854,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 53,
+            funcId: 84,
             port: port_,
           );
         },
@@ -1852,7 +2886,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 54,
+            funcId: 85,
             port: port_,
           );
         },
@@ -1874,6 +2908,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<PollState> crateApiStartPoll({required PollConfig config}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_poll_config(config, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 86,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_poll_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiStartPollConstMeta,
+        argValues: [config],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiStartPollConstMeta =>
+      const TaskConstMeta(debugName: "start_poll", argNames: ["config"]);
+
+  @override
   Future<YouTubeOAuthStatus> crateApiStartYoutubeOauthLogin() {
     return handler.executeNormal(
       NormalTask(
@@ -1882,7 +2944,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 55,
+            funcId: 87,
             port: port_,
           );
         },
@@ -1909,7 +2971,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 56,
+            funcId: 88,
             port: port_,
           );
         },
@@ -1928,6 +2990,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "stop_comment_lottery", argNames: []);
 
   @override
+  Future<PollState> crateApiStopPoll() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 89,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_poll_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiStopPollConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiStopPollConstMeta =>
+      const TaskConstMeta(debugName: "stop_poll", argNames: []);
+
+  @override
   Stream<AppEvent> crateApiSubscribeEvents() {
     final sink = RustStreamSink<AppEvent>();
     unawaited(
@@ -1939,7 +3028,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 57,
+              funcId: 90,
               port: port_,
             );
           },
@@ -1960,6 +3049,37 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "subscribe_events", argNames: ["sink"]);
 
   @override
+  Future<void> crateApiTestMediaReactionRule({required String id}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(id, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 91,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiTestMediaReactionRuleConstMeta,
+        argValues: [id],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTestMediaReactionRuleConstMeta =>
+      const TaskConstMeta(
+        debugName: "test_media_reaction_rule",
+        argNames: ["id"],
+      );
+
+  @override
   Future<CommentLotteryState> crateApiUpdateCommentLotteryConfig({
     required CommentLotteryConfig config,
   }) {
@@ -1971,7 +3091,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 58,
+            funcId: 92,
             port: port_,
           );
         },
@@ -2021,8 +3141,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AppEvent dco_decode_app_event(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 11)
-      throw Exception('unexpected arr length: expect 11 but see ${arr.length}');
+    if (arr.length != 16)
+      throw Exception('unexpected arr length: expect 16 but see ${arr.length}');
     return AppEvent(
       kind: dco_decode_app_event_kind(arr[0]),
       comment: dco_decode_opt_box_autoadd_comment_item(arr[1]),
@@ -2034,9 +3154,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       ),
       commentLottery: dco_decode_opt_box_autoadd_comment_lottery_state(arr[6]),
       lotteryResult: dco_decode_opt_box_autoadd_lottery_result(arr[7]),
-      featureFlags: dco_decode_opt_box_autoadd_feature_flags(arr[8]),
-      noticeLevel: dco_decode_opt_String(arr[9]),
-      noticeMessage: dco_decode_opt_String(arr[10]),
+      monetizationItems: dco_decode_opt_list_monetization_item(arr[8]),
+      pollState: dco_decode_opt_box_autoadd_poll_state(arr[9]),
+      pickedComment: dco_decode_opt_box_autoadd_picked_comment_state(arr[10]),
+      queueState: dco_decode_opt_box_autoadd_queue_state(arr[11]),
+      mediaTrigger: dco_decode_opt_box_autoadd_media_trigger_event(arr[12]),
+      featureFlags: dco_decode_opt_box_autoadd_feature_flags(arr[13]),
+      noticeLevel: dco_decode_opt_String(arr[14]),
+      noticeMessage: dco_decode_opt_String(arr[15]),
     );
   }
 
@@ -2127,9 +3252,67 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MediaReactionConfig dco_decode_box_autoadd_media_reaction_config(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_media_reaction_config(raw);
+  }
+
+  @protected
+  MediaReactionRule dco_decode_box_autoadd_media_reaction_rule(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_media_reaction_rule(raw);
+  }
+
+  @protected
+  MediaTriggerEvent dco_decode_box_autoadd_media_trigger_event(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_media_trigger_event(raw);
+  }
+
+  @protected
+  MonetizationEventKind dco_decode_box_autoadd_monetization_event_kind(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_monetization_event_kind(raw);
+  }
+
+  @protected
   OverlayConfig dco_decode_box_autoadd_overlay_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_overlay_config(raw);
+  }
+
+  @protected
+  PickedCommentState dco_decode_box_autoadd_picked_comment_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_picked_comment_state(raw);
+  }
+
+  @protected
+  PollConfig dco_decode_box_autoadd_poll_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_poll_config(raw);
+  }
+
+  @protected
+  PollState dco_decode_box_autoadd_poll_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_poll_state(raw);
+  }
+
+  @protected
+  QueueConfig dco_decode_box_autoadd_queue_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_queue_config(raw);
+  }
+
+  @protected
+  QueueState dco_decode_box_autoadd_queue_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_queue_state(raw);
   }
 
   @protected
@@ -2160,8 +3343,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   CommentItem dco_decode_comment_item(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 18)
-      throw Exception('unexpected arr length: expect 18 but see ${arr.length}');
+    if (arr.length != 21)
+      throw Exception('unexpected arr length: expect 21 but see ${arr.length}');
     return CommentItem(
       id: dco_decode_String(arr[0]),
       sessionId: dco_decode_String(arr[1]),
@@ -2181,6 +3364,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       bubbleBgColor: dco_decode_opt_String(arr[15]),
       bubbleTextColor: dco_decode_opt_String(arr[16]),
       bubbleBorderColor: dco_decode_opt_String(arr[17]),
+      eventKind: dco_decode_opt_box_autoadd_monetization_event_kind(arr[18]),
+      amountDisplay: dco_decode_opt_String(arr[19]),
+      eventAccentColor: dco_decode_opt_String(arr[20]),
     );
   }
 
@@ -2271,8 +3457,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   FeatureFlags dco_decode_feature_flags(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 10)
-      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    if (arr.length != 15)
+      throw Exception('unexpected arr length: expect 15 but see ${arr.length}');
     return FeatureFlags(
       commentDisplayEnabled: dco_decode_bool(arr[0]),
       wordHighlightEnabled: dco_decode_bool(arr[1]),
@@ -2282,8 +3468,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       userTrackingEnabled: dco_decode_bool(arr[5]),
       userMemoDisplayEnabled: dco_decode_bool(arr[6]),
       firstTimeCounterEnabled: dco_decode_bool(arr[7]),
-      obsOverlayEnabled: dco_decode_bool(arr[8]),
-      autoUpdateCheckEnabled: dco_decode_bool(arr[9]),
+      superchatEnabled: dco_decode_bool(arr[8]),
+      pollEnabled: dco_decode_bool(arr[9]),
+      pickupEnabled: dco_decode_bool(arr[10]),
+      queueEnabled: dco_decode_bool(arr[11]),
+      mediaReactionEnabled: dco_decode_bool(arr[12]),
+      obsOverlayEnabled: dco_decode_bool(arr[13]),
+      autoUpdateCheckEnabled: dco_decode_bool(arr[14]),
     );
   }
 
@@ -2366,6 +3557,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ImportedMediaFile dco_decode_imported_media_file(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return ImportedMediaFile(
+      storedFileName: dco_decode_String(arr[0]),
+      originalFileName: dco_decode_String(arr[1]),
+      mediaKind: dco_decode_media_kind(arr[2]),
+      fileSizeBytes: dco_decode_u_64(arr[3]),
+    );
+  }
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_String).toList();
@@ -2410,9 +3615,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<MediaReactionRule> dco_decode_list_media_reaction_rule(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_media_reaction_rule).toList();
+  }
+
+  @protected
+  List<MonetizationItem> dco_decode_list_monetization_item(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_monetization_item).toList();
+  }
+
+  @protected
+  List<PollOption> dco_decode_list_poll_option(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_poll_option).toList();
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<QueueEntry> dco_decode_list_queue_entry(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_queue_entry).toList();
   }
 
   @protected
@@ -2467,6 +3696,159 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MatchMode dco_decode_match_mode(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return MatchMode.values[raw as int];
+  }
+
+  @protected
+  MediaAnimationKind dco_decode_media_animation_kind(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MediaAnimationKind.values[raw as int];
+  }
+
+  @protected
+  MediaEffectType dco_decode_media_effect_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MediaEffectType.values[raw as int];
+  }
+
+  @protected
+  MediaKind dco_decode_media_kind(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MediaKind.values[raw as int];
+  }
+
+  @protected
+  MediaPlaybackMode dco_decode_media_playback_mode(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MediaPlaybackMode.values[raw as int];
+  }
+
+  @protected
+  MediaPosition dco_decode_media_position(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MediaPosition.values[raw as int];
+  }
+
+  @protected
+  MediaReactionConfig dco_decode_media_reaction_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return MediaReactionConfig(
+      playbackMode: dco_decode_media_playback_mode(arr[0]),
+      masterVolume: dco_decode_u_32(arr[1]),
+      maxConcurrent: dco_decode_u_32(arr[2]),
+      allowMultipleMatch: dco_decode_bool(arr[3]),
+    );
+  }
+
+  @protected
+  MediaReactionRule dco_decode_media_reaction_rule(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 30)
+      throw Exception('unexpected arr length: expect 30 but see ${arr.length}');
+    return MediaReactionRule(
+      id: dco_decode_String(arr[0]),
+      name: dco_decode_String(arr[1]),
+      pattern: dco_decode_String(arr[2]),
+      matchMode: dco_decode_match_mode(arr[3]),
+      caseSensitive: dco_decode_bool(arr[4]),
+      effectType: dco_decode_media_effect_type(arr[5]),
+      triggerType: dco_decode_media_trigger_type(arr[6]),
+      minSuperchatAmount: dco_decode_u_64(arr[7]),
+      priority: dco_decode_i_32(arr[8]),
+      mediaKind: dco_decode_media_kind(arr[9]),
+      storedFileName: dco_decode_String(arr[10]),
+      originalFileName: dco_decode_String(arr[11]),
+      soundStoredFileName: dco_decode_String(arr[12]),
+      soundOriginalFileName: dco_decode_String(arr[13]),
+      soundVolume: dco_decode_u_32(arr[14]),
+      animation: dco_decode_media_animation_kind(arr[15]),
+      position: dco_decode_media_position(arr[16]),
+      durationMs: dco_decode_u_32(arr[17]),
+      widthPercent: dco_decode_u_32(arr[18]),
+      volume: dco_decode_u_32(arr[19]),
+      particleCount: dco_decode_u_32(arr[20]),
+      particleSize: dco_decode_u_32(arr[21]),
+      particleSpeed: dco_decode_u_32(arr[22]),
+      gravity: dco_decode_u_32(arr[23]),
+      particleText: dco_decode_String(arr[24]),
+      ambientPreset: dco_decode_String(arr[25]),
+      cooldownSec: dco_decode_u_32(arr[26]),
+      excludeBanned: dco_decode_bool(arr[27]),
+      captionTemplate: dco_decode_String(arr[28]),
+      enabled: dco_decode_bool(arr[29]),
+    );
+  }
+
+  @protected
+  MediaTriggerEvent dco_decode_media_trigger_event(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 22)
+      throw Exception('unexpected arr length: expect 22 but see ${arr.length}');
+    return MediaTriggerEvent(
+      eventId: dco_decode_String(arr[0]),
+      ruleId: dco_decode_String(arr[1]),
+      ruleName: dco_decode_String(arr[2]),
+      effectType: dco_decode_media_effect_type(arr[3]),
+      mediaUrl: dco_decode_String(arr[4]),
+      mediaKind: dco_decode_media_kind(arr[5]),
+      soundUrl: dco_decode_opt_String(arr[6]),
+      soundVolume: dco_decode_u_32(arr[7]),
+      animation: dco_decode_media_animation_kind(arr[8]),
+      position: dco_decode_media_position(arr[9]),
+      durationMs: dco_decode_u_32(arr[10]),
+      widthPercent: dco_decode_u_32(arr[11]),
+      volume: dco_decode_u_32(arr[12]),
+      particleCount: dco_decode_u_32(arr[13]),
+      particleSize: dco_decode_u_32(arr[14]),
+      particleSpeed: dco_decode_u_32(arr[15]),
+      gravity: dco_decode_u_32(arr[16]),
+      particleText: dco_decode_String(arr[17]),
+      ambientPreset: dco_decode_String(arr[18]),
+      caption: dco_decode_String(arr[19]),
+      triggeredBy: dco_decode_String(arr[20]),
+      triggeredAtMs: dco_decode_i_64(arr[21]),
+    );
+  }
+
+  @protected
+  MediaTriggerType dco_decode_media_trigger_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MediaTriggerType.values[raw as int];
+  }
+
+  @protected
+  MonetizationEventKind dco_decode_monetization_event_kind(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MonetizationEventKind.values[raw as int];
+  }
+
+  @protected
+  MonetizationItem dco_decode_monetization_item(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 15)
+      throw Exception('unexpected arr length: expect 15 but see ${arr.length}');
+    return MonetizationItem(
+      id: dco_decode_String(arr[0]),
+      sessionId: dco_decode_String(arr[1]),
+      platform: dco_decode_platform_kind(arr[2]),
+      kind: dco_decode_monetization_event_kind(arr[3]),
+      userId: dco_decode_String(arr[4]),
+      userName: dco_decode_String(arr[5]),
+      userIconUrl: dco_decode_String(arr[6]),
+      amountDisplay: dco_decode_String(arr[7]),
+      amountMicros: dco_decode_u_64(arr[8]),
+      currency: dco_decode_String(arr[9]),
+      tierColor: dco_decode_String(arr[10]),
+      message: dco_decode_String(arr[11]),
+      timestampMs: dco_decode_i_64(arr[12]),
+      isChecked: dco_decode_bool(arr[13]),
+      checkedAtMs: dco_decode_opt_box_autoadd_i_64(arr[14]),
+    );
   }
 
   @protected
@@ -2530,6 +3912,46 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MediaTriggerEvent? dco_decode_opt_box_autoadd_media_trigger_event(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_media_trigger_event(raw);
+  }
+
+  @protected
+  MonetizationEventKind? dco_decode_opt_box_autoadd_monetization_event_kind(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_monetization_event_kind(raw);
+  }
+
+  @protected
+  PickedCommentState? dco_decode_opt_box_autoadd_picked_comment_state(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_picked_comment_state(raw);
+  }
+
+  @protected
+  PollState? dco_decode_opt_box_autoadd_poll_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_poll_state(raw);
+  }
+
+  @protected
+  QueueState? dco_decode_opt_box_autoadd_queue_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_queue_state(raw);
+  }
+
+  @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_u_32(raw);
@@ -2548,6 +3970,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<MonetizationItem>? dco_decode_opt_list_monetization_item(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_list_monetization_item(raw);
+  }
+
+  @protected
   List<WordCounterConfig>? dco_decode_opt_list_word_counter_config(
     dynamic raw,
   ) {
@@ -2559,8 +3987,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   OverlayConfig dco_decode_overlay_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 23)
-      throw Exception('unexpected arr length: expect 23 but see ${arr.length}');
+    if (arr.length != 43)
+      throw Exception('unexpected arr length: expect 43 but see ${arr.length}');
     return OverlayConfig(
       port: dco_decode_u_16(arr[0]),
       commentFontSize: dco_decode_u_32(arr[1]),
@@ -2573,18 +4001,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       lotteryTheme: dco_decode_String(arr[8]),
       counterTheme: dco_decode_String(arr[9]),
       firstTimeTheme: dco_decode_String(arr[10]),
-      commentsBgColor: dco_decode_String(arr[11]),
-      lotteryBgColor: dco_decode_String(arr[12]),
-      counterBgColor: dco_decode_String(arr[13]),
-      firstTimeBgColor: dco_decode_String(arr[14]),
-      commentsFontFamily: dco_decode_String(arr[15]),
-      lotteryFontFamily: dco_decode_String(arr[16]),
-      counterFontFamily: dco_decode_String(arr[17]),
-      firstTimeFontFamily: dco_decode_String(arr[18]),
-      commentsCustomCss: dco_decode_String(arr[19]),
-      lotteryCustomCss: dco_decode_String(arr[20]),
-      counterCustomCss: dco_decode_String(arr[21]),
-      firstTimeCustomCss: dco_decode_String(arr[22]),
+      superchatTheme: dco_decode_String(arr[11]),
+      pollTheme: dco_decode_String(arr[12]),
+      pickupTheme: dco_decode_String(arr[13]),
+      queueTheme: dco_decode_String(arr[14]),
+      mediaTheme: dco_decode_String(arr[15]),
+      commentsBgColor: dco_decode_String(arr[16]),
+      lotteryBgColor: dco_decode_String(arr[17]),
+      counterBgColor: dco_decode_String(arr[18]),
+      firstTimeBgColor: dco_decode_String(arr[19]),
+      superchatBgColor: dco_decode_String(arr[20]),
+      pollBgColor: dco_decode_String(arr[21]),
+      pickupBgColor: dco_decode_String(arr[22]),
+      queueBgColor: dco_decode_String(arr[23]),
+      mediaBgColor: dco_decode_String(arr[24]),
+      commentsFontFamily: dco_decode_String(arr[25]),
+      lotteryFontFamily: dco_decode_String(arr[26]),
+      counterFontFamily: dco_decode_String(arr[27]),
+      firstTimeFontFamily: dco_decode_String(arr[28]),
+      superchatFontFamily: dco_decode_String(arr[29]),
+      pollFontFamily: dco_decode_String(arr[30]),
+      pickupFontFamily: dco_decode_String(arr[31]),
+      queueFontFamily: dco_decode_String(arr[32]),
+      mediaFontFamily: dco_decode_String(arr[33]),
+      commentsCustomCss: dco_decode_String(arr[34]),
+      lotteryCustomCss: dco_decode_String(arr[35]),
+      counterCustomCss: dco_decode_String(arr[36]),
+      firstTimeCustomCss: dco_decode_String(arr[37]),
+      superchatCustomCss: dco_decode_String(arr[38]),
+      pollCustomCss: dco_decode_String(arr[39]),
+      pickupCustomCss: dco_decode_String(arr[40]),
+      queueCustomCss: dco_decode_String(arr[41]),
+      mediaCustomCss: dco_decode_String(arr[42]),
+    );
+  }
+
+  @protected
+  PickedCommentState dco_decode_picked_comment_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return PickedCommentState(
+      comment: dco_decode_opt_box_autoadd_comment_item(arr[0]),
+      pickedAtMs: dco_decode_opt_box_autoadd_i_64(arr[1]),
     );
   }
 
@@ -2592,6 +4052,112 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   PlatformKind dco_decode_platform_kind(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return PlatformKind.values[raw as int];
+  }
+
+  @protected
+  PollConfig dco_decode_poll_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return PollConfig(
+      question: dco_decode_String(arr[0]),
+      options: dco_decode_list_poll_option(arr[1]),
+      allowVoteChange: dco_decode_bool(arr[2]),
+      excludeBanned: dco_decode_bool(arr[3]),
+      showPercentage: dco_decode_bool(arr[4]),
+      showVoteCount: dco_decode_bool(arr[5]),
+    );
+  }
+
+  @protected
+  PollOption dco_decode_poll_option(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return PollOption(
+      id: dco_decode_String(arr[0]),
+      label: dco_decode_String(arr[1]),
+      keywords: dco_decode_list_String(arr[2]),
+      color: dco_decode_String(arr[3]),
+      voteCount: dco_decode_u_64(arr[4]),
+    );
+  }
+
+  @protected
+  PollState dco_decode_poll_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return PollState(
+      isActive: dco_decode_bool(arr[0]),
+      startedAtMs: dco_decode_opt_box_autoadd_i_64(arr[1]),
+      endedAtMs: dco_decode_opt_box_autoadd_i_64(arr[2]),
+      config: dco_decode_poll_config(arr[3]),
+      totalVotes: dco_decode_u_64(arr[4]),
+    );
+  }
+
+  @protected
+  QueueConfig dco_decode_queue_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return QueueConfig(
+      isAccepting: dco_decode_bool(arr[0]),
+      maxActiveSlots: dco_decode_u_32(arr[1]),
+      joinKeywords: dco_decode_list_String(arr[2]),
+      leaveKeywords: dco_decode_list_String(arr[3]),
+      sortMode: dco_decode_queue_sort_mode(arr[4]),
+      excludeBanned: dco_decode_bool(arr[5]),
+      allowRejoinAfterComplete: dco_decode_bool(arr[6]),
+    );
+  }
+
+  @protected
+  QueueEntry dco_decode_queue_entry(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    return QueueEntry(
+      userId: dco_decode_String(arr[0]),
+      platform: dco_decode_platform_kind(arr[1]),
+      userName: dco_decode_String(arr[2]),
+      userIconUrl: dco_decode_String(arr[3]),
+      status: dco_decode_queue_entry_status(arr[4]),
+      playCount: dco_decode_u_32(arr[5]),
+      isFirstTime: dco_decode_bool(arr[6]),
+      note: dco_decode_String(arr[7]),
+      joinedAtMs: dco_decode_i_64(arr[8]),
+    );
+  }
+
+  @protected
+  QueueEntryStatus dco_decode_queue_entry_status(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return QueueEntryStatus.values[raw as int];
+  }
+
+  @protected
+  QueueSortMode dco_decode_queue_sort_mode(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return QueueSortMode.values[raw as int];
+  }
+
+  @protected
+  QueueState dco_decode_queue_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return QueueState(
+      config: dco_decode_queue_config(arr[0]),
+      entries: dco_decode_list_queue_entry(arr[1]),
+    );
   }
 
   @protected
@@ -2797,6 +4363,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_lotteryResult = sse_decode_opt_box_autoadd_lottery_result(
       deserializer,
     );
+    var var_monetizationItems = sse_decode_opt_list_monetization_item(
+      deserializer,
+    );
+    var var_pollState = sse_decode_opt_box_autoadd_poll_state(deserializer);
+    var var_pickedComment = sse_decode_opt_box_autoadd_picked_comment_state(
+      deserializer,
+    );
+    var var_queueState = sse_decode_opt_box_autoadd_queue_state(deserializer);
+    var var_mediaTrigger = sse_decode_opt_box_autoadd_media_trigger_event(
+      deserializer,
+    );
     var var_featureFlags = sse_decode_opt_box_autoadd_feature_flags(
       deserializer,
     );
@@ -2811,6 +4388,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       firstTimeState: var_firstTimeState,
       commentLottery: var_commentLottery,
       lotteryResult: var_lotteryResult,
+      monetizationItems: var_monetizationItems,
+      pollState: var_pollState,
+      pickedComment: var_pickedComment,
+      queueState: var_queueState,
+      mediaTrigger: var_mediaTrigger,
       featureFlags: var_featureFlags,
       noticeLevel: var_noticeLevel,
       noticeMessage: var_noticeMessage,
@@ -2916,11 +4498,77 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MediaReactionConfig sse_decode_box_autoadd_media_reaction_config(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_media_reaction_config(deserializer));
+  }
+
+  @protected
+  MediaReactionRule sse_decode_box_autoadd_media_reaction_rule(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_media_reaction_rule(deserializer));
+  }
+
+  @protected
+  MediaTriggerEvent sse_decode_box_autoadd_media_trigger_event(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_media_trigger_event(deserializer));
+  }
+
+  @protected
+  MonetizationEventKind sse_decode_box_autoadd_monetization_event_kind(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_monetization_event_kind(deserializer));
+  }
+
+  @protected
   OverlayConfig sse_decode_box_autoadd_overlay_config(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_overlay_config(deserializer));
+  }
+
+  @protected
+  PickedCommentState sse_decode_box_autoadd_picked_comment_state(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_picked_comment_state(deserializer));
+  }
+
+  @protected
+  PollConfig sse_decode_box_autoadd_poll_config(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_poll_config(deserializer));
+  }
+
+  @protected
+  PollState sse_decode_box_autoadd_poll_state(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_poll_state(deserializer));
+  }
+
+  @protected
+  QueueConfig sse_decode_box_autoadd_queue_config(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_queue_config(deserializer));
+  }
+
+  @protected
+  QueueState sse_decode_box_autoadd_queue_state(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_queue_state(deserializer));
   }
 
   @protected
@@ -2972,6 +4620,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_bubbleBgColor = sse_decode_opt_String(deserializer);
     var var_bubbleTextColor = sse_decode_opt_String(deserializer);
     var var_bubbleBorderColor = sse_decode_opt_String(deserializer);
+    var var_eventKind = sse_decode_opt_box_autoadd_monetization_event_kind(
+      deserializer,
+    );
+    var var_amountDisplay = sse_decode_opt_String(deserializer);
+    var var_eventAccentColor = sse_decode_opt_String(deserializer);
     return CommentItem(
       id: var_id,
       sessionId: var_sessionId,
@@ -2991,6 +4644,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       bubbleBgColor: var_bubbleBgColor,
       bubbleTextColor: var_bubbleTextColor,
       bubbleBorderColor: var_bubbleBorderColor,
+      eventKind: var_eventKind,
+      amountDisplay: var_amountDisplay,
+      eventAccentColor: var_eventAccentColor,
     );
   }
 
@@ -3119,6 +4775,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_userTrackingEnabled = sse_decode_bool(deserializer);
     var var_userMemoDisplayEnabled = sse_decode_bool(deserializer);
     var var_firstTimeCounterEnabled = sse_decode_bool(deserializer);
+    var var_superchatEnabled = sse_decode_bool(deserializer);
+    var var_pollEnabled = sse_decode_bool(deserializer);
+    var var_pickupEnabled = sse_decode_bool(deserializer);
+    var var_queueEnabled = sse_decode_bool(deserializer);
+    var var_mediaReactionEnabled = sse_decode_bool(deserializer);
     var var_obsOverlayEnabled = sse_decode_bool(deserializer);
     var var_autoUpdateCheckEnabled = sse_decode_bool(deserializer);
     return FeatureFlags(
@@ -3130,6 +4791,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       userTrackingEnabled: var_userTrackingEnabled,
       userMemoDisplayEnabled: var_userMemoDisplayEnabled,
       firstTimeCounterEnabled: var_firstTimeCounterEnabled,
+      superchatEnabled: var_superchatEnabled,
+      pollEnabled: var_pollEnabled,
+      pickupEnabled: var_pickupEnabled,
+      queueEnabled: var_queueEnabled,
+      mediaReactionEnabled: var_mediaReactionEnabled,
       obsOverlayEnabled: var_obsOverlayEnabled,
       autoUpdateCheckEnabled: var_autoUpdateCheckEnabled,
     );
@@ -3232,6 +4898,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  ImportedMediaFile sse_decode_imported_media_file(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_storedFileName = sse_decode_String(deserializer);
+    var var_originalFileName = sse_decode_String(deserializer);
+    var var_mediaKind = sse_decode_media_kind(deserializer);
+    var var_fileSizeBytes = sse_decode_u_64(deserializer);
+    return ImportedMediaFile(
+      storedFileName: var_storedFileName,
+      originalFileName: var_originalFileName,
+      mediaKind: var_mediaKind,
+      fileSizeBytes: var_fileSizeBytes,
+    );
+  }
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -3326,10 +5009,62 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<MediaReactionRule> sse_decode_list_media_reaction_rule(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MediaReactionRule>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_media_reaction_rule(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<MonetizationItem> sse_decode_list_monetization_item(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MonetizationItem>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_monetization_item(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<PollOption> sse_decode_list_poll_option(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <PollOption>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_poll_option(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<QueueEntry> sse_decode_list_queue_entry(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <QueueEntry>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_queue_entry(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -3406,6 +5141,237 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_i_32(deserializer);
     return MatchMode.values[inner];
+  }
+
+  @protected
+  MediaAnimationKind sse_decode_media_animation_kind(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return MediaAnimationKind.values[inner];
+  }
+
+  @protected
+  MediaEffectType sse_decode_media_effect_type(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return MediaEffectType.values[inner];
+  }
+
+  @protected
+  MediaKind sse_decode_media_kind(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return MediaKind.values[inner];
+  }
+
+  @protected
+  MediaPlaybackMode sse_decode_media_playback_mode(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return MediaPlaybackMode.values[inner];
+  }
+
+  @protected
+  MediaPosition sse_decode_media_position(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return MediaPosition.values[inner];
+  }
+
+  @protected
+  MediaReactionConfig sse_decode_media_reaction_config(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_playbackMode = sse_decode_media_playback_mode(deserializer);
+    var var_masterVolume = sse_decode_u_32(deserializer);
+    var var_maxConcurrent = sse_decode_u_32(deserializer);
+    var var_allowMultipleMatch = sse_decode_bool(deserializer);
+    return MediaReactionConfig(
+      playbackMode: var_playbackMode,
+      masterVolume: var_masterVolume,
+      maxConcurrent: var_maxConcurrent,
+      allowMultipleMatch: var_allowMultipleMatch,
+    );
+  }
+
+  @protected
+  MediaReactionRule sse_decode_media_reaction_rule(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_name = sse_decode_String(deserializer);
+    var var_pattern = sse_decode_String(deserializer);
+    var var_matchMode = sse_decode_match_mode(deserializer);
+    var var_caseSensitive = sse_decode_bool(deserializer);
+    var var_effectType = sse_decode_media_effect_type(deserializer);
+    var var_triggerType = sse_decode_media_trigger_type(deserializer);
+    var var_minSuperchatAmount = sse_decode_u_64(deserializer);
+    var var_priority = sse_decode_i_32(deserializer);
+    var var_mediaKind = sse_decode_media_kind(deserializer);
+    var var_storedFileName = sse_decode_String(deserializer);
+    var var_originalFileName = sse_decode_String(deserializer);
+    var var_soundStoredFileName = sse_decode_String(deserializer);
+    var var_soundOriginalFileName = sse_decode_String(deserializer);
+    var var_soundVolume = sse_decode_u_32(deserializer);
+    var var_animation = sse_decode_media_animation_kind(deserializer);
+    var var_position = sse_decode_media_position(deserializer);
+    var var_durationMs = sse_decode_u_32(deserializer);
+    var var_widthPercent = sse_decode_u_32(deserializer);
+    var var_volume = sse_decode_u_32(deserializer);
+    var var_particleCount = sse_decode_u_32(deserializer);
+    var var_particleSize = sse_decode_u_32(deserializer);
+    var var_particleSpeed = sse_decode_u_32(deserializer);
+    var var_gravity = sse_decode_u_32(deserializer);
+    var var_particleText = sse_decode_String(deserializer);
+    var var_ambientPreset = sse_decode_String(deserializer);
+    var var_cooldownSec = sse_decode_u_32(deserializer);
+    var var_excludeBanned = sse_decode_bool(deserializer);
+    var var_captionTemplate = sse_decode_String(deserializer);
+    var var_enabled = sse_decode_bool(deserializer);
+    return MediaReactionRule(
+      id: var_id,
+      name: var_name,
+      pattern: var_pattern,
+      matchMode: var_matchMode,
+      caseSensitive: var_caseSensitive,
+      effectType: var_effectType,
+      triggerType: var_triggerType,
+      minSuperchatAmount: var_minSuperchatAmount,
+      priority: var_priority,
+      mediaKind: var_mediaKind,
+      storedFileName: var_storedFileName,
+      originalFileName: var_originalFileName,
+      soundStoredFileName: var_soundStoredFileName,
+      soundOriginalFileName: var_soundOriginalFileName,
+      soundVolume: var_soundVolume,
+      animation: var_animation,
+      position: var_position,
+      durationMs: var_durationMs,
+      widthPercent: var_widthPercent,
+      volume: var_volume,
+      particleCount: var_particleCount,
+      particleSize: var_particleSize,
+      particleSpeed: var_particleSpeed,
+      gravity: var_gravity,
+      particleText: var_particleText,
+      ambientPreset: var_ambientPreset,
+      cooldownSec: var_cooldownSec,
+      excludeBanned: var_excludeBanned,
+      captionTemplate: var_captionTemplate,
+      enabled: var_enabled,
+    );
+  }
+
+  @protected
+  MediaTriggerEvent sse_decode_media_trigger_event(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_eventId = sse_decode_String(deserializer);
+    var var_ruleId = sse_decode_String(deserializer);
+    var var_ruleName = sse_decode_String(deserializer);
+    var var_effectType = sse_decode_media_effect_type(deserializer);
+    var var_mediaUrl = sse_decode_String(deserializer);
+    var var_mediaKind = sse_decode_media_kind(deserializer);
+    var var_soundUrl = sse_decode_opt_String(deserializer);
+    var var_soundVolume = sse_decode_u_32(deserializer);
+    var var_animation = sse_decode_media_animation_kind(deserializer);
+    var var_position = sse_decode_media_position(deserializer);
+    var var_durationMs = sse_decode_u_32(deserializer);
+    var var_widthPercent = sse_decode_u_32(deserializer);
+    var var_volume = sse_decode_u_32(deserializer);
+    var var_particleCount = sse_decode_u_32(deserializer);
+    var var_particleSize = sse_decode_u_32(deserializer);
+    var var_particleSpeed = sse_decode_u_32(deserializer);
+    var var_gravity = sse_decode_u_32(deserializer);
+    var var_particleText = sse_decode_String(deserializer);
+    var var_ambientPreset = sse_decode_String(deserializer);
+    var var_caption = sse_decode_String(deserializer);
+    var var_triggeredBy = sse_decode_String(deserializer);
+    var var_triggeredAtMs = sse_decode_i_64(deserializer);
+    return MediaTriggerEvent(
+      eventId: var_eventId,
+      ruleId: var_ruleId,
+      ruleName: var_ruleName,
+      effectType: var_effectType,
+      mediaUrl: var_mediaUrl,
+      mediaKind: var_mediaKind,
+      soundUrl: var_soundUrl,
+      soundVolume: var_soundVolume,
+      animation: var_animation,
+      position: var_position,
+      durationMs: var_durationMs,
+      widthPercent: var_widthPercent,
+      volume: var_volume,
+      particleCount: var_particleCount,
+      particleSize: var_particleSize,
+      particleSpeed: var_particleSpeed,
+      gravity: var_gravity,
+      particleText: var_particleText,
+      ambientPreset: var_ambientPreset,
+      caption: var_caption,
+      triggeredBy: var_triggeredBy,
+      triggeredAtMs: var_triggeredAtMs,
+    );
+  }
+
+  @protected
+  MediaTriggerType sse_decode_media_trigger_type(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return MediaTriggerType.values[inner];
+  }
+
+  @protected
+  MonetizationEventKind sse_decode_monetization_event_kind(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return MonetizationEventKind.values[inner];
+  }
+
+  @protected
+  MonetizationItem sse_decode_monetization_item(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_sessionId = sse_decode_String(deserializer);
+    var var_platform = sse_decode_platform_kind(deserializer);
+    var var_kind = sse_decode_monetization_event_kind(deserializer);
+    var var_userId = sse_decode_String(deserializer);
+    var var_userName = sse_decode_String(deserializer);
+    var var_userIconUrl = sse_decode_String(deserializer);
+    var var_amountDisplay = sse_decode_String(deserializer);
+    var var_amountMicros = sse_decode_u_64(deserializer);
+    var var_currency = sse_decode_String(deserializer);
+    var var_tierColor = sse_decode_String(deserializer);
+    var var_message = sse_decode_String(deserializer);
+    var var_timestampMs = sse_decode_i_64(deserializer);
+    var var_isChecked = sse_decode_bool(deserializer);
+    var var_checkedAtMs = sse_decode_opt_box_autoadd_i_64(deserializer);
+    return MonetizationItem(
+      id: var_id,
+      sessionId: var_sessionId,
+      platform: var_platform,
+      kind: var_kind,
+      userId: var_userId,
+      userName: var_userName,
+      userIconUrl: var_userIconUrl,
+      amountDisplay: var_amountDisplay,
+      amountMicros: var_amountMicros,
+      currency: var_currency,
+      tierColor: var_tierColor,
+      message: var_message,
+      timestampMs: var_timestampMs,
+      isChecked: var_isChecked,
+      checkedAtMs: var_checkedAtMs,
+    );
   }
 
   @protected
@@ -3509,6 +5475,71 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MediaTriggerEvent? sse_decode_opt_box_autoadd_media_trigger_event(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_media_trigger_event(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  MonetizationEventKind? sse_decode_opt_box_autoadd_monetization_event_kind(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_monetization_event_kind(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  PickedCommentState? sse_decode_opt_box_autoadd_picked_comment_state(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_picked_comment_state(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  PollState? sse_decode_opt_box_autoadd_poll_state(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_poll_state(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  QueueState? sse_decode_opt_box_autoadd_queue_state(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_queue_state(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -3544,6 +5575,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<MonetizationItem>? sse_decode_opt_list_monetization_item(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_list_monetization_item(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   List<WordCounterConfig>? sse_decode_opt_list_word_counter_config(
     SseDeserializer deserializer,
   ) {
@@ -3570,18 +5614,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_lotteryTheme = sse_decode_String(deserializer);
     var var_counterTheme = sse_decode_String(deserializer);
     var var_firstTimeTheme = sse_decode_String(deserializer);
+    var var_superchatTheme = sse_decode_String(deserializer);
+    var var_pollTheme = sse_decode_String(deserializer);
+    var var_pickupTheme = sse_decode_String(deserializer);
+    var var_queueTheme = sse_decode_String(deserializer);
+    var var_mediaTheme = sse_decode_String(deserializer);
     var var_commentsBgColor = sse_decode_String(deserializer);
     var var_lotteryBgColor = sse_decode_String(deserializer);
     var var_counterBgColor = sse_decode_String(deserializer);
     var var_firstTimeBgColor = sse_decode_String(deserializer);
+    var var_superchatBgColor = sse_decode_String(deserializer);
+    var var_pollBgColor = sse_decode_String(deserializer);
+    var var_pickupBgColor = sse_decode_String(deserializer);
+    var var_queueBgColor = sse_decode_String(deserializer);
+    var var_mediaBgColor = sse_decode_String(deserializer);
     var var_commentsFontFamily = sse_decode_String(deserializer);
     var var_lotteryFontFamily = sse_decode_String(deserializer);
     var var_counterFontFamily = sse_decode_String(deserializer);
     var var_firstTimeFontFamily = sse_decode_String(deserializer);
+    var var_superchatFontFamily = sse_decode_String(deserializer);
+    var var_pollFontFamily = sse_decode_String(deserializer);
+    var var_pickupFontFamily = sse_decode_String(deserializer);
+    var var_queueFontFamily = sse_decode_String(deserializer);
+    var var_mediaFontFamily = sse_decode_String(deserializer);
     var var_commentsCustomCss = sse_decode_String(deserializer);
     var var_lotteryCustomCss = sse_decode_String(deserializer);
     var var_counterCustomCss = sse_decode_String(deserializer);
     var var_firstTimeCustomCss = sse_decode_String(deserializer);
+    var var_superchatCustomCss = sse_decode_String(deserializer);
+    var var_pollCustomCss = sse_decode_String(deserializer);
+    var var_pickupCustomCss = sse_decode_String(deserializer);
+    var var_queueCustomCss = sse_decode_String(deserializer);
+    var var_mediaCustomCss = sse_decode_String(deserializer);
     return OverlayConfig(
       port: var_port,
       commentFontSize: var_commentFontSize,
@@ -3594,19 +5658,49 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       lotteryTheme: var_lotteryTheme,
       counterTheme: var_counterTheme,
       firstTimeTheme: var_firstTimeTheme,
+      superchatTheme: var_superchatTheme,
+      pollTheme: var_pollTheme,
+      pickupTheme: var_pickupTheme,
+      queueTheme: var_queueTheme,
+      mediaTheme: var_mediaTheme,
       commentsBgColor: var_commentsBgColor,
       lotteryBgColor: var_lotteryBgColor,
       counterBgColor: var_counterBgColor,
       firstTimeBgColor: var_firstTimeBgColor,
+      superchatBgColor: var_superchatBgColor,
+      pollBgColor: var_pollBgColor,
+      pickupBgColor: var_pickupBgColor,
+      queueBgColor: var_queueBgColor,
+      mediaBgColor: var_mediaBgColor,
       commentsFontFamily: var_commentsFontFamily,
       lotteryFontFamily: var_lotteryFontFamily,
       counterFontFamily: var_counterFontFamily,
       firstTimeFontFamily: var_firstTimeFontFamily,
+      superchatFontFamily: var_superchatFontFamily,
+      pollFontFamily: var_pollFontFamily,
+      pickupFontFamily: var_pickupFontFamily,
+      queueFontFamily: var_queueFontFamily,
+      mediaFontFamily: var_mediaFontFamily,
       commentsCustomCss: var_commentsCustomCss,
       lotteryCustomCss: var_lotteryCustomCss,
       counterCustomCss: var_counterCustomCss,
       firstTimeCustomCss: var_firstTimeCustomCss,
+      superchatCustomCss: var_superchatCustomCss,
+      pollCustomCss: var_pollCustomCss,
+      pickupCustomCss: var_pickupCustomCss,
+      queueCustomCss: var_queueCustomCss,
+      mediaCustomCss: var_mediaCustomCss,
     );
+  }
+
+  @protected
+  PickedCommentState sse_decode_picked_comment_state(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_comment = sse_decode_opt_box_autoadd_comment_item(deserializer);
+    var var_pickedAtMs = sse_decode_opt_box_autoadd_i_64(deserializer);
+    return PickedCommentState(comment: var_comment, pickedAtMs: var_pickedAtMs);
   }
 
   @protected
@@ -3614,6 +5708,127 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_i_32(deserializer);
     return PlatformKind.values[inner];
+  }
+
+  @protected
+  PollConfig sse_decode_poll_config(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_question = sse_decode_String(deserializer);
+    var var_options = sse_decode_list_poll_option(deserializer);
+    var var_allowVoteChange = sse_decode_bool(deserializer);
+    var var_excludeBanned = sse_decode_bool(deserializer);
+    var var_showPercentage = sse_decode_bool(deserializer);
+    var var_showVoteCount = sse_decode_bool(deserializer);
+    return PollConfig(
+      question: var_question,
+      options: var_options,
+      allowVoteChange: var_allowVoteChange,
+      excludeBanned: var_excludeBanned,
+      showPercentage: var_showPercentage,
+      showVoteCount: var_showVoteCount,
+    );
+  }
+
+  @protected
+  PollOption sse_decode_poll_option(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_label = sse_decode_String(deserializer);
+    var var_keywords = sse_decode_list_String(deserializer);
+    var var_color = sse_decode_String(deserializer);
+    var var_voteCount = sse_decode_u_64(deserializer);
+    return PollOption(
+      id: var_id,
+      label: var_label,
+      keywords: var_keywords,
+      color: var_color,
+      voteCount: var_voteCount,
+    );
+  }
+
+  @protected
+  PollState sse_decode_poll_state(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_isActive = sse_decode_bool(deserializer);
+    var var_startedAtMs = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_endedAtMs = sse_decode_opt_box_autoadd_i_64(deserializer);
+    var var_config = sse_decode_poll_config(deserializer);
+    var var_totalVotes = sse_decode_u_64(deserializer);
+    return PollState(
+      isActive: var_isActive,
+      startedAtMs: var_startedAtMs,
+      endedAtMs: var_endedAtMs,
+      config: var_config,
+      totalVotes: var_totalVotes,
+    );
+  }
+
+  @protected
+  QueueConfig sse_decode_queue_config(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_isAccepting = sse_decode_bool(deserializer);
+    var var_maxActiveSlots = sse_decode_u_32(deserializer);
+    var var_joinKeywords = sse_decode_list_String(deserializer);
+    var var_leaveKeywords = sse_decode_list_String(deserializer);
+    var var_sortMode = sse_decode_queue_sort_mode(deserializer);
+    var var_excludeBanned = sse_decode_bool(deserializer);
+    var var_allowRejoinAfterComplete = sse_decode_bool(deserializer);
+    return QueueConfig(
+      isAccepting: var_isAccepting,
+      maxActiveSlots: var_maxActiveSlots,
+      joinKeywords: var_joinKeywords,
+      leaveKeywords: var_leaveKeywords,
+      sortMode: var_sortMode,
+      excludeBanned: var_excludeBanned,
+      allowRejoinAfterComplete: var_allowRejoinAfterComplete,
+    );
+  }
+
+  @protected
+  QueueEntry sse_decode_queue_entry(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_userId = sse_decode_String(deserializer);
+    var var_platform = sse_decode_platform_kind(deserializer);
+    var var_userName = sse_decode_String(deserializer);
+    var var_userIconUrl = sse_decode_String(deserializer);
+    var var_status = sse_decode_queue_entry_status(deserializer);
+    var var_playCount = sse_decode_u_32(deserializer);
+    var var_isFirstTime = sse_decode_bool(deserializer);
+    var var_note = sse_decode_String(deserializer);
+    var var_joinedAtMs = sse_decode_i_64(deserializer);
+    return QueueEntry(
+      userId: var_userId,
+      platform: var_platform,
+      userName: var_userName,
+      userIconUrl: var_userIconUrl,
+      status: var_status,
+      playCount: var_playCount,
+      isFirstTime: var_isFirstTime,
+      note: var_note,
+      joinedAtMs: var_joinedAtMs,
+    );
+  }
+
+  @protected
+  QueueEntryStatus sse_decode_queue_entry_status(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return QueueEntryStatus.values[inner];
+  }
+
+  @protected
+  QueueSortMode sse_decode_queue_sort_mode(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return QueueSortMode.values[inner];
+  }
+
+  @protected
+  QueueState sse_decode_queue_state(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_config = sse_decode_queue_config(deserializer);
+    var var_entries = sse_decode_list_queue_entry(deserializer);
+    return QueueState(config: var_config, entries: var_entries);
   }
 
   @protected
@@ -3879,6 +6094,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       serializer,
     );
     sse_encode_opt_box_autoadd_lottery_result(self.lotteryResult, serializer);
+    sse_encode_opt_list_monetization_item(self.monetizationItems, serializer);
+    sse_encode_opt_box_autoadd_poll_state(self.pollState, serializer);
+    sse_encode_opt_box_autoadd_picked_comment_state(
+      self.pickedComment,
+      serializer,
+    );
+    sse_encode_opt_box_autoadd_queue_state(self.queueState, serializer);
+    sse_encode_opt_box_autoadd_media_trigger_event(
+      self.mediaTrigger,
+      serializer,
+    );
     sse_encode_opt_box_autoadd_feature_flags(self.featureFlags, serializer);
     sse_encode_opt_String(self.noticeLevel, serializer);
     sse_encode_opt_String(self.noticeMessage, serializer);
@@ -3993,12 +6219,93 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_media_reaction_config(
+    MediaReactionConfig self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_media_reaction_config(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_media_reaction_rule(
+    MediaReactionRule self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_media_reaction_rule(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_media_trigger_event(
+    MediaTriggerEvent self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_media_trigger_event(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_monetization_event_kind(
+    MonetizationEventKind self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_monetization_event_kind(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_overlay_config(
     OverlayConfig self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_overlay_config(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_picked_comment_state(
+    PickedCommentState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_picked_comment_state(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_poll_config(
+    PollConfig self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_poll_config(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_poll_state(
+    PollState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_poll_state(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_queue_config(
+    QueueConfig self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_queue_config(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_queue_state(
+    QueueState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_queue_state(self, serializer);
   }
 
   @protected
@@ -4052,6 +6359,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_String(self.bubbleBgColor, serializer);
     sse_encode_opt_String(self.bubbleTextColor, serializer);
     sse_encode_opt_String(self.bubbleBorderColor, serializer);
+    sse_encode_opt_box_autoadd_monetization_event_kind(
+      self.eventKind,
+      serializer,
+    );
+    sse_encode_opt_String(self.amountDisplay, serializer);
+    sse_encode_opt_String(self.eventAccentColor, serializer);
   }
 
   @protected
@@ -4146,6 +6459,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.userTrackingEnabled, serializer);
     sse_encode_bool(self.userMemoDisplayEnabled, serializer);
     sse_encode_bool(self.firstTimeCounterEnabled, serializer);
+    sse_encode_bool(self.superchatEnabled, serializer);
+    sse_encode_bool(self.pollEnabled, serializer);
+    sse_encode_bool(self.pickupEnabled, serializer);
+    sse_encode_bool(self.queueEnabled, serializer);
+    sse_encode_bool(self.mediaReactionEnabled, serializer);
     sse_encode_bool(self.obsOverlayEnabled, serializer);
     sse_encode_bool(self.autoUpdateCheckEnabled, serializer);
   }
@@ -4215,6 +6533,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putPlatformInt64(self);
+  }
+
+  @protected
+  void sse_encode_imported_media_file(
+    ImportedMediaFile self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.storedFileName, serializer);
+    sse_encode_String(self.originalFileName, serializer);
+    sse_encode_media_kind(self.mediaKind, serializer);
+    sse_encode_u_64(self.fileSizeBytes, serializer);
   }
 
   @protected
@@ -4299,6 +6629,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_media_reaction_rule(
+    List<MediaReactionRule> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_media_reaction_rule(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_monetization_item(
+    List<MonetizationItem> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_monetization_item(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_poll_option(
+    List<PollOption> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_poll_option(item, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
@@ -4306,6 +6672,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_list_queue_entry(
+    List<QueueEntry> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_queue_entry(item, serializer);
+    }
   }
 
   @protected
@@ -4365,6 +6743,166 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_match_mode(MatchMode self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_media_animation_kind(
+    MediaAnimationKind self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_media_effect_type(
+    MediaEffectType self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_media_kind(MediaKind self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_media_playback_mode(
+    MediaPlaybackMode self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_media_position(MediaPosition self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_media_reaction_config(
+    MediaReactionConfig self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_media_playback_mode(self.playbackMode, serializer);
+    sse_encode_u_32(self.masterVolume, serializer);
+    sse_encode_u_32(self.maxConcurrent, serializer);
+    sse_encode_bool(self.allowMultipleMatch, serializer);
+  }
+
+  @protected
+  void sse_encode_media_reaction_rule(
+    MediaReactionRule self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.name, serializer);
+    sse_encode_String(self.pattern, serializer);
+    sse_encode_match_mode(self.matchMode, serializer);
+    sse_encode_bool(self.caseSensitive, serializer);
+    sse_encode_media_effect_type(self.effectType, serializer);
+    sse_encode_media_trigger_type(self.triggerType, serializer);
+    sse_encode_u_64(self.minSuperchatAmount, serializer);
+    sse_encode_i_32(self.priority, serializer);
+    sse_encode_media_kind(self.mediaKind, serializer);
+    sse_encode_String(self.storedFileName, serializer);
+    sse_encode_String(self.originalFileName, serializer);
+    sse_encode_String(self.soundStoredFileName, serializer);
+    sse_encode_String(self.soundOriginalFileName, serializer);
+    sse_encode_u_32(self.soundVolume, serializer);
+    sse_encode_media_animation_kind(self.animation, serializer);
+    sse_encode_media_position(self.position, serializer);
+    sse_encode_u_32(self.durationMs, serializer);
+    sse_encode_u_32(self.widthPercent, serializer);
+    sse_encode_u_32(self.volume, serializer);
+    sse_encode_u_32(self.particleCount, serializer);
+    sse_encode_u_32(self.particleSize, serializer);
+    sse_encode_u_32(self.particleSpeed, serializer);
+    sse_encode_u_32(self.gravity, serializer);
+    sse_encode_String(self.particleText, serializer);
+    sse_encode_String(self.ambientPreset, serializer);
+    sse_encode_u_32(self.cooldownSec, serializer);
+    sse_encode_bool(self.excludeBanned, serializer);
+    sse_encode_String(self.captionTemplate, serializer);
+    sse_encode_bool(self.enabled, serializer);
+  }
+
+  @protected
+  void sse_encode_media_trigger_event(
+    MediaTriggerEvent self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.eventId, serializer);
+    sse_encode_String(self.ruleId, serializer);
+    sse_encode_String(self.ruleName, serializer);
+    sse_encode_media_effect_type(self.effectType, serializer);
+    sse_encode_String(self.mediaUrl, serializer);
+    sse_encode_media_kind(self.mediaKind, serializer);
+    sse_encode_opt_String(self.soundUrl, serializer);
+    sse_encode_u_32(self.soundVolume, serializer);
+    sse_encode_media_animation_kind(self.animation, serializer);
+    sse_encode_media_position(self.position, serializer);
+    sse_encode_u_32(self.durationMs, serializer);
+    sse_encode_u_32(self.widthPercent, serializer);
+    sse_encode_u_32(self.volume, serializer);
+    sse_encode_u_32(self.particleCount, serializer);
+    sse_encode_u_32(self.particleSize, serializer);
+    sse_encode_u_32(self.particleSpeed, serializer);
+    sse_encode_u_32(self.gravity, serializer);
+    sse_encode_String(self.particleText, serializer);
+    sse_encode_String(self.ambientPreset, serializer);
+    sse_encode_String(self.caption, serializer);
+    sse_encode_String(self.triggeredBy, serializer);
+    sse_encode_i_64(self.triggeredAtMs, serializer);
+  }
+
+  @protected
+  void sse_encode_media_trigger_type(
+    MediaTriggerType self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_monetization_event_kind(
+    MonetizationEventKind self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_monetization_item(
+    MonetizationItem self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.sessionId, serializer);
+    sse_encode_platform_kind(self.platform, serializer);
+    sse_encode_monetization_event_kind(self.kind, serializer);
+    sse_encode_String(self.userId, serializer);
+    sse_encode_String(self.userName, serializer);
+    sse_encode_String(self.userIconUrl, serializer);
+    sse_encode_String(self.amountDisplay, serializer);
+    sse_encode_u_64(self.amountMicros, serializer);
+    sse_encode_String(self.currency, serializer);
+    sse_encode_String(self.tierColor, serializer);
+    sse_encode_String(self.message, serializer);
+    sse_encode_i_64(self.timestampMs, serializer);
+    sse_encode_bool(self.isChecked, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.checkedAtMs, serializer);
   }
 
   @protected
@@ -4469,6 +7007,71 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_media_trigger_event(
+    MediaTriggerEvent? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_media_trigger_event(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_monetization_event_kind(
+    MonetizationEventKind? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_monetization_event_kind(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_picked_comment_state(
+    PickedCommentState? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_picked_comment_state(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_poll_state(
+    PollState? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_poll_state(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_queue_state(
+    QueueState? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_queue_state(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -4502,6 +7105,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_list_monetization_item(
+    List<MonetizationItem>? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_list_monetization_item(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_list_word_counter_config(
     List<WordCounterConfig>? self,
     SseSerializer serializer,
@@ -4528,24 +7144,136 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.lotteryTheme, serializer);
     sse_encode_String(self.counterTheme, serializer);
     sse_encode_String(self.firstTimeTheme, serializer);
+    sse_encode_String(self.superchatTheme, serializer);
+    sse_encode_String(self.pollTheme, serializer);
+    sse_encode_String(self.pickupTheme, serializer);
+    sse_encode_String(self.queueTheme, serializer);
+    sse_encode_String(self.mediaTheme, serializer);
     sse_encode_String(self.commentsBgColor, serializer);
     sse_encode_String(self.lotteryBgColor, serializer);
     sse_encode_String(self.counterBgColor, serializer);
     sse_encode_String(self.firstTimeBgColor, serializer);
+    sse_encode_String(self.superchatBgColor, serializer);
+    sse_encode_String(self.pollBgColor, serializer);
+    sse_encode_String(self.pickupBgColor, serializer);
+    sse_encode_String(self.queueBgColor, serializer);
+    sse_encode_String(self.mediaBgColor, serializer);
     sse_encode_String(self.commentsFontFamily, serializer);
     sse_encode_String(self.lotteryFontFamily, serializer);
     sse_encode_String(self.counterFontFamily, serializer);
     sse_encode_String(self.firstTimeFontFamily, serializer);
+    sse_encode_String(self.superchatFontFamily, serializer);
+    sse_encode_String(self.pollFontFamily, serializer);
+    sse_encode_String(self.pickupFontFamily, serializer);
+    sse_encode_String(self.queueFontFamily, serializer);
+    sse_encode_String(self.mediaFontFamily, serializer);
     sse_encode_String(self.commentsCustomCss, serializer);
     sse_encode_String(self.lotteryCustomCss, serializer);
     sse_encode_String(self.counterCustomCss, serializer);
     sse_encode_String(self.firstTimeCustomCss, serializer);
+    sse_encode_String(self.superchatCustomCss, serializer);
+    sse_encode_String(self.pollCustomCss, serializer);
+    sse_encode_String(self.pickupCustomCss, serializer);
+    sse_encode_String(self.queueCustomCss, serializer);
+    sse_encode_String(self.mediaCustomCss, serializer);
+  }
+
+  @protected
+  void sse_encode_picked_comment_state(
+    PickedCommentState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_comment_item(self.comment, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.pickedAtMs, serializer);
   }
 
   @protected
   void sse_encode_platform_kind(PlatformKind self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_poll_config(PollConfig self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.question, serializer);
+    sse_encode_list_poll_option(self.options, serializer);
+    sse_encode_bool(self.allowVoteChange, serializer);
+    sse_encode_bool(self.excludeBanned, serializer);
+    sse_encode_bool(self.showPercentage, serializer);
+    sse_encode_bool(self.showVoteCount, serializer);
+  }
+
+  @protected
+  void sse_encode_poll_option(PollOption self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_String(self.label, serializer);
+    sse_encode_list_String(self.keywords, serializer);
+    sse_encode_String(self.color, serializer);
+    sse_encode_u_64(self.voteCount, serializer);
+  }
+
+  @protected
+  void sse_encode_poll_state(PollState self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.isActive, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.startedAtMs, serializer);
+    sse_encode_opt_box_autoadd_i_64(self.endedAtMs, serializer);
+    sse_encode_poll_config(self.config, serializer);
+    sse_encode_u_64(self.totalVotes, serializer);
+  }
+
+  @protected
+  void sse_encode_queue_config(QueueConfig self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.isAccepting, serializer);
+    sse_encode_u_32(self.maxActiveSlots, serializer);
+    sse_encode_list_String(self.joinKeywords, serializer);
+    sse_encode_list_String(self.leaveKeywords, serializer);
+    sse_encode_queue_sort_mode(self.sortMode, serializer);
+    sse_encode_bool(self.excludeBanned, serializer);
+    sse_encode_bool(self.allowRejoinAfterComplete, serializer);
+  }
+
+  @protected
+  void sse_encode_queue_entry(QueueEntry self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.userId, serializer);
+    sse_encode_platform_kind(self.platform, serializer);
+    sse_encode_String(self.userName, serializer);
+    sse_encode_String(self.userIconUrl, serializer);
+    sse_encode_queue_entry_status(self.status, serializer);
+    sse_encode_u_32(self.playCount, serializer);
+    sse_encode_bool(self.isFirstTime, serializer);
+    sse_encode_String(self.note, serializer);
+    sse_encode_i_64(self.joinedAtMs, serializer);
+  }
+
+  @protected
+  void sse_encode_queue_entry_status(
+    QueueEntryStatus self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_queue_sort_mode(
+    QueueSortMode self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_queue_state(QueueState self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_queue_config(self.config, serializer);
+    sse_encode_list_queue_entry(self.entries, serializer);
   }
 
   @protected

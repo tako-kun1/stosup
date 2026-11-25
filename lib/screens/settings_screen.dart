@@ -265,6 +265,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const Divider(height: 1),
                   SwitchListTile(
                     dense: true,
+                    secondary:
+                        const Icon(Icons.volunteer_activism_outlined, size: 20),
+                    title: const Text('スパチャ / メンバーシップ管理'),
+                    subtitle:
+                        const Text('スーパーチャット・メンバー加入の専用一覧と読み忘れチェック管理'),
+                    value: flags.superchatEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      superchat: v,
+                      featureLabel: 'スパチャ / メンバーシップ管理',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    dense: true,
+                    secondary: const Icon(Icons.poll_outlined, size: 20),
+                    title: const Text('リアルタイム投票 / アンケート'),
+                    subtitle: const Text('コメントからリアルタイム投票を集計し OBS グラフ表示'),
+                    value: flags.pollEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      poll: v,
+                      featureLabel: 'リアルタイム投票 / アンケート',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    dense: true,
+                    secondary: const Icon(Icons.push_pin_outlined, size: 20),
+                    title: const Text('コメントピックアップ（ピン留め表示）'),
+                    subtitle: const Text('選択したコメントを大きく OBS オーバーレイへピン留め表示'),
+                    value: flags.pickupEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      pickup: v,
+                      featureLabel: 'コメントピックアップ表示',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    dense: true,
+                    secondary: const Icon(Icons.queue_play_next, size: 20),
+                    title: const Text('参加型キュー（順番待ちリスト）'),
+                    subtitle: const Text('参加希望・辞退コメントからの自動待機列管理と交代・優先枠'),
+                    value: flags.queueEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      queue: v,
+                      featureLabel: '参加型キュー管理',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    dense: true,
+                    secondary: const Icon(Icons.movie_filter_outlined, size: 20),
+                    title: const Text('特定ワード反応アニメーション・動画演出'),
+                    subtitle:
+                        const Text('指定ワード発言時にユーザー登録の画像・GIF・動画を OBS 上で再生'),
+                    value: flags.mediaReactionEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      mediaReaction: v,
+                      featureLabel: '特定ワード反応アニメーション',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    dense: true,
                     secondary: const Icon(Icons.brush_outlined, size: 20),
                     title: const Text('OBS オーバーレイローカルサーバー'),
                     subtitle: const Text('OBS ブラウザソース用の HTTP / WebSocket サーバー稼働'),
@@ -417,7 +480,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 14),
 
-          // 自動アップデート & バージョン情報カード
+          // ソフトウェア情報カード
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -426,37 +489,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.system_update_alt, color: p.accent, size: 20),
+                      Icon(Icons.info_outline, color: p.accent, size: 20),
                       const SizedBox(width: 8),
                       const Text(
-                        'ソフトウェア情報 ＆ GitHub 自動アップデート',
+                        'ソフトウェア情報',
                         style: TextStyle(
                             fontSize: 15.5, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Text(
-                        'Stosup v${ctrl.appVersion}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: p.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Chip(
-                        label: Text('Windows 64bit / Flutter + Rust'),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
                   Text(
-                    '更新元リポジトリ: https://github.com/tako-kun1/stosup',
-                    style: TextStyle(fontSize: 12.5, color: p.textSecondary),
+                    'Stosup：v${ctrl.appVersion}',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: p.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -474,18 +523,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.refresh, size: 17),
-                        label: const Text('アップデートを確認'),
+                        label: const Text('アップデートチェック'),
                       ),
                       OutlinedButton.icon(
                         onPressed: _showCurrentReleaseNotes,
                         icon: const Icon(Icons.article_outlined, size: 17),
-                        label: const Text('リリースノートを見る'),
+                        label: const Text('リリースノートを表示'),
                       ),
                       OutlinedButton.icon(
-                        onPressed: () => ctrl.openUrl(
-                            'https://github.com/tako-kun1/stosup/releases'),
+                        onPressed: () => ctrl
+                            .openUrl('https://github.com/tako-kun1/stosup'),
                         icon: const Icon(Icons.open_in_new, size: 17),
-                        label: const Text('GitHub Releases'),
+                        label: const Text('GitHub リポジトリを開く'),
                       ),
                     ],
                   ),

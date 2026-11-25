@@ -4,6 +4,7 @@ use flutter_rust_bridge::frb;
 use crate::engine::lottery;
 use crate::fonts;
 use crate::frb_generated::StreamSink;
+use crate::media;
 pub use crate::models::*;
 use crate::platform::{demo, youtube_oauth};
 use crate::state::{get_runtime, initialize_runtime};
@@ -119,6 +120,11 @@ pub async fn send_demo_comment(
         is_owner: false,
         is_moderator: false,
         is_member: false,
+        event_kind: None,
+        amount_display: None,
+        amount_micros: 0,
+        currency: String::new(),
+        tier_color: None,
     };
     runtime
         .comment_tx
@@ -240,15 +246,39 @@ pub async fn set_user_ban(
         db.set_user_ban(&user_id, platform, banned, &reason)
             .map_err(|e| e.to_string())?;
     }
-    // BANした場合、進行中のコメント抽選エントリーからも即座に除外してUI同期
+    // BANした場合、進行中のコメント抽選・投票・参加型キューからも即座に除外してUI同期
     if banned {
-        let mut cl = runtime.comment_lottery.lock().await;
-        let before = cl.entries.len();
-        cl.entries.retain(|e| e.user_id != user_id);
-        if cl.entries.len() != before {
-            let state = cl.clone();
-            drop(cl);
-            runtime.emit(AppEvent::comment_lottery_updated(state));
+        {
+            let mut cl = runtime.comment_lottery.lock().await;
+            let before = cl.entries.len();
+            cl.entries.retain(|e| e.user_id != user_id);
+            if cl.entries.len() != before {
+                let state = cl.clone();
+                drop(cl);
+                runtime.emit(AppEvent::comment_lottery_updated(state));
+            }
+        }
+        {
+            let mut pr = runtime.poll_runtime.lock().await;
+            if pr.remove_voter(&user_id) {
+                let p_state = pr.state.clone();
+                drop(pr);
+                let enabled = runtime.feature_flags.read().await.poll_enabled;
+                runtime.overlay_state.update_poll(p_state.clone(), enabled).await;
+                runtime.emit(AppEvent::poll_updated(p_state));
+            }
+        }
+        {
+            let mut qr = runtime.queue_runtime.lock().await;
+            let before = qr.state.entries.len();
+            qr.state.entries.retain(|e| e.user_id != user_id);
+            if qr.state.entries.len() != before {
+                let q_state = qr.state.clone();
+                drop(qr);
+                let enabled = runtime.feature_flags.read().await.queue_enabled;
+                runtime.overlay_state.update_queue(q_state.clone(), enabled).await;
+                runtime.emit(AppEvent::queue_updated(q_state));
+            }
         }
     }
     runtime.emit(AppEvent::users_updated());
@@ -581,4 +611,253 @@ pub async fn mark_release_notes_seen() -> Result<(), String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;
     let db = runtime.db.lock().await;
     updater::record_last_launched_version(&db).map_err(|e| e.to_string())
+}
+
+// ==================== スーパーチャット / メンバーシップ ====================
+
+pub async fn list_monetization_events(limit: u32) -> Result<Vec<MonetizationItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .list_monetization_events(limit as usize)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn set_monetization_checked(
+    id: String,
+    checked: bool,
+) -> Result<Vec<MonetizationItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .set_monetization_checked(&id, checked)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn mark_all_monetization_checked() -> Result<Vec<MonetizationItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .mark_all_monetization_checked()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn delete_monetization_event(id: String) -> Result<Vec<MonetizationItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .delete_monetization_event(&id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn clear_monetization_events(
+    checked_only: bool,
+) -> Result<Vec<MonetizationItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .clear_monetization_events(checked_only)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn send_demo_monetization(
+    kind: MonetizationEventKind,
+    user_name: String,
+    amount_display: String,
+    message: String,
+) -> Result<Vec<MonetizationItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .send_demo_monetization(kind, &user_name, &amount_display, &message)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ==================== リアルタイム投票 / アンケート ====================
+
+pub async fn get_poll_state() -> Result<PollState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.get_poll_state().await)
+}
+
+pub async fn save_poll_config(config: PollConfig) -> Result<PollState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .save_poll_config(config)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn start_poll(config: PollConfig) -> Result<PollState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime.start_poll(config).await.map_err(|e| e.to_string())
+}
+
+pub async fn stop_poll() -> Result<PollState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.stop_poll().await)
+}
+
+pub async fn reset_poll() -> Result<PollState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.reset_poll().await)
+}
+
+pub async fn clear_overlay_poll() -> Result<(), String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime.clear_overlay_poll().await;
+    Ok(())
+}
+
+// ==================== コメントピックアップ（ピン留め表示） ====================
+
+pub async fn get_picked_comment() -> Result<PickedCommentState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.get_picked_comment().await)
+}
+
+pub async fn pick_comment(comment: CommentItem) -> Result<PickedCommentState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .pick_comment(comment)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn clear_picked_comment() -> Result<PickedCommentState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.clear_picked_comment().await)
+}
+
+// ==================== 参加型キュー（順番待ちリスト） ====================
+
+pub async fn get_queue_state() -> Result<QueueState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.get_queue_state().await)
+}
+
+pub async fn save_queue_config(config: QueueConfig) -> Result<QueueState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.save_queue_config(config).await)
+}
+
+pub async fn queue_add_manual(user_name: String, note: String) -> Result<QueueState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.queue_add_manual(&user_name, &note).await)
+}
+
+pub async fn queue_set_status(
+    user_id: String,
+    status: QueueEntryStatus,
+) -> Result<QueueState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.queue_set_status(&user_id, status).await)
+}
+
+pub async fn queue_promote_next() -> Result<QueueState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.queue_promote_next().await)
+}
+
+pub async fn queue_rotate_active() -> Result<QueueState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.queue_rotate_active().await)
+}
+
+pub async fn queue_move_entry(user_id: String, delta: i32) -> Result<QueueState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.queue_move_entry(&user_id, delta).await)
+}
+
+pub async fn queue_remove_entry(user_id: String) -> Result<QueueState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.queue_remove_entry(&user_id).await)
+}
+
+pub async fn queue_reset(reset_play_counts: bool) -> Result<QueueState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.queue_reset(reset_play_counts).await)
+}
+
+// ==================== 特定ワード反応メディアアニメーション ====================
+
+/// OS ネイティブのファイル選択ダイアログを開き、画像・動画・音声ファイルパスを返す
+pub async fn pick_media_file_dialog() -> Option<String> {
+    tokio::task::spawn_blocking(media::pick_media_file_dialog)
+        .await
+        .ok()
+        .flatten()
+}
+
+/// OS ネイティブのファイル選択ダイアログを開き、効果音（SE）ファイルパスを返す
+pub async fn pick_sound_file_dialog() -> Option<String> {
+    tokio::task::spawn_blocking(media::pick_sound_file_dialog)
+        .await
+        .ok()
+        .flatten()
+}
+
+/// 選択した画像・動画ファイルを Stosup のアプリ内フォルダへコピー保存する
+pub async fn import_media_file(source_path: String) -> Result<ImportedMediaFile, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    let media_dir = runtime.media_dir.clone();
+    tokio::task::spawn_blocking(move || media::import_media_file(&media_dir, &source_path))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+pub async fn list_media_reaction_rules() -> Result<Vec<MediaReactionRule>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .list_media_reaction_rules()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn save_media_reaction_rule(
+    rule: MediaReactionRule,
+) -> Result<Vec<MediaReactionRule>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .save_media_reaction_rule(rule)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn delete_media_reaction_rule(id: String) -> Result<Vec<MediaReactionRule>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .delete_media_reaction_rule(&id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn get_media_reaction_config() -> Result<MediaReactionConfig, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.get_media_reaction_config().await)
+}
+
+pub async fn save_media_reaction_config(
+    config: MediaReactionConfig,
+) -> Result<MediaReactionConfig, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .save_media_reaction_config(config)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn test_media_reaction_rule(id: String) -> Result<(), String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .test_media_reaction_rule(&id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn clear_overlay_media() -> Result<(), String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime.clear_overlay_media();
+    Ok(())
 }

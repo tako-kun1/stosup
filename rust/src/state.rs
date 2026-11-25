@@ -8,13 +8,21 @@ use once_cell::sync::OnceCell;
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 
 use crate::db::Database;
+use crate::engine::media_reaction::{
+    build_trigger_event, rule_has_playable_content, MediaCooldownTracker, MediaEvalContext,
+};
+use crate::engine::poll::PollRuntime;
+use crate::engine::queue::QueueRuntime;
 use crate::engine::{counter, highlight, lottery, matches_pattern};
+use crate::media;
 use crate::models::{
     AppEvent, CommentItem, CommentLotteryConfig, CommentLotteryState, ConnectionMode,
     ConnectionStateDto, ConnectionStatus, FeatureFlags, FirstTimeCounterConfig,
-    FirstTimeCounterState, FirstTimeUser, HighlightRule, LotteryResult, MatchMode, OverlayConfig,
-    PlatformKind, RawIncomingComment, ReleaseNotesInfo, UserLotteryRequest, UserRecord,
-    WordCounterConfig,
+    FirstTimeCounterState, FirstTimeUser, HighlightRule, ImportedMediaFile, LotteryResult,
+    MatchMode, MediaReactionConfig, MediaReactionRule, MonetizationEventKind, MonetizationItem,
+    OverlayConfig, PickedCommentState, PlatformKind, PollConfig, PollState, QueueConfig,
+    QueueEntryStatus, QueueState, RawIncomingComment, ReleaseNotesInfo, UserLotteryRequest,
+    UserRecord, WordCounterConfig,
 };
 use crate::overlay::{start_overlay_server, OverlayServerHandle, OverlaySharedState};
 use crate::platform::{demo, extract_youtube_video_id, youtube, ProviderConnection};
@@ -24,6 +32,7 @@ static RUNTIME: OnceCell<Arc<AppRuntime>> = OnceCell::new();
 
 pub struct AppRuntime {
     pub db: Arc<Mutex<Database>>,
+    pub media_dir: PathBuf,
     pub overlay_state: Arc<OverlaySharedState>,
     pub overlay_server: Mutex<Option<OverlayServerHandle>>,
     pub feature_flags: RwLock<FeatureFlags>,
@@ -33,6 +42,11 @@ pub struct AppRuntime {
     pub user_lottery_won_ids: Mutex<HashSet<String>>,
     pub comment_lottery: Mutex<CommentLotteryState>,
     pub first_time_state: Mutex<FirstTimeCounterState>,
+    pub poll_runtime: Mutex<PollRuntime>,
+    pub picked_comment: Mutex<PickedCommentState>,
+    pub queue_runtime: Mutex<QueueRuntime>,
+    pub media_config: Mutex<MediaReactionConfig>,
+    pub media_cooldown: Mutex<MediaCooldownTracker>,
     pub last_session_id: Mutex<String>,
     pub event_tx: broadcast::Sender<AppEvent>,
     pub comment_tx: mpsc::UnboundedSender<RawIncomingComment>,
@@ -61,6 +75,11 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
     }
 
     let db_path = default_db_path();
+    let media_dir = db_path
+        .parent()
+        .map(|p| p.join("media"))
+        .unwrap_or_else(|| PathBuf::from("media"));
+    let _ = std::fs::create_dir_all(&media_dir);
     let db = Database::open(&db_path)?;
     let overlay_config = db.get_overlay_config()?;
     let feature_flags = db.get_feature_flags()?;
@@ -77,13 +96,30 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
     } else {
         Vec::new()
     };
+    let monetization_items = db.list_monetization_events(100)?;
+    let poll_config = db.get_poll_config()?;
+    let poll_rt = PollRuntime::with_config(poll_config);
+    let poll_state = poll_rt.state.clone();
+    let queue_state = db.get_queue_state()?;
+    let queue_rt = QueueRuntime::from_state(queue_state.clone());
+    let media_config = db.get_media_reaction_config()?;
 
     let db_arc = Arc::new(Mutex::new(db));
     let overlay_state = Arc::new(OverlaySharedState::new(
+        media_dir.clone(),
         overlay_config.clone(),
         counters,
         first_time_state.clone(),
         feature_flags.first_time_counter_enabled,
+        monetization_items,
+        feature_flags.superchat_enabled,
+        poll_state,
+        feature_flags.poll_enabled,
+        queue_state,
+        feature_flags.queue_enabled,
+        media_config.clone(),
+        feature_flags.media_reaction_enabled,
+        feature_flags.pickup_enabled,
     ));
     let (event_tx, _) = broadcast::channel::<AppEvent>(512);
     let (comment_tx, comment_rx) = mpsc::unbounded_channel::<RawIncomingComment>();
@@ -112,6 +148,7 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
 
     let runtime = Arc::new(AppRuntime {
         db: db_arc,
+        media_dir,
         overlay_state,
         overlay_server: Mutex::new(server_handle),
         feature_flags: RwLock::new(feature_flags),
@@ -121,6 +158,11 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
         user_lottery_won_ids: Mutex::new(HashSet::new()),
         comment_lottery: Mutex::new(CommentLotteryState::default()),
         first_time_state: Mutex::new(first_time_state),
+        poll_runtime: Mutex::new(poll_rt),
+        picked_comment: Mutex::new(PickedCommentState::default()),
+        queue_runtime: Mutex::new(queue_rt),
+        media_config: Mutex::new(media_config),
+        media_cooldown: Mutex::new(MediaCooldownTracker::default()),
         last_session_id: Mutex::new(String::new()),
         event_tx,
         comment_tx,
@@ -164,7 +206,16 @@ impl AppRuntime {
         let flags = self.feature_flags.read().await.clone();
         let ft_config = self.first_time_state.lock().await.config.clone();
 
-        let (user_meta, rules, counters_changed, updated_counters, first_time_trigger, new_all_time_ft) = {
+        let (
+            user_meta,
+            rules,
+            media_rules,
+            counters_changed,
+            updated_counters,
+            first_time_trigger,
+            new_all_time_ft,
+            updated_monetization,
+        ) = {
             let db = self.db.lock().await;
             let meta = if flags.user_tracking_enabled {
                 db.record_user_comment(&session_id, &raw)?
@@ -173,6 +224,11 @@ impl AppRuntime {
             };
             let rules = if flags.word_highlight_enabled {
                 db.list_highlight_rules()?
+            } else {
+                Vec::new()
+            };
+            let media_rules = if flags.media_reaction_enabled {
+                db.list_media_reaction_rules()?
             } else {
                 Vec::new()
             };
@@ -211,13 +267,50 @@ impl AppRuntime {
                 None
             };
 
+            // スーパーチャット / メンバーシップ専用記録
+            let updated_monetization = if flags.superchat_enabled {
+                if let Some(ev_kind) = raw.event_kind {
+                    let m_item = MonetizationItem {
+                        id: raw.id.clone(),
+                        session_id: session_id.clone(),
+                        platform: raw.platform,
+                        kind: ev_kind,
+                        user_id: raw.user_id.clone(),
+                        user_name: raw.user_name.clone(),
+                        user_icon_url: raw.user_icon_url.clone(),
+                        amount_display: raw
+                            .amount_display
+                            .clone()
+                            .unwrap_or_else(|| "支援イベント".to_string()),
+                        amount_micros: raw.amount_micros,
+                        currency: raw.currency.clone(),
+                        tier_color: raw
+                            .tier_color
+                            .clone()
+                            .unwrap_or_else(|| "#FFB300".to_string()),
+                        message: raw.message.clone(),
+                        timestamp_ms: raw.timestamp_ms,
+                        is_checked: false,
+                        checked_at_ms: None,
+                    };
+                    db.insert_monetization_event(&m_item)?;
+                    Some(db.list_monetization_events(150)?)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
             (
                 meta,
                 rules,
+                media_rules,
                 counters_changed,
                 updated_counters,
                 trigger_reason,
                 new_all_time,
+                updated_monetization,
             )
         };
 
@@ -279,6 +372,9 @@ impl AppRuntime {
             bubble_bg_color: matched_rule.map(|r| r.bg_color.clone()),
             bubble_text_color: matched_rule.map(|r| r.text_color.clone()),
             bubble_border_color: matched_rule.map(|r| r.border_color.clone()),
+            event_kind: raw.event_kind,
+            amount_display: raw.amount_display,
+            event_accent_color: raw.tier_color,
         };
 
         // コメント表示機能が有効な場合のみ UI ＆ OBS へ反映
@@ -309,6 +405,60 @@ impl AppRuntime {
             None
         };
 
+        // リアルタイム投票の自動集計
+        let poll_updated = if flags.poll_enabled {
+            let mut pr = self.poll_runtime.lock().await;
+            if pr.try_cast_vote(&item.user_id, is_banned, &item.message) {
+                Some(pr.state.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // 参加型キューの自動登録・辞退
+        let queue_updated = if flags.queue_enabled {
+            let mut qr = self.queue_runtime.lock().await;
+            if qr.process_comment(
+                &item.user_id,
+                item.platform,
+                &item.user_name,
+                &item.user_icon_url,
+                is_banned,
+                is_first_time,
+                &item.message,
+                item.timestamp_ms,
+            ) {
+                Some(qr.state.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // 特定ワード反応演出（WordParty）評価
+        let media_triggers = if flags.media_reaction_enabled && !media_rules.is_empty() {
+            let allow_multiple = self.media_config.lock().await.allow_multiple_match;
+            let mut cd = self.media_cooldown.lock().await;
+            cd.evaluate_rules(
+                &media_rules,
+                &MediaEvalContext {
+                    user_name: &item.user_name,
+                    is_banned,
+                    is_first_time,
+                    message: &item.message,
+                    event_kind: item.event_kind,
+                    amount_micros: raw.amount_micros,
+                    now_ms: item.timestamp_ms,
+                    allow_multiple_match: allow_multiple,
+                },
+            )
+        } else {
+            Vec::new()
+        };
+
         if flags.user_tracking_enabled {
             self.emit(AppEvent::users_updated());
         }
@@ -331,6 +481,38 @@ impl AppRuntime {
 
         if let Some(cl_state) = lottery_updated {
             self.emit(AppEvent::comment_lottery_updated(cl_state));
+        }
+
+        if let Some(m_list) = updated_monetization {
+            self.overlay_state
+                .update_monetization(m_list.clone(), flags.superchat_enabled)
+                .await;
+            self.emit(AppEvent::monetization_updated(m_list));
+        }
+
+        if let Some(p_state) = poll_updated {
+            self.overlay_state
+                .update_poll(p_state.clone(), flags.poll_enabled)
+                .await;
+            self.emit(AppEvent::poll_updated(p_state));
+        }
+
+        if let Some(q_state) = queue_updated {
+            {
+                let db = self.db.lock().await;
+                let _ = db.set_queue_state(&q_state);
+            }
+            self.overlay_state
+                .update_queue(q_state.clone(), flags.queue_enabled)
+                .await;
+            self.emit(AppEvent::queue_updated(q_state));
+        }
+
+        for trig in media_triggers {
+            if flags.obs_overlay_enabled {
+                self.overlay_state.trigger_media(trig.clone());
+            }
+            self.emit(AppEvent::media_triggered(trig));
         }
 
         Ok(())
@@ -553,6 +735,47 @@ impl AppRuntime {
                 .await;
         }
 
+        // スパチャ・投票・ピックアップ・参加型キュー・メディア演出の ON/OFF も OBS へ即時同期
+        {
+            let m_list = {
+                let db = self.db.lock().await;
+                db.list_monetization_events(150).unwrap_or_default()
+            };
+            self.overlay_state
+                .update_monetization(m_list, new_flags.superchat_enabled)
+                .await;
+
+            let poll_snapshot = {
+                let mut pr = self.poll_runtime.lock().await;
+                if !new_flags.poll_enabled && pr.state.is_active {
+                    pr.stop();
+                }
+                pr.state.clone()
+            };
+            self.overlay_state
+                .update_poll(poll_snapshot.clone(), new_flags.poll_enabled)
+                .await;
+            self.emit(AppEvent::poll_updated(poll_snapshot));
+
+            let picked_snapshot = self.picked_comment.lock().await.clone();
+            self.overlay_state
+                .update_picked_comment(picked_snapshot, new_flags.pickup_enabled)
+                .await;
+
+            let queue_snapshot = self.queue_runtime.lock().await.state.clone();
+            self.overlay_state
+                .update_queue(queue_snapshot, new_flags.queue_enabled)
+                .await;
+
+            let media_cfg = self.media_config.lock().await.clone();
+            self.overlay_state
+                .update_media_config(media_cfg, new_flags.media_reaction_enabled)
+                .await;
+            if !new_flags.media_reaction_enabled {
+                self.overlay_state.clear_media();
+            }
+        }
+
         // コメント抽選を OFF にしたら進行中の受付も停止
         if !new_flags.comment_lottery_enabled {
             let mut cl = self.comment_lottery.lock().await;
@@ -735,6 +958,11 @@ impl AppRuntime {
                     is_owner: true,
                     is_moderator: false,
                     is_member: false,
+                    event_kind: None,
+                    amount_display: None,
+                    amount_micros: 0,
+                    currency: String::new(),
+                    tier_color: None,
                 };
                 let _ = self.comment_tx.send(raw);
                 Ok("デモチャットへコメントを投稿しました".to_string())
@@ -921,5 +1149,476 @@ impl AppRuntime {
         self.emit(AppEvent::comment_lottery_updated(updated_state));
         self.emit(AppEvent::lottery_drawn(result.clone()));
         Ok(result)
+    }
+
+    // ==================== スパチャ / メンバーシップ管理 ====================
+
+    pub async fn list_monetization_events(&self, limit: usize) -> Result<Vec<MonetizationItem>> {
+        let db = self.db.lock().await;
+        db.list_monetization_events(limit)
+    }
+
+    pub async fn set_monetization_checked(
+        &self,
+        id: &str,
+        checked: bool,
+    ) -> Result<Vec<MonetizationItem>> {
+        let now_ms = Utc::now().timestamp_millis();
+        let list = {
+            let db = self.db.lock().await;
+            db.set_monetization_checked(id, checked, now_ms)?;
+            db.list_monetization_events(150)?
+        };
+        let enabled = self.feature_flags.read().await.superchat_enabled;
+        self.overlay_state
+            .update_monetization(list.clone(), enabled)
+            .await;
+        self.emit(AppEvent::monetization_updated(list.clone()));
+        Ok(list)
+    }
+
+    pub async fn mark_all_monetization_checked(&self) -> Result<Vec<MonetizationItem>> {
+        let now_ms = Utc::now().timestamp_millis();
+        let list = {
+            let db = self.db.lock().await;
+            db.mark_all_monetization_checked(now_ms)?;
+            db.list_monetization_events(150)?
+        };
+        let enabled = self.feature_flags.read().await.superchat_enabled;
+        self.overlay_state
+            .update_monetization(list.clone(), enabled)
+            .await;
+        self.emit(AppEvent::monetization_updated(list.clone()));
+        Ok(list)
+    }
+
+    pub async fn delete_monetization_event(&self, id: &str) -> Result<Vec<MonetizationItem>> {
+        let list = {
+            let db = self.db.lock().await;
+            db.delete_monetization_event(id)?;
+            db.list_monetization_events(150)?
+        };
+        let enabled = self.feature_flags.read().await.superchat_enabled;
+        self.overlay_state
+            .update_monetization(list.clone(), enabled)
+            .await;
+        self.emit(AppEvent::monetization_updated(list.clone()));
+        Ok(list)
+    }
+
+    pub async fn clear_monetization_events(
+        &self,
+        checked_only: bool,
+    ) -> Result<Vec<MonetizationItem>> {
+        let list = {
+            let db = self.db.lock().await;
+            db.clear_monetization_events(checked_only)?;
+            db.list_monetization_events(150)?
+        };
+        let enabled = self.feature_flags.read().await.superchat_enabled;
+        self.overlay_state
+            .update_monetization(list.clone(), enabled)
+            .await;
+        self.emit(AppEvent::monetization_updated(list.clone()));
+        Ok(list)
+    }
+
+    pub async fn send_demo_monetization(
+        &self,
+        kind: MonetizationEventKind,
+        user_name: &str,
+        amount_display: &str,
+        message: &str,
+    ) -> Result<Vec<MonetizationItem>> {
+        let now_ms = Utc::now().timestamp_millis();
+        let name = if user_name.trim().is_empty() {
+            "応援リスナー".to_string()
+        } else {
+            user_name.trim().to_string()
+        };
+        let initial = name.chars().next().unwrap_or('応').to_string();
+        let amount = if amount_display.trim().is_empty() {
+            match kind {
+                MonetizationEventKind::SuperChat => "¥1,000".to_string(),
+                MonetizationEventKind::SuperSticker => "¥500".to_string(),
+                MonetizationEventKind::MembershipNew => "新規メンバー加入".to_string(),
+                MonetizationEventKind::MembershipMilestone => "メンバー 6ヶ月継続".to_string(),
+                MonetizationEventKind::MembershipGift => "メンバーシップギフト 5件".to_string(),
+            }
+        } else {
+            amount_display.trim().to_string()
+        };
+        let tier_color = match kind {
+            MonetizationEventKind::SuperChat => "#FFCA28".to_string(),
+            MonetizationEventKind::SuperSticker => "#E91E63".to_string(),
+            MonetizationEventKind::MembershipNew
+            | MonetizationEventKind::MembershipMilestone
+            | MonetizationEventKind::MembershipGift => "#0F9D58".to_string(),
+        };
+        let msg = if message.trim().is_empty() {
+            "テスト送信の応援メッセージです！".to_string()
+        } else {
+            message.trim().to_string()
+        };
+
+        let session_id = {
+            let sid = self.connection_state.read().await.session_id.clone();
+            if sid.is_empty() {
+                "demo-local".to_string()
+            } else {
+                sid
+            }
+        };
+
+        let item = MonetizationItem {
+            id: uuid::Uuid::new_v4().to_string(),
+            session_id: session_id.clone(),
+            platform: PlatformKind::Demo,
+            kind,
+            user_id: format!("demo-sc-{}", name),
+            user_name: name.clone(),
+            user_icon_url: demo::make_svg_avatar("%23f59e0b", &initial),
+            amount_display: amount.clone(),
+            amount_micros: 1_000_000_000,
+            currency: "JPY".to_string(),
+            tier_color: tier_color.clone(),
+            message: msg.clone(),
+            timestamp_ms: now_ms,
+            is_checked: false,
+            checked_at_ms: None,
+        };
+
+        let list = {
+            let db = self.db.lock().await;
+            db.insert_monetization_event(&item)?;
+            db.list_monetization_events(150)?
+        };
+
+        let flags = self.feature_flags.read().await.clone();
+        self.overlay_state
+            .update_monetization(list.clone(), flags.superchat_enabled)
+            .await;
+        self.emit(AppEvent::monetization_updated(list.clone()));
+
+        // コメント欄へも同期表示（配信未接続でもテスト表示可能）
+        if flags.comment_display_enabled {
+            let c_item = CommentItem {
+                id: item.id.clone(),
+                session_id,
+                platform: PlatformKind::Demo,
+                user_id: item.user_id.clone(),
+                user_name: name,
+                user_icon_url: item.user_icon_url.clone(),
+                user_memo: String::new(),
+                is_first_time: false,
+                message: msg,
+                timestamp_ms: now_ms,
+                is_owner: false,
+                is_moderator: false,
+                is_member: matches!(
+                    kind,
+                    MonetizationEventKind::MembershipNew
+                        | MonetizationEventKind::MembershipMilestone
+                        | MonetizationEventKind::MembershipGift
+                ),
+                is_banned: false,
+                highlight_rule_id: None,
+                bubble_bg_color: None,
+                bubble_text_color: None,
+                bubble_border_color: None,
+                event_kind: Some(kind),
+                amount_display: Some(amount),
+                event_accent_color: Some(tier_color),
+            };
+            {
+                let mut list_c = self.recent_comments.write().await;
+                list_c.push(c_item.clone());
+                if list_c.len() > 300 {
+                    let over = list_c.len() - 300;
+                    list_c.drain(0..over);
+                }
+            }
+            self.emit(AppEvent::comment_received(c_item.clone()));
+            if flags.obs_overlay_enabled {
+                self.overlay_state.push_comment(c_item).await;
+            }
+        }
+
+        Ok(list)
+    }
+
+    // ==================== リアルタイム投票 ====================
+
+    pub async fn get_poll_state(&self) -> PollState {
+        self.poll_runtime.lock().await.state.clone()
+    }
+
+    pub async fn save_poll_config(&self, config: PollConfig) -> Result<PollState> {
+        {
+            let db = self.db.lock().await;
+            db.set_poll_config(&config)?;
+        }
+        let state = {
+            let mut pr = self.poll_runtime.lock().await;
+            pr.state.config = config;
+            pr.state.clone()
+        };
+        let enabled = self.feature_flags.read().await.poll_enabled;
+        self.overlay_state.update_poll(state.clone(), enabled).await;
+        self.emit(AppEvent::poll_updated(state.clone()));
+        Ok(state)
+    }
+
+    pub async fn start_poll(&self, config: PollConfig) -> Result<PollState> {
+        if !self.feature_flags.read().await.poll_enabled {
+            return Err(anyhow!(
+                "リアルタイム投票機能は現在オフになっています。機能を有効にしてから開始してください。"
+            ));
+        }
+        if config.options.len() < 2 {
+            return Err(anyhow!("選択肢は2つ以上設定してください"));
+        }
+        {
+            let db = self.db.lock().await;
+            db.set_poll_config(&config)?;
+        }
+        let state = {
+            let mut pr = self.poll_runtime.lock().await;
+            pr.start(config)
+        };
+        self.overlay_state.update_poll(state.clone(), true).await;
+        self.emit(AppEvent::poll_updated(state.clone()));
+        Ok(state)
+    }
+
+    pub async fn stop_poll(&self) -> PollState {
+        let state = {
+            let mut pr = self.poll_runtime.lock().await;
+            pr.stop()
+        };
+        let enabled = self.feature_flags.read().await.poll_enabled;
+        self.overlay_state.update_poll(state.clone(), enabled).await;
+        self.emit(AppEvent::poll_updated(state.clone()));
+        state
+    }
+
+    pub async fn reset_poll(&self) -> PollState {
+        let state = {
+            let mut pr = self.poll_runtime.lock().await;
+            pr.reset()
+        };
+        let enabled = self.feature_flags.read().await.poll_enabled;
+        self.overlay_state.update_poll(state.clone(), enabled).await;
+        self.emit(AppEvent::poll_updated(state.clone()));
+        state
+    }
+
+    pub async fn clear_overlay_poll(&self) {
+        self.overlay_state.clear_poll().await;
+    }
+
+    // ==================== コメントピックアップ ====================
+
+    pub async fn get_picked_comment(&self) -> PickedCommentState {
+        self.picked_comment.lock().await.clone()
+    }
+
+    pub async fn pick_comment(&self, comment: CommentItem) -> Result<PickedCommentState> {
+        if !self.feature_flags.read().await.pickup_enabled {
+            return Err(anyhow!(
+                "コメントピックアップ機能は現在オフになっています。機能を有効にしてください。"
+            ));
+        }
+        let state = PickedCommentState {
+            comment: Some(comment),
+            picked_at_ms: Some(Utc::now().timestamp_millis()),
+        };
+        *self.picked_comment.lock().await = state.clone();
+        self.overlay_state
+            .update_picked_comment(state.clone(), true)
+            .await;
+        self.emit(AppEvent::picked_comment_updated(state.clone()));
+        Ok(state)
+    }
+
+    pub async fn clear_picked_comment(&self) -> PickedCommentState {
+        let state = PickedCommentState::default();
+        *self.picked_comment.lock().await = state.clone();
+        let enabled = self.feature_flags.read().await.pickup_enabled;
+        self.overlay_state
+            .update_picked_comment(state.clone(), enabled)
+            .await;
+        self.emit(AppEvent::picked_comment_updated(state.clone()));
+        state
+    }
+
+    // ==================== 参加型キュー ====================
+
+    async fn persist_and_broadcast_queue(&self, state: QueueState) {
+        {
+            let db = self.db.lock().await;
+            let _ = db.set_queue_state(&state);
+        }
+        let enabled = self.feature_flags.read().await.queue_enabled;
+        self.overlay_state
+            .update_queue(state.clone(), enabled)
+            .await;
+        self.emit(AppEvent::queue_updated(state));
+    }
+
+    pub async fn get_queue_state(&self) -> QueueState {
+        self.queue_runtime.lock().await.state.clone()
+    }
+
+    pub async fn save_queue_config(&self, config: QueueConfig) -> QueueState {
+        let state = {
+            let mut qr = self.queue_runtime.lock().await;
+            qr.update_config(config)
+        };
+        self.persist_and_broadcast_queue(state.clone()).await;
+        state
+    }
+
+    pub async fn queue_add_manual(&self, user_name: &str, note: &str) -> QueueState {
+        let state = {
+            let mut qr = self.queue_runtime.lock().await;
+            qr.add_manual(user_name, note)
+        };
+        self.persist_and_broadcast_queue(state.clone()).await;
+        state
+    }
+
+    pub async fn queue_set_status(&self, user_id: &str, status: QueueEntryStatus) -> QueueState {
+        let state = {
+            let mut qr = self.queue_runtime.lock().await;
+            qr.set_status(user_id, status)
+        };
+        self.persist_and_broadcast_queue(state.clone()).await;
+        state
+    }
+
+    pub async fn queue_promote_next(&self) -> QueueState {
+        let state = {
+            let mut qr = self.queue_runtime.lock().await;
+            qr.promote_next()
+        };
+        self.persist_and_broadcast_queue(state.clone()).await;
+        state
+    }
+
+    pub async fn queue_rotate_active(&self) -> QueueState {
+        let state = {
+            let mut qr = self.queue_runtime.lock().await;
+            qr.rotate_active()
+        };
+        self.persist_and_broadcast_queue(state.clone()).await;
+        state
+    }
+
+    pub async fn queue_move_entry(&self, user_id: &str, delta: i32) -> QueueState {
+        let state = {
+            let mut qr = self.queue_runtime.lock().await;
+            qr.move_entry(user_id, delta)
+        };
+        self.persist_and_broadcast_queue(state.clone()).await;
+        state
+    }
+
+    pub async fn queue_remove_entry(&self, user_id: &str) -> QueueState {
+        let state = {
+            let mut qr = self.queue_runtime.lock().await;
+            qr.remove_entry(user_id)
+        };
+        self.persist_and_broadcast_queue(state.clone()).await;
+        state
+    }
+
+    pub async fn queue_reset(&self, reset_play_counts: bool) -> QueueState {
+        let state = {
+            let mut qr = self.queue_runtime.lock().await;
+            qr.reset(reset_play_counts)
+        };
+        self.persist_and_broadcast_queue(state.clone()).await;
+        state
+    }
+
+    // ==================== 特定ワード反応メディアアニメーション ====================
+
+    pub fn import_media_file(&self, source_path: &str) -> Result<ImportedMediaFile> {
+        media::import_media_file(&self.media_dir, source_path)
+    }
+
+    pub async fn list_media_reaction_rules(&self) -> Result<Vec<MediaReactionRule>> {
+        let db = self.db.lock().await;
+        db.list_media_reaction_rules()
+    }
+
+    pub async fn save_media_reaction_rule(
+        &self,
+        mut rule: MediaReactionRule,
+    ) -> Result<Vec<MediaReactionRule>> {
+        if rule.id.trim().is_empty() {
+            rule.id = uuid::Uuid::new_v4().to_string();
+        }
+        let db = self.db.lock().await;
+        db.upsert_media_reaction_rule(&rule)?;
+        db.list_media_reaction_rules()
+    }
+
+    pub async fn delete_media_reaction_rule(&self, id: &str) -> Result<Vec<MediaReactionRule>> {
+        let (list, unused_files) = {
+            let db = self.db.lock().await;
+            let files = db.delete_media_reaction_rule(id)?;
+            (db.list_media_reaction_rules()?, files)
+        };
+        for fname in unused_files {
+            media::remove_stored_media_file(&self.media_dir, &fname);
+        }
+        Ok(list)
+    }
+
+    pub async fn get_media_reaction_config(&self) -> MediaReactionConfig {
+        self.media_config.lock().await.clone()
+    }
+
+    pub async fn save_media_reaction_config(
+        &self,
+        config: MediaReactionConfig,
+    ) -> Result<MediaReactionConfig> {
+        {
+            let db = self.db.lock().await;
+            db.set_media_reaction_config(&config)?;
+        }
+        *self.media_config.lock().await = config.clone();
+        let enabled = self.feature_flags.read().await.media_reaction_enabled;
+        self.overlay_state
+            .update_media_config(config.clone(), enabled)
+            .await;
+        Ok(config)
+    }
+
+    pub async fn test_media_reaction_rule(&self, id: &str) -> Result<()> {
+        let rule = {
+            let db = self.db.lock().await;
+            db.list_media_reaction_rules()?
+                .into_iter()
+                .find(|r| r.id == id)
+                .ok_or_else(|| anyhow!("指定された演出ルールが見つかりません"))?
+        };
+        if !rule_has_playable_content(&rule) {
+            return Err(anyhow!(
+                "再生する画像・動画・音声ファイル、またはテロップを設定してください"
+            ));
+        }
+        let now_ms = Utc::now().timestamp_millis();
+        let sample_msg = rule.pattern.lines().next().unwrap_or(&rule.name);
+        let trig = build_trigger_event(&rule, "テスト視聴者", sample_msg, now_ms);
+        self.overlay_state.trigger_media(trig.clone());
+        self.emit(AppEvent::media_triggered(trig));
+        Ok(())
+    }
+
+    pub fn clear_overlay_media(&self) {
+        self.overlay_state.clear_media();
     }
 }

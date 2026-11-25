@@ -17,6 +17,11 @@ class AppEvent {
   final FirstTimeCounterState? firstTimeState;
   final CommentLotteryState? commentLottery;
   final LotteryResult? lotteryResult;
+  final List<MonetizationItem>? monetizationItems;
+  final PollState? pollState;
+  final PickedCommentState? pickedComment;
+  final QueueState? queueState;
+  final MediaTriggerEvent? mediaTrigger;
   final FeatureFlags? featureFlags;
   final String? noticeLevel;
   final String? noticeMessage;
@@ -30,6 +35,11 @@ class AppEvent {
     this.firstTimeState,
     this.commentLottery,
     this.lotteryResult,
+    this.monetizationItems,
+    this.pollState,
+    this.pickedComment,
+    this.queueState,
+    this.mediaTrigger,
     this.featureFlags,
     this.noticeLevel,
     this.noticeMessage,
@@ -45,6 +55,11 @@ class AppEvent {
       firstTimeState.hashCode ^
       commentLottery.hashCode ^
       lotteryResult.hashCode ^
+      monetizationItems.hashCode ^
+      pollState.hashCode ^
+      pickedComment.hashCode ^
+      queueState.hashCode ^
+      mediaTrigger.hashCode ^
       featureFlags.hashCode ^
       noticeLevel.hashCode ^
       noticeMessage.hashCode;
@@ -62,6 +77,11 @@ class AppEvent {
           firstTimeState == other.firstTimeState &&
           commentLottery == other.commentLottery &&
           lotteryResult == other.lotteryResult &&
+          monetizationItems == other.monetizationItems &&
+          pollState == other.pollState &&
+          pickedComment == other.pickedComment &&
+          queueState == other.queueState &&
+          mediaTrigger == other.mediaTrigger &&
           featureFlags == other.featureFlags &&
           noticeLevel == other.noticeLevel &&
           noticeMessage == other.noticeMessage;
@@ -77,6 +97,11 @@ enum AppEventKind {
   usersUpdated,
   commentLotteryUpdated,
   lotteryDrawn,
+  monetizationUpdated,
+  pollUpdated,
+  pickedCommentUpdated,
+  queueUpdated,
+  mediaTriggered,
   featureFlagsUpdated,
   systemNotice,
 }
@@ -105,6 +130,15 @@ class CommentItem {
   final String? bubbleTextColor;
   final String? bubbleBorderColor;
 
+  /// スパチャ・メンバーシップ等のイベント種別（通常コメントは None）
+  final MonetizationEventKind? eventKind;
+
+  /// スパチャ金額やメンバー継続期間などの表示ラベル
+  final String? amountDisplay;
+
+  /// スパチャ・メンバーシップのティア強調色
+  final String? eventAccentColor;
+
   const CommentItem({
     required this.id,
     required this.sessionId,
@@ -124,6 +158,9 @@ class CommentItem {
     this.bubbleBgColor,
     this.bubbleTextColor,
     this.bubbleBorderColor,
+    this.eventKind,
+    this.amountDisplay,
+    this.eventAccentColor,
   });
 
   @override
@@ -145,7 +182,10 @@ class CommentItem {
       highlightRuleId.hashCode ^
       bubbleBgColor.hashCode ^
       bubbleTextColor.hashCode ^
-      bubbleBorderColor.hashCode;
+      bubbleBorderColor.hashCode ^
+      eventKind.hashCode ^
+      amountDisplay.hashCode ^
+      eventAccentColor.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -169,7 +209,10 @@ class CommentItem {
           highlightRuleId == other.highlightRuleId &&
           bubbleBgColor == other.bubbleBgColor &&
           bubbleTextColor == other.bubbleTextColor &&
-          bubbleBorderColor == other.bubbleBorderColor;
+          bubbleBorderColor == other.bubbleBorderColor &&
+          eventKind == other.eventKind &&
+          amountDisplay == other.amountDisplay &&
+          eventAccentColor == other.eventAccentColor;
 }
 
 /// コメント抽選の設定
@@ -399,6 +442,21 @@ class FeatureFlags {
   /// 初見カウンター機能
   final bool firstTimeCounterEnabled;
 
+  /// スーパーチャット / メンバーシップ専用管理機能
+  final bool superchatEnabled;
+
+  /// リアルタイム投票 / アンケート機能
+  final bool pollEnabled;
+
+  /// コメントピックアップ（ピン留め表示）機能
+  final bool pickupEnabled;
+
+  /// 参加型キュー（順番待ちリスト）機能
+  final bool queueEnabled;
+
+  /// 特定ワード反応メディアアニメーション機能
+  final bool mediaReactionEnabled;
+
   /// OBS Studio オーバーレイローカルサーバー
   final bool obsOverlayEnabled;
 
@@ -414,6 +472,11 @@ class FeatureFlags {
     required this.userTrackingEnabled,
     required this.userMemoDisplayEnabled,
     required this.firstTimeCounterEnabled,
+    required this.superchatEnabled,
+    required this.pollEnabled,
+    required this.pickupEnabled,
+    required this.queueEnabled,
+    required this.mediaReactionEnabled,
     required this.obsOverlayEnabled,
     required this.autoUpdateCheckEnabled,
   });
@@ -428,6 +491,11 @@ class FeatureFlags {
       userTrackingEnabled.hashCode ^
       userMemoDisplayEnabled.hashCode ^
       firstTimeCounterEnabled.hashCode ^
+      superchatEnabled.hashCode ^
+      pollEnabled.hashCode ^
+      pickupEnabled.hashCode ^
+      queueEnabled.hashCode ^
+      mediaReactionEnabled.hashCode ^
       obsOverlayEnabled.hashCode ^
       autoUpdateCheckEnabled.hashCode;
 
@@ -444,6 +512,11 @@ class FeatureFlags {
           userTrackingEnabled == other.userTrackingEnabled &&
           userMemoDisplayEnabled == other.userMemoDisplayEnabled &&
           firstTimeCounterEnabled == other.firstTimeCounterEnabled &&
+          superchatEnabled == other.superchatEnabled &&
+          pollEnabled == other.pollEnabled &&
+          pickupEnabled == other.pickupEnabled &&
+          queueEnabled == other.queueEnabled &&
+          mediaReactionEnabled == other.mediaReactionEnabled &&
           obsOverlayEnabled == other.obsOverlayEnabled &&
           autoUpdateCheckEnabled == other.autoUpdateCheckEnabled;
 }
@@ -636,6 +709,38 @@ class HighlightRule {
           enabled == other.enabled;
 }
 
+/// アプリ内へインポート完了したメディア情報
+class ImportedMediaFile {
+  final String storedFileName;
+  final String originalFileName;
+  final MediaKind mediaKind;
+  final BigInt fileSizeBytes;
+
+  const ImportedMediaFile({
+    required this.storedFileName,
+    required this.originalFileName,
+    required this.mediaKind,
+    required this.fileSizeBytes,
+  });
+
+  @override
+  int get hashCode =>
+      storedFileName.hashCode ^
+      originalFileName.hashCode ^
+      mediaKind.hashCode ^
+      fileSizeBytes.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ImportedMediaFile &&
+          runtimeType == other.runtimeType &&
+          storedFileName == other.storedFileName &&
+          originalFileName == other.originalFileName &&
+          mediaKind == other.mediaKind &&
+          fileSizeBytes == other.fileSizeBytes;
+}
+
 /// 抽選の重複許可設定
 enum LotteryRepeatMode {
   /// 1度のみ（一度当選したユーザーはリセットまで除外）
@@ -722,6 +827,482 @@ class LotteryWinner {
 /// ワードの一致判定方式
 enum MatchMode { contains, exact, regex }
 
+/// メディア登場・退場アニメーション種別
+enum MediaAnimationKind {
+  fade,
+  popIn,
+  slideUp,
+  slideLeft,
+  bounce,
+  zoomSpin,
+  none,
+}
+
+/// WordParty 演出タイプ
+enum MediaEffectType {
+  /// 指定位置への固定表示（画像・GIF・透過WebM/MP4・音声）
+  fixed,
+
+  /// 画面左右から勢いよく飛び出すクラッカー演出
+  cracker,
+
+  /// 画面上部からアイテムがヒラヒラ降ってくる落下物演出
+  drop,
+
+  /// 画面全体に紙吹雪が舞うお祝い演出
+  confetti,
+
+  /// 画面端から放物線で投げ込まれてバウンドする投てき演出
+  throw_,
+
+  /// 雪・桜吹雪・雨・キラキラ・ハート・火の粉などの環境演出
+  ambient,
+}
+
+/// ワード反応メディア種別
+enum MediaKind { image, video, audio }
+
+/// 複数同時トリガー時のメディア再生方式
+enum MediaPlaybackMode {
+  /// キューで順番に1つずつ再生
+  queue,
+
+  /// 画面上に同時に重ねて再生
+  overlay,
+
+  /// 再生中のものを上書きして最新のみ再生
+  replace,
+}
+
+/// メディア表示位置
+enum MediaPosition {
+  center,
+  topLeft,
+  topRight,
+  bottomLeft,
+  bottomRight,
+  fullScreen,
+}
+
+/// ワード反応メディア全体の再生設定
+class MediaReactionConfig {
+  final MediaPlaybackMode playbackMode;
+
+  /// マスター音量 (0〜100)
+  final int masterVolume;
+
+  /// 重ね表示時の同時最大再生数
+  final int maxConcurrent;
+
+  /// 1つのコメントで複数ルールを同時発動する（false = 優先順位最上位1件のみ）
+  final bool allowMultipleMatch;
+
+  const MediaReactionConfig({
+    required this.playbackMode,
+    required this.masterVolume,
+    required this.maxConcurrent,
+    required this.allowMultipleMatch,
+  });
+
+  @override
+  int get hashCode =>
+      playbackMode.hashCode ^
+      masterVolume.hashCode ^
+      maxConcurrent.hashCode ^
+      allowMultipleMatch.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MediaReactionConfig &&
+          runtimeType == other.runtimeType &&
+          playbackMode == other.playbackMode &&
+          masterVolume == other.masterVolume &&
+          maxConcurrent == other.maxConcurrent &&
+          allowMultipleMatch == other.allowMultipleMatch;
+}
+
+/// 特定ワード反応演出（WordParty）のルール
+class MediaReactionRule {
+  final String id;
+  final String name;
+
+  /// 反応ワード（改行区切りで複数登録可能）
+  final String pattern;
+  final MatchMode matchMode;
+  final bool caseSensitive;
+
+  /// 演出タイプ（固定表示 / クラッカー / 落下物 / 紙吹雪 / 投てき / 環境演出）
+  final MediaEffectType effectType;
+
+  /// 発動トリガー条件（キーワード / 全コメント / スパチャ / メンバー / 初見）
+  final MediaTriggerType triggerType;
+
+  /// スパチャ発動時の最低金額（0 = 全額）
+  final BigInt minSuperchatAmount;
+
+  /// ルール優先順位（大きいほど先に判定）
+  final int priority;
+  final MediaKind mediaKind;
+
+  /// Stosup 内にコピー保存された画像・動画・音声ファイル名（空 = テキスト/標準シェイプ）
+  final String storedFileName;
+
+  /// ユーザーが選んだ元のファイル名
+  final String originalFileName;
+
+  /// 同時再生する効果音（SE）ファイル名（空 = 効果音なし）
+  final String soundStoredFileName;
+  final String soundOriginalFileName;
+  final int soundVolume;
+  final MediaAnimationKind animation;
+  final MediaPosition position;
+
+  /// 表示・再生時間（ミリ秒）。動画で 0 の場合は動画の最後まで自動再生
+  final int durationMs;
+
+  /// 固定表示時の画面幅に対する割合（10〜100%）
+  final int widthPercent;
+
+  /// 動画/音声の音量（0〜100）
+  final int volume;
+
+  /// パーティクル個数（1〜120）
+  final int particleCount;
+
+  /// パーティクルサイズ px（24〜240）
+  final int particleSize;
+
+  /// パーティクル速度 %（30〜250）
+  final int particleSpeed;
+
+  /// 重力強さ %（0〜200）
+  final int gravity;
+
+  /// 画像未指定時に飛ばす絵文字・テキスト（カンマ区切りで複数指定可）
+  final String particleText;
+
+  /// 環境演出プリセット ("snow" | "sakura" | "rain" | "sparkle" | "hearts" | "embers")
+  final String ambientPreset;
+
+  /// 連打防止クールダウン秒数
+  final int cooldownSec;
+  final bool excludeBanned;
+
+  /// 任意テロップ（`{user}` で発動者名を置換、空なら非表示）
+  final String captionTemplate;
+  final bool enabled;
+
+  const MediaReactionRule({
+    required this.id,
+    required this.name,
+    required this.pattern,
+    required this.matchMode,
+    required this.caseSensitive,
+    required this.effectType,
+    required this.triggerType,
+    required this.minSuperchatAmount,
+    required this.priority,
+    required this.mediaKind,
+    required this.storedFileName,
+    required this.originalFileName,
+    required this.soundStoredFileName,
+    required this.soundOriginalFileName,
+    required this.soundVolume,
+    required this.animation,
+    required this.position,
+    required this.durationMs,
+    required this.widthPercent,
+    required this.volume,
+    required this.particleCount,
+    required this.particleSize,
+    required this.particleSpeed,
+    required this.gravity,
+    required this.particleText,
+    required this.ambientPreset,
+    required this.cooldownSec,
+    required this.excludeBanned,
+    required this.captionTemplate,
+    required this.enabled,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      pattern.hashCode ^
+      matchMode.hashCode ^
+      caseSensitive.hashCode ^
+      effectType.hashCode ^
+      triggerType.hashCode ^
+      minSuperchatAmount.hashCode ^
+      priority.hashCode ^
+      mediaKind.hashCode ^
+      storedFileName.hashCode ^
+      originalFileName.hashCode ^
+      soundStoredFileName.hashCode ^
+      soundOriginalFileName.hashCode ^
+      soundVolume.hashCode ^
+      animation.hashCode ^
+      position.hashCode ^
+      durationMs.hashCode ^
+      widthPercent.hashCode ^
+      volume.hashCode ^
+      particleCount.hashCode ^
+      particleSize.hashCode ^
+      particleSpeed.hashCode ^
+      gravity.hashCode ^
+      particleText.hashCode ^
+      ambientPreset.hashCode ^
+      cooldownSec.hashCode ^
+      excludeBanned.hashCode ^
+      captionTemplate.hashCode ^
+      enabled.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MediaReactionRule &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          pattern == other.pattern &&
+          matchMode == other.matchMode &&
+          caseSensitive == other.caseSensitive &&
+          effectType == other.effectType &&
+          triggerType == other.triggerType &&
+          minSuperchatAmount == other.minSuperchatAmount &&
+          priority == other.priority &&
+          mediaKind == other.mediaKind &&
+          storedFileName == other.storedFileName &&
+          originalFileName == other.originalFileName &&
+          soundStoredFileName == other.soundStoredFileName &&
+          soundOriginalFileName == other.soundOriginalFileName &&
+          soundVolume == other.soundVolume &&
+          animation == other.animation &&
+          position == other.position &&
+          durationMs == other.durationMs &&
+          widthPercent == other.widthPercent &&
+          volume == other.volume &&
+          particleCount == other.particleCount &&
+          particleSize == other.particleSize &&
+          particleSpeed == other.particleSpeed &&
+          gravity == other.gravity &&
+          particleText == other.particleText &&
+          ambientPreset == other.ambientPreset &&
+          cooldownSec == other.cooldownSec &&
+          excludeBanned == other.excludeBanned &&
+          captionTemplate == other.captionTemplate &&
+          enabled == other.enabled;
+}
+
+/// OBS メディアオーバーレイへ送信する再生トリガーイベント
+class MediaTriggerEvent {
+  final String eventId;
+  final String ruleId;
+  final String ruleName;
+  final MediaEffectType effectType;
+  final String mediaUrl;
+  final MediaKind mediaKind;
+  final String? soundUrl;
+  final int soundVolume;
+  final MediaAnimationKind animation;
+  final MediaPosition position;
+  final int durationMs;
+  final int widthPercent;
+  final int volume;
+  final int particleCount;
+  final int particleSize;
+  final int particleSpeed;
+  final int gravity;
+  final String particleText;
+  final String ambientPreset;
+  final String caption;
+  final String triggeredBy;
+  final PlatformInt64 triggeredAtMs;
+
+  const MediaTriggerEvent({
+    required this.eventId,
+    required this.ruleId,
+    required this.ruleName,
+    required this.effectType,
+    required this.mediaUrl,
+    required this.mediaKind,
+    this.soundUrl,
+    required this.soundVolume,
+    required this.animation,
+    required this.position,
+    required this.durationMs,
+    required this.widthPercent,
+    required this.volume,
+    required this.particleCount,
+    required this.particleSize,
+    required this.particleSpeed,
+    required this.gravity,
+    required this.particleText,
+    required this.ambientPreset,
+    required this.caption,
+    required this.triggeredBy,
+    required this.triggeredAtMs,
+  });
+
+  @override
+  int get hashCode =>
+      eventId.hashCode ^
+      ruleId.hashCode ^
+      ruleName.hashCode ^
+      effectType.hashCode ^
+      mediaUrl.hashCode ^
+      mediaKind.hashCode ^
+      soundUrl.hashCode ^
+      soundVolume.hashCode ^
+      animation.hashCode ^
+      position.hashCode ^
+      durationMs.hashCode ^
+      widthPercent.hashCode ^
+      volume.hashCode ^
+      particleCount.hashCode ^
+      particleSize.hashCode ^
+      particleSpeed.hashCode ^
+      gravity.hashCode ^
+      particleText.hashCode ^
+      ambientPreset.hashCode ^
+      caption.hashCode ^
+      triggeredBy.hashCode ^
+      triggeredAtMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MediaTriggerEvent &&
+          runtimeType == other.runtimeType &&
+          eventId == other.eventId &&
+          ruleId == other.ruleId &&
+          ruleName == other.ruleName &&
+          effectType == other.effectType &&
+          mediaUrl == other.mediaUrl &&
+          mediaKind == other.mediaKind &&
+          soundUrl == other.soundUrl &&
+          soundVolume == other.soundVolume &&
+          animation == other.animation &&
+          position == other.position &&
+          durationMs == other.durationMs &&
+          widthPercent == other.widthPercent &&
+          volume == other.volume &&
+          particleCount == other.particleCount &&
+          particleSize == other.particleSize &&
+          particleSpeed == other.particleSpeed &&
+          gravity == other.gravity &&
+          particleText == other.particleText &&
+          ambientPreset == other.ambientPreset &&
+          caption == other.caption &&
+          triggeredBy == other.triggeredBy &&
+          triggeredAtMs == other.triggeredAtMs;
+}
+
+/// WordParty 演出の発動トリガー条件
+enum MediaTriggerType {
+  /// 指定キーワード（複数行可）に一致
+  keyword,
+
+  /// すべてのコメントに反応
+  anyComment,
+
+  /// スーパーチャット / スーパーステッカー受信時
+  superChat,
+
+  /// メンバーシップ加入・継続・ギフト受信時
+  membership,
+
+  /// 初見さん検知時
+  firstTime,
+}
+
+/// スーパーチャット・メンバーシップ等の支援イベント種別
+enum MonetizationEventKind {
+  superChat,
+  superSticker,
+  membershipNew,
+  membershipMilestone,
+  membershipGift,
+}
+
+/// スーパーチャット / メンバーシップ専用管理アイテム（お礼済み・読み忘れチェック対応）
+class MonetizationItem {
+  final String id;
+  final String sessionId;
+  final PlatformKind platform;
+  final MonetizationEventKind kind;
+  final String userId;
+  final String userName;
+  final String userIconUrl;
+  final String amountDisplay;
+  final BigInt amountMicros;
+  final String currency;
+  final String tierColor;
+  final String message;
+  final PlatformInt64 timestampMs;
+  final bool isChecked;
+  final PlatformInt64? checkedAtMs;
+
+  const MonetizationItem({
+    required this.id,
+    required this.sessionId,
+    required this.platform,
+    required this.kind,
+    required this.userId,
+    required this.userName,
+    required this.userIconUrl,
+    required this.amountDisplay,
+    required this.amountMicros,
+    required this.currency,
+    required this.tierColor,
+    required this.message,
+    required this.timestampMs,
+    required this.isChecked,
+    this.checkedAtMs,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      sessionId.hashCode ^
+      platform.hashCode ^
+      kind.hashCode ^
+      userId.hashCode ^
+      userName.hashCode ^
+      userIconUrl.hashCode ^
+      amountDisplay.hashCode ^
+      amountMicros.hashCode ^
+      currency.hashCode ^
+      tierColor.hashCode ^
+      message.hashCode ^
+      timestampMs.hashCode ^
+      isChecked.hashCode ^
+      checkedAtMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MonetizationItem &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          sessionId == other.sessionId &&
+          platform == other.platform &&
+          kind == other.kind &&
+          userId == other.userId &&
+          userName == other.userName &&
+          userIconUrl == other.userIconUrl &&
+          amountDisplay == other.amountDisplay &&
+          amountMicros == other.amountMicros &&
+          currency == other.currency &&
+          tierColor == other.tierColor &&
+          message == other.message &&
+          timestampMs == other.timestampMs &&
+          isChecked == other.isChecked &&
+          checkedAtMs == other.checkedAtMs;
+}
+
 /// OBS ブラウザソースオーバーレイの設定 ＆ 各機能デザインプリセット・背景色・カスタムCSS
 class OverlayConfig {
   final int port;
@@ -744,17 +1325,42 @@ class OverlayConfig {
   /// 初見カウンターオーバーレイのデザインプリセット ("default" | "compact" | "scoreboard" | "neon" | "pastel")
   final String firstTimeTheme;
 
+  /// スパチャ・メンバーオーバーレイのデザインプリセット
+  final String superchatTheme;
+
+  /// リアルタイム投票オーバーレイのデザインプリセット
+  final String pollTheme;
+
+  /// コメントピックアップオーバーレイのデザインプリセット
+  final String pickupTheme;
+
+  /// 参加型キューオーバーレイのデザインプリセット
+  final String queueTheme;
+
+  /// ワード反応メディアオーバーレイのデザインプリセット
+  final String mediaTheme;
+
   /// 各オーバーレイの背景色 ("transparent" または "#RRGGBB" / "#RRGGBBAA")
   final String commentsBgColor;
   final String lotteryBgColor;
   final String counterBgColor;
   final String firstTimeBgColor;
+  final String superchatBgColor;
+  final String pollBgColor;
+  final String pickupBgColor;
+  final String queueBgColor;
+  final String mediaBgColor;
 
   /// 各オーバーレイのシステムフォントファミリー名（空文字 = プリセット標準）
   final String commentsFontFamily;
   final String lotteryFontFamily;
   final String counterFontFamily;
   final String firstTimeFontFamily;
+  final String superchatFontFamily;
+  final String pollFontFamily;
+  final String pickupFontFamily;
+  final String queueFontFamily;
+  final String mediaFontFamily;
 
   /// コメント表示用ユーザーカスタム CSS
   final String commentsCustomCss;
@@ -768,6 +1374,21 @@ class OverlayConfig {
   /// 初見カウンター用ユーザーカスタム CSS
   final String firstTimeCustomCss;
 
+  /// スパチャ・メンバー用ユーザーカスタム CSS
+  final String superchatCustomCss;
+
+  /// リアルタイム投票用ユーザーカスタム CSS
+  final String pollCustomCss;
+
+  /// コメントピックアップ用ユーザーカスタム CSS
+  final String pickupCustomCss;
+
+  /// 参加型キュー用ユーザーカスタム CSS
+  final String queueCustomCss;
+
+  /// ワード反応メディア用ユーザーカスタム CSS
+  final String mediaCustomCss;
+
   const OverlayConfig({
     required this.port,
     required this.commentFontSize,
@@ -780,18 +1401,38 @@ class OverlayConfig {
     required this.lotteryTheme,
     required this.counterTheme,
     required this.firstTimeTheme,
+    required this.superchatTheme,
+    required this.pollTheme,
+    required this.pickupTheme,
+    required this.queueTheme,
+    required this.mediaTheme,
     required this.commentsBgColor,
     required this.lotteryBgColor,
     required this.counterBgColor,
     required this.firstTimeBgColor,
+    required this.superchatBgColor,
+    required this.pollBgColor,
+    required this.pickupBgColor,
+    required this.queueBgColor,
+    required this.mediaBgColor,
     required this.commentsFontFamily,
     required this.lotteryFontFamily,
     required this.counterFontFamily,
     required this.firstTimeFontFamily,
+    required this.superchatFontFamily,
+    required this.pollFontFamily,
+    required this.pickupFontFamily,
+    required this.queueFontFamily,
+    required this.mediaFontFamily,
     required this.commentsCustomCss,
     required this.lotteryCustomCss,
     required this.counterCustomCss,
     required this.firstTimeCustomCss,
+    required this.superchatCustomCss,
+    required this.pollCustomCss,
+    required this.pickupCustomCss,
+    required this.queueCustomCss,
+    required this.mediaCustomCss,
   });
 
   @override
@@ -807,18 +1448,38 @@ class OverlayConfig {
       lotteryTheme.hashCode ^
       counterTheme.hashCode ^
       firstTimeTheme.hashCode ^
+      superchatTheme.hashCode ^
+      pollTheme.hashCode ^
+      pickupTheme.hashCode ^
+      queueTheme.hashCode ^
+      mediaTheme.hashCode ^
       commentsBgColor.hashCode ^
       lotteryBgColor.hashCode ^
       counterBgColor.hashCode ^
       firstTimeBgColor.hashCode ^
+      superchatBgColor.hashCode ^
+      pollBgColor.hashCode ^
+      pickupBgColor.hashCode ^
+      queueBgColor.hashCode ^
+      mediaBgColor.hashCode ^
       commentsFontFamily.hashCode ^
       lotteryFontFamily.hashCode ^
       counterFontFamily.hashCode ^
       firstTimeFontFamily.hashCode ^
+      superchatFontFamily.hashCode ^
+      pollFontFamily.hashCode ^
+      pickupFontFamily.hashCode ^
+      queueFontFamily.hashCode ^
+      mediaFontFamily.hashCode ^
       commentsCustomCss.hashCode ^
       lotteryCustomCss.hashCode ^
       counterCustomCss.hashCode ^
-      firstTimeCustomCss.hashCode;
+      firstTimeCustomCss.hashCode ^
+      superchatCustomCss.hashCode ^
+      pollCustomCss.hashCode ^
+      pickupCustomCss.hashCode ^
+      queueCustomCss.hashCode ^
+      mediaCustomCss.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -836,22 +1497,305 @@ class OverlayConfig {
           lotteryTheme == other.lotteryTheme &&
           counterTheme == other.counterTheme &&
           firstTimeTheme == other.firstTimeTheme &&
+          superchatTheme == other.superchatTheme &&
+          pollTheme == other.pollTheme &&
+          pickupTheme == other.pickupTheme &&
+          queueTheme == other.queueTheme &&
+          mediaTheme == other.mediaTheme &&
           commentsBgColor == other.commentsBgColor &&
           lotteryBgColor == other.lotteryBgColor &&
           counterBgColor == other.counterBgColor &&
           firstTimeBgColor == other.firstTimeBgColor &&
+          superchatBgColor == other.superchatBgColor &&
+          pollBgColor == other.pollBgColor &&
+          pickupBgColor == other.pickupBgColor &&
+          queueBgColor == other.queueBgColor &&
+          mediaBgColor == other.mediaBgColor &&
           commentsFontFamily == other.commentsFontFamily &&
           lotteryFontFamily == other.lotteryFontFamily &&
           counterFontFamily == other.counterFontFamily &&
           firstTimeFontFamily == other.firstTimeFontFamily &&
+          superchatFontFamily == other.superchatFontFamily &&
+          pollFontFamily == other.pollFontFamily &&
+          pickupFontFamily == other.pickupFontFamily &&
+          queueFontFamily == other.queueFontFamily &&
+          mediaFontFamily == other.mediaFontFamily &&
           commentsCustomCss == other.commentsCustomCss &&
           lotteryCustomCss == other.lotteryCustomCss &&
           counterCustomCss == other.counterCustomCss &&
-          firstTimeCustomCss == other.firstTimeCustomCss;
+          firstTimeCustomCss == other.firstTimeCustomCss &&
+          superchatCustomCss == other.superchatCustomCss &&
+          pollCustomCss == other.pollCustomCss &&
+          pickupCustomCss == other.pickupCustomCss &&
+          queueCustomCss == other.queueCustomCss &&
+          mediaCustomCss == other.mediaCustomCss;
+}
+
+/// コメントピックアップ（ピン留め表示）の現在状態
+class PickedCommentState {
+  final CommentItem? comment;
+  final PlatformInt64? pickedAtMs;
+
+  const PickedCommentState({this.comment, this.pickedAtMs});
+
+  @override
+  int get hashCode => comment.hashCode ^ pickedAtMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PickedCommentState &&
+          runtimeType == other.runtimeType &&
+          comment == other.comment &&
+          pickedAtMs == other.pickedAtMs;
 }
 
 /// 対応配信プラットフォーム（将来の拡張を前提とした列挙型）
 enum PlatformKind { youTube, demo }
+
+/// リアルタイム投票の設定
+class PollConfig {
+  final String question;
+  final List<PollOption> options;
+
+  /// 同一ユーザーが別選択肢へ投票を変更できるか
+  final bool allowVoteChange;
+  final bool excludeBanned;
+  final bool showPercentage;
+  final bool showVoteCount;
+
+  const PollConfig({
+    required this.question,
+    required this.options,
+    required this.allowVoteChange,
+    required this.excludeBanned,
+    required this.showPercentage,
+    required this.showVoteCount,
+  });
+
+  @override
+  int get hashCode =>
+      question.hashCode ^
+      options.hashCode ^
+      allowVoteChange.hashCode ^
+      excludeBanned.hashCode ^
+      showPercentage.hashCode ^
+      showVoteCount.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PollConfig &&
+          runtimeType == other.runtimeType &&
+          question == other.question &&
+          options == other.options &&
+          allowVoteChange == other.allowVoteChange &&
+          excludeBanned == other.excludeBanned &&
+          showPercentage == other.showPercentage &&
+          showVoteCount == other.showVoteCount;
+}
+
+/// リアルタイム投票の選択肢
+class PollOption {
+  final String id;
+  final String label;
+  final List<String> keywords;
+  final String color;
+  final BigInt voteCount;
+
+  const PollOption({
+    required this.id,
+    required this.label,
+    required this.keywords,
+    required this.color,
+    required this.voteCount,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      label.hashCode ^
+      keywords.hashCode ^
+      color.hashCode ^
+      voteCount.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PollOption &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          label == other.label &&
+          keywords == other.keywords &&
+          color == other.color &&
+          voteCount == other.voteCount;
+}
+
+/// リアルタイム投票の現在状態
+class PollState {
+  final bool isActive;
+  final PlatformInt64? startedAtMs;
+  final PlatformInt64? endedAtMs;
+  final PollConfig config;
+  final BigInt totalVotes;
+
+  const PollState({
+    required this.isActive,
+    this.startedAtMs,
+    this.endedAtMs,
+    required this.config,
+    required this.totalVotes,
+  });
+
+  @override
+  int get hashCode =>
+      isActive.hashCode ^
+      startedAtMs.hashCode ^
+      endedAtMs.hashCode ^
+      config.hashCode ^
+      totalVotes.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PollState &&
+          runtimeType == other.runtimeType &&
+          isActive == other.isActive &&
+          startedAtMs == other.startedAtMs &&
+          endedAtMs == other.endedAtMs &&
+          config == other.config &&
+          totalVotes == other.totalVotes;
+}
+
+/// 参加型キューの設定
+class QueueConfig {
+  final bool isAccepting;
+  final int maxActiveSlots;
+  final List<String> joinKeywords;
+  final List<String> leaveKeywords;
+  final QueueSortMode sortMode;
+  final bool excludeBanned;
+  final bool allowRejoinAfterComplete;
+
+  const QueueConfig({
+    required this.isAccepting,
+    required this.maxActiveSlots,
+    required this.joinKeywords,
+    required this.leaveKeywords,
+    required this.sortMode,
+    required this.excludeBanned,
+    required this.allowRejoinAfterComplete,
+  });
+
+  @override
+  int get hashCode =>
+      isAccepting.hashCode ^
+      maxActiveSlots.hashCode ^
+      joinKeywords.hashCode ^
+      leaveKeywords.hashCode ^
+      sortMode.hashCode ^
+      excludeBanned.hashCode ^
+      allowRejoinAfterComplete.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is QueueConfig &&
+          runtimeType == other.runtimeType &&
+          isAccepting == other.isAccepting &&
+          maxActiveSlots == other.maxActiveSlots &&
+          joinKeywords == other.joinKeywords &&
+          leaveKeywords == other.leaveKeywords &&
+          sortMode == other.sortMode &&
+          excludeBanned == other.excludeBanned &&
+          allowRejoinAfterComplete == other.allowRejoinAfterComplete;
+}
+
+/// 参加型キューの1人分のエントリ
+class QueueEntry {
+  final String userId;
+  final PlatformKind platform;
+  final String userName;
+  final String userIconUrl;
+  final QueueEntryStatus status;
+  final int playCount;
+  final bool isFirstTime;
+  final String note;
+  final PlatformInt64 joinedAtMs;
+
+  const QueueEntry({
+    required this.userId,
+    required this.platform,
+    required this.userName,
+    required this.userIconUrl,
+    required this.status,
+    required this.playCount,
+    required this.isFirstTime,
+    required this.note,
+    required this.joinedAtMs,
+  });
+
+  @override
+  int get hashCode =>
+      userId.hashCode ^
+      platform.hashCode ^
+      userName.hashCode ^
+      userIconUrl.hashCode ^
+      status.hashCode ^
+      playCount.hashCode ^
+      isFirstTime.hashCode ^
+      note.hashCode ^
+      joinedAtMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is QueueEntry &&
+          runtimeType == other.runtimeType &&
+          userId == other.userId &&
+          platform == other.platform &&
+          userName == other.userName &&
+          userIconUrl == other.userIconUrl &&
+          status == other.status &&
+          playCount == other.playCount &&
+          isFirstTime == other.isFirstTime &&
+          note == other.note &&
+          joinedAtMs == other.joinedAtMs;
+}
+
+/// 参加型キューのエントリ状態
+enum QueueEntryStatus { active, waiting, completed }
+
+/// 参加型キューの並び順・優先方式
+enum QueueSortMode {
+  /// 先着順
+  firstCome,
+
+  /// 参加回数が少ない人優先（同数なら先着）
+  fewestPlaysFirst,
+
+  /// 初見さん優先 → 参加回数が少ない順 → 先着
+  firstTimerFirst,
+}
+
+/// 参加型キューの全体状態
+class QueueState {
+  final QueueConfig config;
+  final List<QueueEntry> entries;
+
+  const QueueState({required this.config, required this.entries});
+
+  @override
+  int get hashCode => config.hashCode ^ entries.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is QueueState &&
+          runtimeType == other.runtimeType &&
+          config == other.config &&
+          entries == other.entries;
+}
 
 /// アップデート後初回起動時のリリースノート情報
 class ReleaseNotesInfo {

@@ -73,6 +73,15 @@
   .badge-owner { background: #eab308; color: #18181b; }
   .badge-mod { background: #2563eb; color: #ffffff; }
   .badge-member { background: #16a34a; color: #ffffff; }
+  .badge-monetization {
+    background: var(--event-accent, #eab308);
+    color: #111827;
+    font-weight: 800;
+  }
+  .bubble.monetization {
+    border-left: 5px solid var(--event-accent, #eab308) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.42);
+  }
   .timestamp { margin-left: auto; font-size: 0.72em; opacity: 0.65; }
   .message { line-height: 1.45; font-weight: 500; }
 
@@ -231,9 +240,15 @@
     }
 
     const bubble = document.createElement('div');
-    bubble.className = 'bubble' + (c.bubble_bg_color ? ' highlighted' : '');
+    const isMonetization = !!c.event_kind;
+    bubble.className = 'bubble' + (c.bubble_bg_color ? ' highlighted' : '') + (isMonetization ? ' monetization' : '');
+    if (isMonetization && c.event_accent_color) {
+      bubble.style.setProperty('--event-accent', hexToCss(c.event_accent_color, '#eab308'));
+    }
     if (c.bubble_bg_color) {
       bubble.style.background = hexToCss(c.bubble_bg_color, '');
+    } else if (isMonetization && c.event_accent_color) {
+      bubble.style.borderColor = hexToCss(c.event_accent_color, '#eab308');
     }
     if (c.bubble_text_color) {
       bubble.style.color = hexToCss(c.bubble_text_color, '');
@@ -248,6 +263,13 @@
     author.className = 'author';
     author.textContent = c.user_name;
     header.appendChild(author);
+
+    if (isMonetization && c.amount_display) {
+      const b = document.createElement('span');
+      b.className = 'badge badge-monetization';
+      b.textContent = c.amount_display;
+      header.appendChild(b);
+    }
 
     if (c.is_owner) {
       const b = document.createElement('span');

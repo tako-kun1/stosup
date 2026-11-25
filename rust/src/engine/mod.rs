@@ -1,6 +1,9 @@
 pub mod counter;
 pub mod highlight;
 pub mod lottery;
+pub mod media_reaction;
+pub mod poll;
+pub mod queue;
 
 use regex::RegexBuilder;
 

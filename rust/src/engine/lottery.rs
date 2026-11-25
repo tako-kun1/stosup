@@ -296,6 +296,9 @@ mod tests {
             bubble_bg_color: None,
             bubble_text_color: None,
             bubble_border_color: None,
+            event_kind: None,
+            amount_display: None,
+            event_accent_color: None,
         };
 
         // 開始前のコメントは除外

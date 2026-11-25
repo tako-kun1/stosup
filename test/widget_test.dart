@@ -1,5 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stosup/screens/media_reaction_screen.dart';
+import 'package:stosup/screens/poll_screen.dart';
+import 'package:stosup/screens/queue_screen.dart';
+import 'package:stosup/screens/settings_screen.dart';
+import 'package:stosup/screens/superchat_screen.dart';
 import 'package:stosup/screens/users_screen.dart';
 import 'package:stosup/src/rust/models.dart';
 import 'package:stosup/state/stosup_controller.dart';
@@ -284,5 +289,67 @@ void main() {
     expect(ctrl.resetKeepBannedCalls, [true]);
     expect(find.text('花子'), findsNothing);
     expect(find.text('荒らし'), findsOneWidget);
+  });
+
+  testWidgets('新機能 4 画面（スパチャ/投票/参加型キュー/ワード演出）が正常に描画される',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final ctrl = StosupController();
+    addTearDown(ctrl.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(body: SuperchatScreen(controller: ctrl)),
+      ),
+    );
+    expect(find.textContaining('スーパーチャット / メンバーシップ'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(body: PollScreen(controller: ctrl)),
+      ),
+    );
+    expect(find.text('リアルタイム投票 / アンケート'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(body: QueueScreen(controller: ctrl)),
+      ),
+    );
+    expect(find.text('参加型キュー（順番待ちリスト）管理'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(body: MediaReactionScreen(controller: ctrl)),
+      ),
+    );
+    expect(find.textContaining('WordParty 演出エディタ'), findsOneWidget);
+    expect(find.text('順番待ち（1つずつ）'), findsOneWidget);
+    expect(find.text('重ね表示（同時再生）'), findsOneWidget);
+    expect(find.text('上書き（最新のみ）'), findsOneWidget);
+    expect(find.text('おめでとうクラッカー'), findsOneWidget);
+    expect(find.text('草シャワー落下'), findsOneWidget);
+    expect(find.text('888 紙吹雪'), findsOneWidget);
+
+    ctrl.appVersion = '0.4.0';
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(body: SettingsScreen(controller: ctrl)),
+      ),
+    );
+    expect(find.text('ソフトウェア情報'), findsOneWidget);
+    expect(find.text('Stosup：v0.4.0'), findsOneWidget);
+    expect(find.text('アップデートチェック'), findsOneWidget);
+    expect(find.text('リリースノートを表示'), findsOneWidget);
+    expect(find.text('GitHub リポジトリを開く'), findsOneWidget);
   });
 }

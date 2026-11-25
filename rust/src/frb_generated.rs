@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 579225428;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1660417204;
 
 // Section: executor
 
@@ -155,6 +155,43 @@ fn wire__crate__api__check_for_updates_impl(
         },
     )
 }
+fn wire__crate__api__clear_monetization_events_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "clear_monetization_events",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_checked_only = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::clear_monetization_events(api_checked_only).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__clear_overlay_lottery_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -182,6 +219,111 @@ fn wire__crate__api__clear_overlay_lottery_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::clear_overlay_lottery().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__clear_overlay_media_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "clear_overlay_media",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::clear_overlay_media().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__clear_overlay_poll_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "clear_overlay_poll",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::clear_overlay_poll().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__clear_picked_comment_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "clear_picked_comment",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::clear_picked_comment().await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -329,6 +471,78 @@ fn wire__crate__api__delete_highlight_rule_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::delete_highlight_rule(api_id).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__delete_media_reaction_rule_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "delete_media_reaction_rule",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::delete_media_reaction_rule(api_id).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__delete_monetization_event_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "delete_monetization_event",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::delete_monetization_event(api_id).await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -803,6 +1017,41 @@ fn wire__crate__api__get_first_time_state_impl(
         },
     )
 }
+fn wire__crate__api__get_media_reaction_config_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_media_reaction_config",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::get_media_reaction_config().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__get_overlay_config_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -830,6 +1079,111 @@ fn wire__crate__api__get_overlay_config_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::get_overlay_config().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__get_picked_comment_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_picked_comment",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::get_picked_comment().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__get_poll_state_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_poll_state",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::get_poll_state().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__get_queue_state_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_queue_state",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::get_queue_state().await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -1013,6 +1367,42 @@ fn wire__crate__api__get_youtube_oauth_status_impl(
         },
     )
 }
+fn wire__crate__api__import_media_file_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "import_media_file",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_source_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::import_media_file(api_source_path).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__init_app_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1155,6 +1545,77 @@ fn wire__crate__api__list_lottery_history_impl(
         },
     )
 }
+fn wire__crate__api__list_media_reaction_rules_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_media_reaction_rules",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::list_media_reaction_rules().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__list_monetization_events_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_monetization_events",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_limit = <u32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::list_monetization_events(api_limit).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__list_system_fonts_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1257,6 +1718,41 @@ fn wire__crate__api__list_word_counters_impl(
         },
     )
 }
+fn wire__crate__api__mark_all_monetization_checked_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "mark_all_monetization_checked",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::mark_all_monetization_checked().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__mark_release_notes_seen_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1325,6 +1821,112 @@ fn wire__crate__api__open_external_url_impl(
         },
     )
 }
+fn wire__crate__api__pick_comment_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "pick_comment",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_comment = <crate::models::CommentItem>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::pick_comment(api_comment).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__pick_media_file_dialog_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "pick_media_file_dialog",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, ()>(
+                    (move || async move {
+                        let output_ok = Ok::<_, ()>(crate::api::pick_media_file_dialog().await)?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__pick_sound_file_dialog_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "pick_sound_file_dialog",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, ()>(
+                    (move || async move {
+                        let output_ok = Ok::<_, ()>(crate::api::pick_sound_file_dialog().await)?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__post_chat_message_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1353,6 +1955,262 @@ fn wire__crate__api__post_chat_message_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::post_chat_message(api_text).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__queue_add_manual_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "queue_add_manual",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_user_name = <String>::sse_decode(&mut deserializer);
+            let api_note = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::queue_add_manual(api_user_name, api_note).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__queue_move_entry_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "queue_move_entry",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_user_id = <String>::sse_decode(&mut deserializer);
+            let api_delta = <i32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::queue_move_entry(api_user_id, api_delta).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__queue_promote_next_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "queue_promote_next",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::queue_promote_next().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__queue_remove_entry_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "queue_remove_entry",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_user_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::queue_remove_entry(api_user_id).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__queue_reset_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "queue_reset",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_reset_play_counts = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::queue_reset(api_reset_play_counts).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__queue_rotate_active_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "queue_rotate_active",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::queue_rotate_active().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__queue_set_status_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "queue_set_status",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_user_id = <String>::sse_decode(&mut deserializer);
+            let api_status = <crate::models::QueueEntryStatus>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::queue_set_status(api_user_id, api_status).await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -1460,6 +2318,41 @@ fn wire__crate__api__reset_first_time_session_count_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::reset_first_time_session_count().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__reset_poll_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "reset_poll",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::reset_poll().await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -1683,6 +2576,78 @@ fn wire__crate__api__save_highlight_rule_impl(
         },
     )
 }
+fn wire__crate__api__save_media_reaction_config_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "save_media_reaction_config",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_config = <crate::models::MediaReactionConfig>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::save_media_reaction_config(api_config).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__save_media_reaction_rule_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "save_media_reaction_rule",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_rule = <crate::models::MediaReactionRule>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::save_media_reaction_rule(api_rule).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__save_overlay_config_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1711,6 +2676,78 @@ fn wire__crate__api__save_overlay_config_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::save_overlay_config(api_config).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__save_poll_config_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "save_poll_config",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_config = <crate::models::PollConfig>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::save_poll_config(api_config).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__save_queue_config_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "save_queue_config",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_config = <crate::models::QueueConfig>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::save_queue_config(api_config).await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -1870,6 +2907,89 @@ fn wire__crate__api__send_demo_comment_impl(
         },
     )
 }
+fn wire__crate__api__send_demo_monetization_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "send_demo_monetization",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_kind = <crate::models::MonetizationEventKind>::sse_decode(&mut deserializer);
+            let api_user_name = <String>::sse_decode(&mut deserializer);
+            let api_amount_display = <String>::sse_decode(&mut deserializer);
+            let api_message = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::send_demo_monetization(
+                            api_kind,
+                            api_user_name,
+                            api_amount_display,
+                            api_message,
+                        )
+                        .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__set_monetization_checked_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_monetization_checked",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_id = <String>::sse_decode(&mut deserializer);
+            let api_checked = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::set_monetization_checked(api_id, api_checked).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__set_user_ban_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1990,6 +3110,42 @@ fn wire__crate__api__start_comment_lottery_impl(
         },
     )
 }
+fn wire__crate__api__start_poll_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "start_poll",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_config = <crate::models::PollConfig>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::start_poll(api_config).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__start_youtube_oauth_login_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2060,6 +3216,41 @@ fn wire__crate__api__stop_comment_lottery_impl(
         },
     )
 }
+fn wire__crate__api__stop_poll_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "stop_poll",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::stop_poll().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__subscribe_events_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2091,6 +3282,42 @@ fn wire__crate__api__subscribe_events_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::subscribe_events(api_sink).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__test_media_reaction_rule_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "test_media_reaction_rule",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::test_media_reaction_rule(api_id).await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -2194,6 +3421,14 @@ impl SseDecode for crate::models::AppEvent {
             <Option<crate::models::CommentLotteryState>>::sse_decode(deserializer);
         let mut var_lotteryResult =
             <Option<crate::models::LotteryResult>>::sse_decode(deserializer);
+        let mut var_monetizationItems =
+            <Option<Vec<crate::models::MonetizationItem>>>::sse_decode(deserializer);
+        let mut var_pollState = <Option<crate::models::PollState>>::sse_decode(deserializer);
+        let mut var_pickedComment =
+            <Option<crate::models::PickedCommentState>>::sse_decode(deserializer);
+        let mut var_queueState = <Option<crate::models::QueueState>>::sse_decode(deserializer);
+        let mut var_mediaTrigger =
+            <Option<crate::models::MediaTriggerEvent>>::sse_decode(deserializer);
         let mut var_featureFlags = <Option<crate::models::FeatureFlags>>::sse_decode(deserializer);
         let mut var_noticeLevel = <Option<String>>::sse_decode(deserializer);
         let mut var_noticeMessage = <Option<String>>::sse_decode(deserializer);
@@ -2206,6 +3441,11 @@ impl SseDecode for crate::models::AppEvent {
             first_time_state: var_firstTimeState,
             comment_lottery: var_commentLottery,
             lottery_result: var_lotteryResult,
+            monetization_items: var_monetizationItems,
+            poll_state: var_pollState,
+            picked_comment: var_pickedComment,
+            queue_state: var_queueState,
+            media_trigger: var_mediaTrigger,
             feature_flags: var_featureFlags,
             notice_level: var_noticeLevel,
             notice_message: var_noticeMessage,
@@ -2226,8 +3466,13 @@ impl SseDecode for crate::models::AppEventKind {
             5 => crate::models::AppEventKind::UsersUpdated,
             6 => crate::models::AppEventKind::CommentLotteryUpdated,
             7 => crate::models::AppEventKind::LotteryDrawn,
-            8 => crate::models::AppEventKind::FeatureFlagsUpdated,
-            9 => crate::models::AppEventKind::SystemNotice,
+            8 => crate::models::AppEventKind::MonetizationUpdated,
+            9 => crate::models::AppEventKind::PollUpdated,
+            10 => crate::models::AppEventKind::PickedCommentUpdated,
+            11 => crate::models::AppEventKind::QueueUpdated,
+            12 => crate::models::AppEventKind::MediaTriggered,
+            13 => crate::models::AppEventKind::FeatureFlagsUpdated,
+            14 => crate::models::AppEventKind::SystemNotice,
             _ => unreachable!("Invalid variant for AppEventKind: {}", inner),
         };
     }
@@ -2274,6 +3519,10 @@ impl SseDecode for crate::models::CommentItem {
         let mut var_bubbleBgColor = <Option<String>>::sse_decode(deserializer);
         let mut var_bubbleTextColor = <Option<String>>::sse_decode(deserializer);
         let mut var_bubbleBorderColor = <Option<String>>::sse_decode(deserializer);
+        let mut var_eventKind =
+            <Option<crate::models::MonetizationEventKind>>::sse_decode(deserializer);
+        let mut var_amountDisplay = <Option<String>>::sse_decode(deserializer);
+        let mut var_eventAccentColor = <Option<String>>::sse_decode(deserializer);
         return crate::models::CommentItem {
             id: var_id,
             session_id: var_sessionId,
@@ -2293,6 +3542,9 @@ impl SseDecode for crate::models::CommentItem {
             bubble_bg_color: var_bubbleBgColor,
             bubble_text_color: var_bubbleTextColor,
             bubble_border_color: var_bubbleBorderColor,
+            event_kind: var_eventKind,
+            amount_display: var_amountDisplay,
+            event_accent_color: var_eventAccentColor,
         };
     }
 }
@@ -2429,6 +3681,11 @@ impl SseDecode for crate::models::FeatureFlags {
         let mut var_userTrackingEnabled = <bool>::sse_decode(deserializer);
         let mut var_userMemoDisplayEnabled = <bool>::sse_decode(deserializer);
         let mut var_firstTimeCounterEnabled = <bool>::sse_decode(deserializer);
+        let mut var_superchatEnabled = <bool>::sse_decode(deserializer);
+        let mut var_pollEnabled = <bool>::sse_decode(deserializer);
+        let mut var_pickupEnabled = <bool>::sse_decode(deserializer);
+        let mut var_queueEnabled = <bool>::sse_decode(deserializer);
+        let mut var_mediaReactionEnabled = <bool>::sse_decode(deserializer);
         let mut var_obsOverlayEnabled = <bool>::sse_decode(deserializer);
         let mut var_autoUpdateCheckEnabled = <bool>::sse_decode(deserializer);
         return crate::models::FeatureFlags {
@@ -2440,6 +3697,11 @@ impl SseDecode for crate::models::FeatureFlags {
             user_tracking_enabled: var_userTrackingEnabled,
             user_memo_display_enabled: var_userMemoDisplayEnabled,
             first_time_counter_enabled: var_firstTimeCounterEnabled,
+            superchat_enabled: var_superchatEnabled,
+            poll_enabled: var_pollEnabled,
+            pickup_enabled: var_pickupEnabled,
+            queue_enabled: var_queueEnabled,
+            media_reaction_enabled: var_mediaReactionEnabled,
             obs_overlay_enabled: var_obsOverlayEnabled,
             auto_update_check_enabled: var_autoUpdateCheckEnabled,
         };
@@ -2544,6 +3806,22 @@ impl SseDecode for i64 {
     }
 }
 
+impl SseDecode for crate::models::ImportedMediaFile {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_storedFileName = <String>::sse_decode(deserializer);
+        let mut var_originalFileName = <String>::sse_decode(deserializer);
+        let mut var_mediaKind = <crate::models::MediaKind>::sse_decode(deserializer);
+        let mut var_fileSizeBytes = <u64>::sse_decode(deserializer);
+        return crate::models::ImportedMediaFile {
+            stored_file_name: var_storedFileName,
+            original_file_name: var_originalFileName,
+            media_kind: var_mediaKind,
+            file_size_bytes: var_fileSizeBytes,
+        };
+    }
+}
+
 impl SseDecode for Vec<String> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2630,6 +3908,42 @@ impl SseDecode for Vec<crate::models::LotteryWinner> {
     }
 }
 
+impl SseDecode for Vec<crate::models::MediaReactionRule> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::MediaReactionRule>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::MonetizationItem> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::MonetizationItem>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::PollOption> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::PollOption>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<u8> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2637,6 +3951,18 @@ impl SseDecode for Vec<u8> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<u8>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::QueueEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::QueueEntry>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -2723,6 +4049,285 @@ impl SseDecode for crate::models::MatchMode {
             1 => crate::models::MatchMode::Exact,
             2 => crate::models::MatchMode::Regex,
             _ => unreachable!("Invalid variant for MatchMode: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::MediaAnimationKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::models::MediaAnimationKind::Fade,
+            1 => crate::models::MediaAnimationKind::PopIn,
+            2 => crate::models::MediaAnimationKind::SlideUp,
+            3 => crate::models::MediaAnimationKind::SlideLeft,
+            4 => crate::models::MediaAnimationKind::Bounce,
+            5 => crate::models::MediaAnimationKind::ZoomSpin,
+            6 => crate::models::MediaAnimationKind::None,
+            _ => unreachable!("Invalid variant for MediaAnimationKind: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::MediaEffectType {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::models::MediaEffectType::Fixed,
+            1 => crate::models::MediaEffectType::Cracker,
+            2 => crate::models::MediaEffectType::Drop,
+            3 => crate::models::MediaEffectType::Confetti,
+            4 => crate::models::MediaEffectType::Throw,
+            5 => crate::models::MediaEffectType::Ambient,
+            _ => unreachable!("Invalid variant for MediaEffectType: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::MediaKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::models::MediaKind::Image,
+            1 => crate::models::MediaKind::Video,
+            2 => crate::models::MediaKind::Audio,
+            _ => unreachable!("Invalid variant for MediaKind: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::MediaPlaybackMode {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::models::MediaPlaybackMode::Queue,
+            1 => crate::models::MediaPlaybackMode::Overlay,
+            2 => crate::models::MediaPlaybackMode::Replace,
+            _ => unreachable!("Invalid variant for MediaPlaybackMode: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::MediaPosition {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::models::MediaPosition::Center,
+            1 => crate::models::MediaPosition::TopLeft,
+            2 => crate::models::MediaPosition::TopRight,
+            3 => crate::models::MediaPosition::BottomLeft,
+            4 => crate::models::MediaPosition::BottomRight,
+            5 => crate::models::MediaPosition::FullScreen,
+            _ => unreachable!("Invalid variant for MediaPosition: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::MediaReactionConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_playbackMode = <crate::models::MediaPlaybackMode>::sse_decode(deserializer);
+        let mut var_masterVolume = <u32>::sse_decode(deserializer);
+        let mut var_maxConcurrent = <u32>::sse_decode(deserializer);
+        let mut var_allowMultipleMatch = <bool>::sse_decode(deserializer);
+        return crate::models::MediaReactionConfig {
+            playback_mode: var_playbackMode,
+            master_volume: var_masterVolume,
+            max_concurrent: var_maxConcurrent,
+            allow_multiple_match: var_allowMultipleMatch,
+        };
+    }
+}
+
+impl SseDecode for crate::models::MediaReactionRule {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_pattern = <String>::sse_decode(deserializer);
+        let mut var_matchMode = <crate::models::MatchMode>::sse_decode(deserializer);
+        let mut var_caseSensitive = <bool>::sse_decode(deserializer);
+        let mut var_effectType = <crate::models::MediaEffectType>::sse_decode(deserializer);
+        let mut var_triggerType = <crate::models::MediaTriggerType>::sse_decode(deserializer);
+        let mut var_minSuperchatAmount = <u64>::sse_decode(deserializer);
+        let mut var_priority = <i32>::sse_decode(deserializer);
+        let mut var_mediaKind = <crate::models::MediaKind>::sse_decode(deserializer);
+        let mut var_storedFileName = <String>::sse_decode(deserializer);
+        let mut var_originalFileName = <String>::sse_decode(deserializer);
+        let mut var_soundStoredFileName = <String>::sse_decode(deserializer);
+        let mut var_soundOriginalFileName = <String>::sse_decode(deserializer);
+        let mut var_soundVolume = <u32>::sse_decode(deserializer);
+        let mut var_animation = <crate::models::MediaAnimationKind>::sse_decode(deserializer);
+        let mut var_position = <crate::models::MediaPosition>::sse_decode(deserializer);
+        let mut var_durationMs = <u32>::sse_decode(deserializer);
+        let mut var_widthPercent = <u32>::sse_decode(deserializer);
+        let mut var_volume = <u32>::sse_decode(deserializer);
+        let mut var_particleCount = <u32>::sse_decode(deserializer);
+        let mut var_particleSize = <u32>::sse_decode(deserializer);
+        let mut var_particleSpeed = <u32>::sse_decode(deserializer);
+        let mut var_gravity = <u32>::sse_decode(deserializer);
+        let mut var_particleText = <String>::sse_decode(deserializer);
+        let mut var_ambientPreset = <String>::sse_decode(deserializer);
+        let mut var_cooldownSec = <u32>::sse_decode(deserializer);
+        let mut var_excludeBanned = <bool>::sse_decode(deserializer);
+        let mut var_captionTemplate = <String>::sse_decode(deserializer);
+        let mut var_enabled = <bool>::sse_decode(deserializer);
+        return crate::models::MediaReactionRule {
+            id: var_id,
+            name: var_name,
+            pattern: var_pattern,
+            match_mode: var_matchMode,
+            case_sensitive: var_caseSensitive,
+            effect_type: var_effectType,
+            trigger_type: var_triggerType,
+            min_superchat_amount: var_minSuperchatAmount,
+            priority: var_priority,
+            media_kind: var_mediaKind,
+            stored_file_name: var_storedFileName,
+            original_file_name: var_originalFileName,
+            sound_stored_file_name: var_soundStoredFileName,
+            sound_original_file_name: var_soundOriginalFileName,
+            sound_volume: var_soundVolume,
+            animation: var_animation,
+            position: var_position,
+            duration_ms: var_durationMs,
+            width_percent: var_widthPercent,
+            volume: var_volume,
+            particle_count: var_particleCount,
+            particle_size: var_particleSize,
+            particle_speed: var_particleSpeed,
+            gravity: var_gravity,
+            particle_text: var_particleText,
+            ambient_preset: var_ambientPreset,
+            cooldown_sec: var_cooldownSec,
+            exclude_banned: var_excludeBanned,
+            caption_template: var_captionTemplate,
+            enabled: var_enabled,
+        };
+    }
+}
+
+impl SseDecode for crate::models::MediaTriggerEvent {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_eventId = <String>::sse_decode(deserializer);
+        let mut var_ruleId = <String>::sse_decode(deserializer);
+        let mut var_ruleName = <String>::sse_decode(deserializer);
+        let mut var_effectType = <crate::models::MediaEffectType>::sse_decode(deserializer);
+        let mut var_mediaUrl = <String>::sse_decode(deserializer);
+        let mut var_mediaKind = <crate::models::MediaKind>::sse_decode(deserializer);
+        let mut var_soundUrl = <Option<String>>::sse_decode(deserializer);
+        let mut var_soundVolume = <u32>::sse_decode(deserializer);
+        let mut var_animation = <crate::models::MediaAnimationKind>::sse_decode(deserializer);
+        let mut var_position = <crate::models::MediaPosition>::sse_decode(deserializer);
+        let mut var_durationMs = <u32>::sse_decode(deserializer);
+        let mut var_widthPercent = <u32>::sse_decode(deserializer);
+        let mut var_volume = <u32>::sse_decode(deserializer);
+        let mut var_particleCount = <u32>::sse_decode(deserializer);
+        let mut var_particleSize = <u32>::sse_decode(deserializer);
+        let mut var_particleSpeed = <u32>::sse_decode(deserializer);
+        let mut var_gravity = <u32>::sse_decode(deserializer);
+        let mut var_particleText = <String>::sse_decode(deserializer);
+        let mut var_ambientPreset = <String>::sse_decode(deserializer);
+        let mut var_caption = <String>::sse_decode(deserializer);
+        let mut var_triggeredBy = <String>::sse_decode(deserializer);
+        let mut var_triggeredAtMs = <i64>::sse_decode(deserializer);
+        return crate::models::MediaTriggerEvent {
+            event_id: var_eventId,
+            rule_id: var_ruleId,
+            rule_name: var_ruleName,
+            effect_type: var_effectType,
+            media_url: var_mediaUrl,
+            media_kind: var_mediaKind,
+            sound_url: var_soundUrl,
+            sound_volume: var_soundVolume,
+            animation: var_animation,
+            position: var_position,
+            duration_ms: var_durationMs,
+            width_percent: var_widthPercent,
+            volume: var_volume,
+            particle_count: var_particleCount,
+            particle_size: var_particleSize,
+            particle_speed: var_particleSpeed,
+            gravity: var_gravity,
+            particle_text: var_particleText,
+            ambient_preset: var_ambientPreset,
+            caption: var_caption,
+            triggered_by: var_triggeredBy,
+            triggered_at_ms: var_triggeredAtMs,
+        };
+    }
+}
+
+impl SseDecode for crate::models::MediaTriggerType {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::models::MediaTriggerType::Keyword,
+            1 => crate::models::MediaTriggerType::AnyComment,
+            2 => crate::models::MediaTriggerType::SuperChat,
+            3 => crate::models::MediaTriggerType::Membership,
+            4 => crate::models::MediaTriggerType::FirstTime,
+            _ => unreachable!("Invalid variant for MediaTriggerType: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::MonetizationEventKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::models::MonetizationEventKind::SuperChat,
+            1 => crate::models::MonetizationEventKind::SuperSticker,
+            2 => crate::models::MonetizationEventKind::MembershipNew,
+            3 => crate::models::MonetizationEventKind::MembershipMilestone,
+            4 => crate::models::MonetizationEventKind::MembershipGift,
+            _ => unreachable!("Invalid variant for MonetizationEventKind: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::MonetizationItem {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_sessionId = <String>::sse_decode(deserializer);
+        let mut var_platform = <crate::models::PlatformKind>::sse_decode(deserializer);
+        let mut var_kind = <crate::models::MonetizationEventKind>::sse_decode(deserializer);
+        let mut var_userId = <String>::sse_decode(deserializer);
+        let mut var_userName = <String>::sse_decode(deserializer);
+        let mut var_userIconUrl = <String>::sse_decode(deserializer);
+        let mut var_amountDisplay = <String>::sse_decode(deserializer);
+        let mut var_amountMicros = <u64>::sse_decode(deserializer);
+        let mut var_currency = <String>::sse_decode(deserializer);
+        let mut var_tierColor = <String>::sse_decode(deserializer);
+        let mut var_message = <String>::sse_decode(deserializer);
+        let mut var_timestampMs = <i64>::sse_decode(deserializer);
+        let mut var_isChecked = <bool>::sse_decode(deserializer);
+        let mut var_checkedAtMs = <Option<i64>>::sse_decode(deserializer);
+        return crate::models::MonetizationItem {
+            id: var_id,
+            session_id: var_sessionId,
+            platform: var_platform,
+            kind: var_kind,
+            user_id: var_userId,
+            user_name: var_userName,
+            user_icon_url: var_userIconUrl,
+            amount_display: var_amountDisplay,
+            amount_micros: var_amountMicros,
+            currency: var_currency,
+            tier_color: var_tierColor,
+            message: var_message,
+            timestamp_ms: var_timestampMs,
+            is_checked: var_isChecked,
+            checked_at_ms: var_checkedAtMs,
         };
     }
 }
@@ -2821,6 +4426,65 @@ impl SseDecode for Option<crate::models::LotteryResult> {
     }
 }
 
+impl SseDecode for Option<crate::models::MediaTriggerEvent> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::models::MediaTriggerEvent>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::models::MonetizationEventKind> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::models::MonetizationEventKind>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::models::PickedCommentState> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::models::PickedCommentState>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::models::PollState> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::models::PollState>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::models::QueueState> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::models::QueueState>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<u32> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2854,6 +4518,19 @@ impl SseDecode for Option<Vec<crate::models::CommentItem>> {
     }
 }
 
+impl SseDecode for Option<Vec<crate::models::MonetizationItem>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<Vec<crate::models::MonetizationItem>>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<Vec<crate::models::WordCounterConfig>> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2881,18 +4558,38 @@ impl SseDecode for crate::models::OverlayConfig {
         let mut var_lotteryTheme = <String>::sse_decode(deserializer);
         let mut var_counterTheme = <String>::sse_decode(deserializer);
         let mut var_firstTimeTheme = <String>::sse_decode(deserializer);
+        let mut var_superchatTheme = <String>::sse_decode(deserializer);
+        let mut var_pollTheme = <String>::sse_decode(deserializer);
+        let mut var_pickupTheme = <String>::sse_decode(deserializer);
+        let mut var_queueTheme = <String>::sse_decode(deserializer);
+        let mut var_mediaTheme = <String>::sse_decode(deserializer);
         let mut var_commentsBgColor = <String>::sse_decode(deserializer);
         let mut var_lotteryBgColor = <String>::sse_decode(deserializer);
         let mut var_counterBgColor = <String>::sse_decode(deserializer);
         let mut var_firstTimeBgColor = <String>::sse_decode(deserializer);
+        let mut var_superchatBgColor = <String>::sse_decode(deserializer);
+        let mut var_pollBgColor = <String>::sse_decode(deserializer);
+        let mut var_pickupBgColor = <String>::sse_decode(deserializer);
+        let mut var_queueBgColor = <String>::sse_decode(deserializer);
+        let mut var_mediaBgColor = <String>::sse_decode(deserializer);
         let mut var_commentsFontFamily = <String>::sse_decode(deserializer);
         let mut var_lotteryFontFamily = <String>::sse_decode(deserializer);
         let mut var_counterFontFamily = <String>::sse_decode(deserializer);
         let mut var_firstTimeFontFamily = <String>::sse_decode(deserializer);
+        let mut var_superchatFontFamily = <String>::sse_decode(deserializer);
+        let mut var_pollFontFamily = <String>::sse_decode(deserializer);
+        let mut var_pickupFontFamily = <String>::sse_decode(deserializer);
+        let mut var_queueFontFamily = <String>::sse_decode(deserializer);
+        let mut var_mediaFontFamily = <String>::sse_decode(deserializer);
         let mut var_commentsCustomCss = <String>::sse_decode(deserializer);
         let mut var_lotteryCustomCss = <String>::sse_decode(deserializer);
         let mut var_counterCustomCss = <String>::sse_decode(deserializer);
         let mut var_firstTimeCustomCss = <String>::sse_decode(deserializer);
+        let mut var_superchatCustomCss = <String>::sse_decode(deserializer);
+        let mut var_pollCustomCss = <String>::sse_decode(deserializer);
+        let mut var_pickupCustomCss = <String>::sse_decode(deserializer);
+        let mut var_queueCustomCss = <String>::sse_decode(deserializer);
+        let mut var_mediaCustomCss = <String>::sse_decode(deserializer);
         return crate::models::OverlayConfig {
             port: var_port,
             comment_font_size: var_commentFontSize,
@@ -2905,18 +4602,50 @@ impl SseDecode for crate::models::OverlayConfig {
             lottery_theme: var_lotteryTheme,
             counter_theme: var_counterTheme,
             first_time_theme: var_firstTimeTheme,
+            superchat_theme: var_superchatTheme,
+            poll_theme: var_pollTheme,
+            pickup_theme: var_pickupTheme,
+            queue_theme: var_queueTheme,
+            media_theme: var_mediaTheme,
             comments_bg_color: var_commentsBgColor,
             lottery_bg_color: var_lotteryBgColor,
             counter_bg_color: var_counterBgColor,
             first_time_bg_color: var_firstTimeBgColor,
+            superchat_bg_color: var_superchatBgColor,
+            poll_bg_color: var_pollBgColor,
+            pickup_bg_color: var_pickupBgColor,
+            queue_bg_color: var_queueBgColor,
+            media_bg_color: var_mediaBgColor,
             comments_font_family: var_commentsFontFamily,
             lottery_font_family: var_lotteryFontFamily,
             counter_font_family: var_counterFontFamily,
             first_time_font_family: var_firstTimeFontFamily,
+            superchat_font_family: var_superchatFontFamily,
+            poll_font_family: var_pollFontFamily,
+            pickup_font_family: var_pickupFontFamily,
+            queue_font_family: var_queueFontFamily,
+            media_font_family: var_mediaFontFamily,
             comments_custom_css: var_commentsCustomCss,
             lottery_custom_css: var_lotteryCustomCss,
             counter_custom_css: var_counterCustomCss,
             first_time_custom_css: var_firstTimeCustomCss,
+            superchat_custom_css: var_superchatCustomCss,
+            poll_custom_css: var_pollCustomCss,
+            pickup_custom_css: var_pickupCustomCss,
+            queue_custom_css: var_queueCustomCss,
+            media_custom_css: var_mediaCustomCss,
+        };
+    }
+}
+
+impl SseDecode for crate::models::PickedCommentState {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_comment = <Option<crate::models::CommentItem>>::sse_decode(deserializer);
+        let mut var_pickedAtMs = <Option<i64>>::sse_decode(deserializer);
+        return crate::models::PickedCommentState {
+            comment: var_comment,
+            picked_at_ms: var_pickedAtMs,
         };
     }
 }
@@ -2929,6 +4658,148 @@ impl SseDecode for crate::models::PlatformKind {
             0 => crate::models::PlatformKind::YouTube,
             1 => crate::models::PlatformKind::Demo,
             _ => unreachable!("Invalid variant for PlatformKind: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::PollConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_question = <String>::sse_decode(deserializer);
+        let mut var_options = <Vec<crate::models::PollOption>>::sse_decode(deserializer);
+        let mut var_allowVoteChange = <bool>::sse_decode(deserializer);
+        let mut var_excludeBanned = <bool>::sse_decode(deserializer);
+        let mut var_showPercentage = <bool>::sse_decode(deserializer);
+        let mut var_showVoteCount = <bool>::sse_decode(deserializer);
+        return crate::models::PollConfig {
+            question: var_question,
+            options: var_options,
+            allow_vote_change: var_allowVoteChange,
+            exclude_banned: var_excludeBanned,
+            show_percentage: var_showPercentage,
+            show_vote_count: var_showVoteCount,
+        };
+    }
+}
+
+impl SseDecode for crate::models::PollOption {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_label = <String>::sse_decode(deserializer);
+        let mut var_keywords = <Vec<String>>::sse_decode(deserializer);
+        let mut var_color = <String>::sse_decode(deserializer);
+        let mut var_voteCount = <u64>::sse_decode(deserializer);
+        return crate::models::PollOption {
+            id: var_id,
+            label: var_label,
+            keywords: var_keywords,
+            color: var_color,
+            vote_count: var_voteCount,
+        };
+    }
+}
+
+impl SseDecode for crate::models::PollState {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_isActive = <bool>::sse_decode(deserializer);
+        let mut var_startedAtMs = <Option<i64>>::sse_decode(deserializer);
+        let mut var_endedAtMs = <Option<i64>>::sse_decode(deserializer);
+        let mut var_config = <crate::models::PollConfig>::sse_decode(deserializer);
+        let mut var_totalVotes = <u64>::sse_decode(deserializer);
+        return crate::models::PollState {
+            is_active: var_isActive,
+            started_at_ms: var_startedAtMs,
+            ended_at_ms: var_endedAtMs,
+            config: var_config,
+            total_votes: var_totalVotes,
+        };
+    }
+}
+
+impl SseDecode for crate::models::QueueConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_isAccepting = <bool>::sse_decode(deserializer);
+        let mut var_maxActiveSlots = <u32>::sse_decode(deserializer);
+        let mut var_joinKeywords = <Vec<String>>::sse_decode(deserializer);
+        let mut var_leaveKeywords = <Vec<String>>::sse_decode(deserializer);
+        let mut var_sortMode = <crate::models::QueueSortMode>::sse_decode(deserializer);
+        let mut var_excludeBanned = <bool>::sse_decode(deserializer);
+        let mut var_allowRejoinAfterComplete = <bool>::sse_decode(deserializer);
+        return crate::models::QueueConfig {
+            is_accepting: var_isAccepting,
+            max_active_slots: var_maxActiveSlots,
+            join_keywords: var_joinKeywords,
+            leave_keywords: var_leaveKeywords,
+            sort_mode: var_sortMode,
+            exclude_banned: var_excludeBanned,
+            allow_rejoin_after_complete: var_allowRejoinAfterComplete,
+        };
+    }
+}
+
+impl SseDecode for crate::models::QueueEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_userId = <String>::sse_decode(deserializer);
+        let mut var_platform = <crate::models::PlatformKind>::sse_decode(deserializer);
+        let mut var_userName = <String>::sse_decode(deserializer);
+        let mut var_userIconUrl = <String>::sse_decode(deserializer);
+        let mut var_status = <crate::models::QueueEntryStatus>::sse_decode(deserializer);
+        let mut var_playCount = <u32>::sse_decode(deserializer);
+        let mut var_isFirstTime = <bool>::sse_decode(deserializer);
+        let mut var_note = <String>::sse_decode(deserializer);
+        let mut var_joinedAtMs = <i64>::sse_decode(deserializer);
+        return crate::models::QueueEntry {
+            user_id: var_userId,
+            platform: var_platform,
+            user_name: var_userName,
+            user_icon_url: var_userIconUrl,
+            status: var_status,
+            play_count: var_playCount,
+            is_first_time: var_isFirstTime,
+            note: var_note,
+            joined_at_ms: var_joinedAtMs,
+        };
+    }
+}
+
+impl SseDecode for crate::models::QueueEntryStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::models::QueueEntryStatus::Active,
+            1 => crate::models::QueueEntryStatus::Waiting,
+            2 => crate::models::QueueEntryStatus::Completed,
+            _ => unreachable!("Invalid variant for QueueEntryStatus: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::QueueSortMode {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::models::QueueSortMode::FirstCome,
+            1 => crate::models::QueueSortMode::FewestPlaysFirst,
+            2 => crate::models::QueueSortMode::FirstTimerFirst,
+            _ => unreachable!("Invalid variant for QueueSortMode: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::QueueState {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_config = <crate::models::QueueConfig>::sse_decode(deserializer);
+        let mut var_entries = <Vec<crate::models::QueueEntry>>::sse_decode(deserializer);
+        return crate::models::QueueState {
+            config: var_config,
+            entries: var_entries,
         };
     }
 }
@@ -3142,64 +5013,100 @@ fn pde_ffi_dispatcher_primary_impl(
         1 => wire__crate__api__adjust_first_time_count_impl(port, ptr, rust_vec_len, data_len),
         2 => wire__crate__api__adjust_word_counter_impl(port, ptr, rust_vec_len, data_len),
         3 => wire__crate__api__check_for_updates_impl(port, ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__clear_overlay_lottery_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__clear_recent_comments_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__connect_demo_impl(port, ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__connect_youtube_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__delete_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__delete_user_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__delete_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__disconnect_stream_impl(port, ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__disconnect_youtube_oauth_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__download_update_installer_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__draw_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__draw_user_lottery_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__get_comment_lottery_state_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__get_connection_state_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__get_current_release_notes_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__get_feature_flags_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__get_first_time_state_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__get_overlay_config_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__get_recent_comments_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__get_startup_release_notes_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__get_theme_mode_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__get_user_lottery_won_ids_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__get_youtube_oauth_status_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__launch_update_installer_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__list_highlight_rules_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__list_lottery_history_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__list_system_fonts_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__list_users_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__list_word_counters_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__mark_release_notes_seen_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__open_external_url_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__post_chat_message_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__reset_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        39 => {
+        4 => wire__crate__api__clear_monetization_events_impl(port, ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__clear_overlay_lottery_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__clear_overlay_media_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__clear_overlay_poll_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__clear_picked_comment_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__clear_recent_comments_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__connect_demo_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__connect_youtube_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__delete_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__delete_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__delete_monetization_event_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__delete_user_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__delete_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__disconnect_stream_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__disconnect_youtube_oauth_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__download_update_installer_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__draw_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__draw_user_lottery_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__get_comment_lottery_state_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__get_connection_state_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__get_current_release_notes_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__get_feature_flags_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__get_first_time_state_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__get_media_reaction_config_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__get_overlay_config_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__get_picked_comment_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__get_poll_state_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__get_queue_state_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__get_recent_comments_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__get_startup_release_notes_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__get_theme_mode_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__get_user_lottery_won_ids_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__get_youtube_oauth_status_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__import_media_file_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__launch_update_installer_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__list_highlight_rules_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__list_lottery_history_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__list_media_reaction_rules_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__list_monetization_events_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__list_system_fonts_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__list_users_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__list_word_counters_impl(port, ptr, rust_vec_len, data_len),
+        48 => {
+            wire__crate__api__mark_all_monetization_checked_impl(port, ptr, rust_vec_len, data_len)
+        }
+        49 => wire__crate__api__mark_release_notes_seen_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__open_external_url_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__pick_comment_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__pick_media_file_dialog_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__pick_sound_file_dialog_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__post_chat_message_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__queue_add_manual_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__queue_move_entry_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__queue_promote_next_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__queue_remove_entry_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__queue_reset_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__queue_rotate_active_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__queue_set_status_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__reset_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        63 => {
             wire__crate__api__reset_first_time_all_history_impl(port, ptr, rust_vec_len, data_len)
         }
-        40 => {
+        64 => {
             wire__crate__api__reset_first_time_session_count_impl(port, ptr, rust_vec_len, data_len)
         }
-        41 => wire__crate__api__reset_user_lottery_winners_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__reset_users_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__reset_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__save_feature_flags_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__save_first_time_config_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__save_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__save_overlay_config_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__save_theme_mode_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__save_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__save_youtube_oauth_client_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__send_demo_comment_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__set_user_ban_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__set_user_memo_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__start_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__start_youtube_oauth_login_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__stop_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
-        58 => {
+        65 => wire__crate__api__reset_poll_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__reset_user_lottery_winners_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__reset_users_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__reset_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__save_feature_flags_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__save_first_time_config_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__save_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__save_media_reaction_config_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__save_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__save_overlay_config_impl(port, ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__save_poll_config_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__save_queue_config_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__save_theme_mode_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__save_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        79 => wire__crate__api__save_youtube_oauth_client_impl(port, ptr, rust_vec_len, data_len),
+        80 => wire__crate__api__send_demo_comment_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__send_demo_monetization_impl(port, ptr, rust_vec_len, data_len),
+        82 => wire__crate__api__set_monetization_checked_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__set_user_ban_impl(port, ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__set_user_memo_impl(port, ptr, rust_vec_len, data_len),
+        85 => wire__crate__api__start_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        86 => wire__crate__api__start_poll_impl(port, ptr, rust_vec_len, data_len),
+        87 => wire__crate__api__start_youtube_oauth_login_impl(port, ptr, rust_vec_len, data_len),
+        88 => wire__crate__api__stop_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        89 => wire__crate__api__stop_poll_impl(port, ptr, rust_vec_len, data_len),
+        90 => wire__crate__api__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
+        91 => wire__crate__api__test_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
+        92 => {
             wire__crate__api__update_comment_lottery_config_impl(port, ptr, rust_vec_len, data_len)
         }
         _ => unreachable!(),
@@ -3214,7 +5121,7 @@ fn pde_ffi_dispatcher_sync_impl(
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        16 => wire__crate__api__get_app_version_impl(ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__get_app_version_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -3233,6 +5140,11 @@ impl flutter_rust_bridge::IntoDart for crate::models::AppEvent {
             self.first_time_state.into_into_dart().into_dart(),
             self.comment_lottery.into_into_dart().into_dart(),
             self.lottery_result.into_into_dart().into_dart(),
+            self.monetization_items.into_into_dart().into_dart(),
+            self.poll_state.into_into_dart().into_dart(),
+            self.picked_comment.into_into_dart().into_dart(),
+            self.queue_state.into_into_dart().into_dart(),
+            self.media_trigger.into_into_dart().into_dart(),
             self.feature_flags.into_into_dart().into_dart(),
             self.notice_level.into_into_dart().into_dart(),
             self.notice_message.into_into_dart().into_dart(),
@@ -3258,8 +5170,13 @@ impl flutter_rust_bridge::IntoDart for crate::models::AppEventKind {
             Self::UsersUpdated => 5.into_dart(),
             Self::CommentLotteryUpdated => 6.into_dart(),
             Self::LotteryDrawn => 7.into_dart(),
-            Self::FeatureFlagsUpdated => 8.into_dart(),
-            Self::SystemNotice => 9.into_dart(),
+            Self::MonetizationUpdated => 8.into_dart(),
+            Self::PollUpdated => 9.into_dart(),
+            Self::PickedCommentUpdated => 10.into_dart(),
+            Self::QueueUpdated => 11.into_dart(),
+            Self::MediaTriggered => 12.into_dart(),
+            Self::FeatureFlagsUpdated => 13.into_dart(),
+            Self::SystemNotice => 14.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -3313,6 +5230,9 @@ impl flutter_rust_bridge::IntoDart for crate::models::CommentItem {
             self.bubble_bg_color.into_into_dart().into_dart(),
             self.bubble_text_color.into_into_dart().into_dart(),
             self.bubble_border_color.into_into_dart().into_dart(),
+            self.event_kind.into_into_dart().into_dart(),
+            self.amount_display.into_into_dart().into_dart(),
+            self.event_accent_color.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3484,6 +5404,11 @@ impl flutter_rust_bridge::IntoDart for crate::models::FeatureFlags {
             self.user_tracking_enabled.into_into_dart().into_dart(),
             self.user_memo_display_enabled.into_into_dart().into_dart(),
             self.first_time_counter_enabled.into_into_dart().into_dart(),
+            self.superchat_enabled.into_into_dart().into_dart(),
+            self.poll_enabled.into_into_dart().into_dart(),
+            self.pickup_enabled.into_into_dart().into_dart(),
+            self.queue_enabled.into_into_dart().into_dart(),
+            self.media_reaction_enabled.into_into_dart().into_dart(),
             self.obs_overlay_enabled.into_into_dart().into_dart(),
             self.auto_update_check_enabled.into_into_dart().into_dart(),
         ]
@@ -3595,6 +5520,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::models::HighlightRule>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::ImportedMediaFile {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.stored_file_name.into_into_dart().into_dart(),
+            self.original_file_name.into_into_dart().into_dart(),
+            self.media_kind.into_into_dart().into_dart(),
+            self.file_size_bytes.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::ImportedMediaFile
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::ImportedMediaFile>
+    for crate::models::ImportedMediaFile
+{
+    fn into_into_dart(self) -> crate::models::ImportedMediaFile {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::models::LotteryRepeatMode {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
@@ -3675,6 +5623,313 @@ impl flutter_rust_bridge::IntoIntoDart<crate::models::MatchMode> for crate::mode
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MediaAnimationKind {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Fade => 0.into_dart(),
+            Self::PopIn => 1.into_dart(),
+            Self::SlideUp => 2.into_dart(),
+            Self::SlideLeft => 3.into_dart(),
+            Self::Bounce => 4.into_dart(),
+            Self::ZoomSpin => 5.into_dart(),
+            Self::None => 6.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::MediaAnimationKind
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MediaAnimationKind>
+    for crate::models::MediaAnimationKind
+{
+    fn into_into_dart(self) -> crate::models::MediaAnimationKind {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MediaEffectType {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Fixed => 0.into_dart(),
+            Self::Cracker => 1.into_dart(),
+            Self::Drop => 2.into_dart(),
+            Self::Confetti => 3.into_dart(),
+            Self::Throw => 4.into_dart(),
+            Self::Ambient => 5.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::MediaEffectType
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MediaEffectType>
+    for crate::models::MediaEffectType
+{
+    fn into_into_dart(self) -> crate::models::MediaEffectType {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MediaKind {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Image => 0.into_dart(),
+            Self::Video => 1.into_dart(),
+            Self::Audio => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::MediaKind {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MediaKind> for crate::models::MediaKind {
+    fn into_into_dart(self) -> crate::models::MediaKind {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MediaPlaybackMode {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Queue => 0.into_dart(),
+            Self::Overlay => 1.into_dart(),
+            Self::Replace => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::MediaPlaybackMode
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MediaPlaybackMode>
+    for crate::models::MediaPlaybackMode
+{
+    fn into_into_dart(self) -> crate::models::MediaPlaybackMode {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MediaPosition {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Center => 0.into_dart(),
+            Self::TopLeft => 1.into_dart(),
+            Self::TopRight => 2.into_dart(),
+            Self::BottomLeft => 3.into_dart(),
+            Self::BottomRight => 4.into_dart(),
+            Self::FullScreen => 5.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::MediaPosition {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MediaPosition>
+    for crate::models::MediaPosition
+{
+    fn into_into_dart(self) -> crate::models::MediaPosition {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MediaReactionConfig {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.playback_mode.into_into_dart().into_dart(),
+            self.master_volume.into_into_dart().into_dart(),
+            self.max_concurrent.into_into_dart().into_dart(),
+            self.allow_multiple_match.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::MediaReactionConfig
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MediaReactionConfig>
+    for crate::models::MediaReactionConfig
+{
+    fn into_into_dart(self) -> crate::models::MediaReactionConfig {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MediaReactionRule {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.pattern.into_into_dart().into_dart(),
+            self.match_mode.into_into_dart().into_dart(),
+            self.case_sensitive.into_into_dart().into_dart(),
+            self.effect_type.into_into_dart().into_dart(),
+            self.trigger_type.into_into_dart().into_dart(),
+            self.min_superchat_amount.into_into_dart().into_dart(),
+            self.priority.into_into_dart().into_dart(),
+            self.media_kind.into_into_dart().into_dart(),
+            self.stored_file_name.into_into_dart().into_dart(),
+            self.original_file_name.into_into_dart().into_dart(),
+            self.sound_stored_file_name.into_into_dart().into_dart(),
+            self.sound_original_file_name.into_into_dart().into_dart(),
+            self.sound_volume.into_into_dart().into_dart(),
+            self.animation.into_into_dart().into_dart(),
+            self.position.into_into_dart().into_dart(),
+            self.duration_ms.into_into_dart().into_dart(),
+            self.width_percent.into_into_dart().into_dart(),
+            self.volume.into_into_dart().into_dart(),
+            self.particle_count.into_into_dart().into_dart(),
+            self.particle_size.into_into_dart().into_dart(),
+            self.particle_speed.into_into_dart().into_dart(),
+            self.gravity.into_into_dart().into_dart(),
+            self.particle_text.into_into_dart().into_dart(),
+            self.ambient_preset.into_into_dart().into_dart(),
+            self.cooldown_sec.into_into_dart().into_dart(),
+            self.exclude_banned.into_into_dart().into_dart(),
+            self.caption_template.into_into_dart().into_dart(),
+            self.enabled.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::MediaReactionRule
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MediaReactionRule>
+    for crate::models::MediaReactionRule
+{
+    fn into_into_dart(self) -> crate::models::MediaReactionRule {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MediaTriggerEvent {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.event_id.into_into_dart().into_dart(),
+            self.rule_id.into_into_dart().into_dart(),
+            self.rule_name.into_into_dart().into_dart(),
+            self.effect_type.into_into_dart().into_dart(),
+            self.media_url.into_into_dart().into_dart(),
+            self.media_kind.into_into_dart().into_dart(),
+            self.sound_url.into_into_dart().into_dart(),
+            self.sound_volume.into_into_dart().into_dart(),
+            self.animation.into_into_dart().into_dart(),
+            self.position.into_into_dart().into_dart(),
+            self.duration_ms.into_into_dart().into_dart(),
+            self.width_percent.into_into_dart().into_dart(),
+            self.volume.into_into_dart().into_dart(),
+            self.particle_count.into_into_dart().into_dart(),
+            self.particle_size.into_into_dart().into_dart(),
+            self.particle_speed.into_into_dart().into_dart(),
+            self.gravity.into_into_dart().into_dart(),
+            self.particle_text.into_into_dart().into_dart(),
+            self.ambient_preset.into_into_dart().into_dart(),
+            self.caption.into_into_dart().into_dart(),
+            self.triggered_by.into_into_dart().into_dart(),
+            self.triggered_at_ms.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::MediaTriggerEvent
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MediaTriggerEvent>
+    for crate::models::MediaTriggerEvent
+{
+    fn into_into_dart(self) -> crate::models::MediaTriggerEvent {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MediaTriggerType {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Keyword => 0.into_dart(),
+            Self::AnyComment => 1.into_dart(),
+            Self::SuperChat => 2.into_dart(),
+            Self::Membership => 3.into_dart(),
+            Self::FirstTime => 4.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::MediaTriggerType
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MediaTriggerType>
+    for crate::models::MediaTriggerType
+{
+    fn into_into_dart(self) -> crate::models::MediaTriggerType {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MonetizationEventKind {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::SuperChat => 0.into_dart(),
+            Self::SuperSticker => 1.into_dart(),
+            Self::MembershipNew => 2.into_dart(),
+            Self::MembershipMilestone => 3.into_dart(),
+            Self::MembershipGift => 4.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::MonetizationEventKind
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MonetizationEventKind>
+    for crate::models::MonetizationEventKind
+{
+    fn into_into_dart(self) -> crate::models::MonetizationEventKind {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::MonetizationItem {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.session_id.into_into_dart().into_dart(),
+            self.platform.into_into_dart().into_dart(),
+            self.kind.into_into_dart().into_dart(),
+            self.user_id.into_into_dart().into_dart(),
+            self.user_name.into_into_dart().into_dart(),
+            self.user_icon_url.into_into_dart().into_dart(),
+            self.amount_display.into_into_dart().into_dart(),
+            self.amount_micros.into_into_dart().into_dart(),
+            self.currency.into_into_dart().into_dart(),
+            self.tier_color.into_into_dart().into_dart(),
+            self.message.into_into_dart().into_dart(),
+            self.timestamp_ms.into_into_dart().into_dart(),
+            self.is_checked.into_into_dart().into_dart(),
+            self.checked_at_ms.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::MonetizationItem
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::MonetizationItem>
+    for crate::models::MonetizationItem
+{
+    fn into_into_dart(self) -> crate::models::MonetizationItem {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::models::OverlayConfig {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -3689,18 +5944,38 @@ impl flutter_rust_bridge::IntoDart for crate::models::OverlayConfig {
             self.lottery_theme.into_into_dart().into_dart(),
             self.counter_theme.into_into_dart().into_dart(),
             self.first_time_theme.into_into_dart().into_dart(),
+            self.superchat_theme.into_into_dart().into_dart(),
+            self.poll_theme.into_into_dart().into_dart(),
+            self.pickup_theme.into_into_dart().into_dart(),
+            self.queue_theme.into_into_dart().into_dart(),
+            self.media_theme.into_into_dart().into_dart(),
             self.comments_bg_color.into_into_dart().into_dart(),
             self.lottery_bg_color.into_into_dart().into_dart(),
             self.counter_bg_color.into_into_dart().into_dart(),
             self.first_time_bg_color.into_into_dart().into_dart(),
+            self.superchat_bg_color.into_into_dart().into_dart(),
+            self.poll_bg_color.into_into_dart().into_dart(),
+            self.pickup_bg_color.into_into_dart().into_dart(),
+            self.queue_bg_color.into_into_dart().into_dart(),
+            self.media_bg_color.into_into_dart().into_dart(),
             self.comments_font_family.into_into_dart().into_dart(),
             self.lottery_font_family.into_into_dart().into_dart(),
             self.counter_font_family.into_into_dart().into_dart(),
             self.first_time_font_family.into_into_dart().into_dart(),
+            self.superchat_font_family.into_into_dart().into_dart(),
+            self.poll_font_family.into_into_dart().into_dart(),
+            self.pickup_font_family.into_into_dart().into_dart(),
+            self.queue_font_family.into_into_dart().into_dart(),
+            self.media_font_family.into_into_dart().into_dart(),
             self.comments_custom_css.into_into_dart().into_dart(),
             self.lottery_custom_css.into_into_dart().into_dart(),
             self.counter_custom_css.into_into_dart().into_dart(),
             self.first_time_custom_css.into_into_dart().into_dart(),
+            self.superchat_custom_css.into_into_dart().into_dart(),
+            self.poll_custom_css.into_into_dart().into_dart(),
+            self.pickup_custom_css.into_into_dart().into_dart(),
+            self.queue_custom_css.into_into_dart().into_dart(),
+            self.media_custom_css.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3710,6 +5985,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::models::OverlayConfig>
     for crate::models::OverlayConfig
 {
     fn into_into_dart(self) -> crate::models::OverlayConfig {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::PickedCommentState {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.comment.into_into_dart().into_dart(),
+            self.picked_at_ms.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::PickedCommentState
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::PickedCommentState>
+    for crate::models::PickedCommentState
+{
+    fn into_into_dart(self) -> crate::models::PickedCommentState {
         self
     }
 }
@@ -3728,6 +6024,167 @@ impl flutter_rust_bridge::IntoIntoDart<crate::models::PlatformKind>
     for crate::models::PlatformKind
 {
     fn into_into_dart(self) -> crate::models::PlatformKind {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::PollConfig {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.question.into_into_dart().into_dart(),
+            self.options.into_into_dart().into_dart(),
+            self.allow_vote_change.into_into_dart().into_dart(),
+            self.exclude_banned.into_into_dart().into_dart(),
+            self.show_percentage.into_into_dart().into_dart(),
+            self.show_vote_count.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::PollConfig {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::PollConfig> for crate::models::PollConfig {
+    fn into_into_dart(self) -> crate::models::PollConfig {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::PollOption {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.label.into_into_dart().into_dart(),
+            self.keywords.into_into_dart().into_dart(),
+            self.color.into_into_dart().into_dart(),
+            self.vote_count.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::PollOption {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::PollOption> for crate::models::PollOption {
+    fn into_into_dart(self) -> crate::models::PollOption {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::PollState {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.is_active.into_into_dart().into_dart(),
+            self.started_at_ms.into_into_dart().into_dart(),
+            self.ended_at_ms.into_into_dart().into_dart(),
+            self.config.into_into_dart().into_dart(),
+            self.total_votes.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::PollState {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::PollState> for crate::models::PollState {
+    fn into_into_dart(self) -> crate::models::PollState {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::QueueConfig {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.is_accepting.into_into_dart().into_dart(),
+            self.max_active_slots.into_into_dart().into_dart(),
+            self.join_keywords.into_into_dart().into_dart(),
+            self.leave_keywords.into_into_dart().into_dart(),
+            self.sort_mode.into_into_dart().into_dart(),
+            self.exclude_banned.into_into_dart().into_dart(),
+            self.allow_rejoin_after_complete
+                .into_into_dart()
+                .into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::QueueConfig {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::QueueConfig> for crate::models::QueueConfig {
+    fn into_into_dart(self) -> crate::models::QueueConfig {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::QueueEntry {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.user_id.into_into_dart().into_dart(),
+            self.platform.into_into_dart().into_dart(),
+            self.user_name.into_into_dart().into_dart(),
+            self.user_icon_url.into_into_dart().into_dart(),
+            self.status.into_into_dart().into_dart(),
+            self.play_count.into_into_dart().into_dart(),
+            self.is_first_time.into_into_dart().into_dart(),
+            self.note.into_into_dart().into_dart(),
+            self.joined_at_ms.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::QueueEntry {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::QueueEntry> for crate::models::QueueEntry {
+    fn into_into_dart(self) -> crate::models::QueueEntry {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::QueueEntryStatus {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Active => 0.into_dart(),
+            Self::Waiting => 1.into_dart(),
+            Self::Completed => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::QueueEntryStatus
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::QueueEntryStatus>
+    for crate::models::QueueEntryStatus
+{
+    fn into_into_dart(self) -> crate::models::QueueEntryStatus {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::QueueSortMode {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::FirstCome => 0.into_dart(),
+            Self::FewestPlaysFirst => 1.into_dart(),
+            Self::FirstTimerFirst => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::QueueSortMode {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::QueueSortMode>
+    for crate::models::QueueSortMode
+{
+    fn into_into_dart(self) -> crate::models::QueueSortMode {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::QueueState {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.config.into_into_dart().into_dart(),
+            self.entries.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::QueueState {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::QueueState> for crate::models::QueueState {
+    fn into_into_dart(self) -> crate::models::QueueState {
         self
     }
 }
@@ -3958,6 +6415,14 @@ impl SseEncode for crate::models::AppEvent {
         );
         <Option<crate::models::CommentLotteryState>>::sse_encode(self.comment_lottery, serializer);
         <Option<crate::models::LotteryResult>>::sse_encode(self.lottery_result, serializer);
+        <Option<Vec<crate::models::MonetizationItem>>>::sse_encode(
+            self.monetization_items,
+            serializer,
+        );
+        <Option<crate::models::PollState>>::sse_encode(self.poll_state, serializer);
+        <Option<crate::models::PickedCommentState>>::sse_encode(self.picked_comment, serializer);
+        <Option<crate::models::QueueState>>::sse_encode(self.queue_state, serializer);
+        <Option<crate::models::MediaTriggerEvent>>::sse_encode(self.media_trigger, serializer);
         <Option<crate::models::FeatureFlags>>::sse_encode(self.feature_flags, serializer);
         <Option<String>>::sse_encode(self.notice_level, serializer);
         <Option<String>>::sse_encode(self.notice_message, serializer);
@@ -3977,8 +6442,13 @@ impl SseEncode for crate::models::AppEventKind {
                 crate::models::AppEventKind::UsersUpdated => 5,
                 crate::models::AppEventKind::CommentLotteryUpdated => 6,
                 crate::models::AppEventKind::LotteryDrawn => 7,
-                crate::models::AppEventKind::FeatureFlagsUpdated => 8,
-                crate::models::AppEventKind::SystemNotice => 9,
+                crate::models::AppEventKind::MonetizationUpdated => 8,
+                crate::models::AppEventKind::PollUpdated => 9,
+                crate::models::AppEventKind::PickedCommentUpdated => 10,
+                crate::models::AppEventKind::QueueUpdated => 11,
+                crate::models::AppEventKind::MediaTriggered => 12,
+                crate::models::AppEventKind::FeatureFlagsUpdated => 13,
+                crate::models::AppEventKind::SystemNotice => 14,
                 _ => {
                     unimplemented!("");
                 }
@@ -4033,6 +6503,9 @@ impl SseEncode for crate::models::CommentItem {
         <Option<String>>::sse_encode(self.bubble_bg_color, serializer);
         <Option<String>>::sse_encode(self.bubble_text_color, serializer);
         <Option<String>>::sse_encode(self.bubble_border_color, serializer);
+        <Option<crate::models::MonetizationEventKind>>::sse_encode(self.event_kind, serializer);
+        <Option<String>>::sse_encode(self.amount_display, serializer);
+        <Option<String>>::sse_encode(self.event_accent_color, serializer);
     }
 }
 
@@ -4137,6 +6610,11 @@ impl SseEncode for crate::models::FeatureFlags {
         <bool>::sse_encode(self.user_tracking_enabled, serializer);
         <bool>::sse_encode(self.user_memo_display_enabled, serializer);
         <bool>::sse_encode(self.first_time_counter_enabled, serializer);
+        <bool>::sse_encode(self.superchat_enabled, serializer);
+        <bool>::sse_encode(self.poll_enabled, serializer);
+        <bool>::sse_encode(self.pickup_enabled, serializer);
+        <bool>::sse_encode(self.queue_enabled, serializer);
+        <bool>::sse_encode(self.media_reaction_enabled, serializer);
         <bool>::sse_encode(self.obs_overlay_enabled, serializer);
         <bool>::sse_encode(self.auto_update_check_enabled, serializer);
     }
@@ -4203,6 +6681,16 @@ impl SseEncode for i64 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_i64::<NativeEndian>(self).unwrap();
+    }
+}
+
+impl SseEncode for crate::models::ImportedMediaFile {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.stored_file_name, serializer);
+        <String>::sse_encode(self.original_file_name, serializer);
+        <crate::models::MediaKind>::sse_encode(self.media_kind, serializer);
+        <u64>::sse_encode(self.file_size_bytes, serializer);
     }
 }
 
@@ -4276,12 +6764,52 @@ impl SseEncode for Vec<crate::models::LotteryWinner> {
     }
 }
 
+impl SseEncode for Vec<crate::models::MediaReactionRule> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::MediaReactionRule>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::MonetizationItem> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::MonetizationItem>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::PollOption> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::PollOption>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<u8> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <u8>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::QueueEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::QueueEntry>::sse_encode(item, serializer);
         }
     }
 }
@@ -4358,6 +6886,234 @@ impl SseEncode for crate::models::MatchMode {
             },
             serializer,
         );
+    }
+}
+
+impl SseEncode for crate::models::MediaAnimationKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::models::MediaAnimationKind::Fade => 0,
+                crate::models::MediaAnimationKind::PopIn => 1,
+                crate::models::MediaAnimationKind::SlideUp => 2,
+                crate::models::MediaAnimationKind::SlideLeft => 3,
+                crate::models::MediaAnimationKind::Bounce => 4,
+                crate::models::MediaAnimationKind::ZoomSpin => 5,
+                crate::models::MediaAnimationKind::None => 6,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::MediaEffectType {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::models::MediaEffectType::Fixed => 0,
+                crate::models::MediaEffectType::Cracker => 1,
+                crate::models::MediaEffectType::Drop => 2,
+                crate::models::MediaEffectType::Confetti => 3,
+                crate::models::MediaEffectType::Throw => 4,
+                crate::models::MediaEffectType::Ambient => 5,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::MediaKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::models::MediaKind::Image => 0,
+                crate::models::MediaKind::Video => 1,
+                crate::models::MediaKind::Audio => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::MediaPlaybackMode {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::models::MediaPlaybackMode::Queue => 0,
+                crate::models::MediaPlaybackMode::Overlay => 1,
+                crate::models::MediaPlaybackMode::Replace => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::MediaPosition {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::models::MediaPosition::Center => 0,
+                crate::models::MediaPosition::TopLeft => 1,
+                crate::models::MediaPosition::TopRight => 2,
+                crate::models::MediaPosition::BottomLeft => 3,
+                crate::models::MediaPosition::BottomRight => 4,
+                crate::models::MediaPosition::FullScreen => 5,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::MediaReactionConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::models::MediaPlaybackMode>::sse_encode(self.playback_mode, serializer);
+        <u32>::sse_encode(self.master_volume, serializer);
+        <u32>::sse_encode(self.max_concurrent, serializer);
+        <bool>::sse_encode(self.allow_multiple_match, serializer);
+    }
+}
+
+impl SseEncode for crate::models::MediaReactionRule {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.pattern, serializer);
+        <crate::models::MatchMode>::sse_encode(self.match_mode, serializer);
+        <bool>::sse_encode(self.case_sensitive, serializer);
+        <crate::models::MediaEffectType>::sse_encode(self.effect_type, serializer);
+        <crate::models::MediaTriggerType>::sse_encode(self.trigger_type, serializer);
+        <u64>::sse_encode(self.min_superchat_amount, serializer);
+        <i32>::sse_encode(self.priority, serializer);
+        <crate::models::MediaKind>::sse_encode(self.media_kind, serializer);
+        <String>::sse_encode(self.stored_file_name, serializer);
+        <String>::sse_encode(self.original_file_name, serializer);
+        <String>::sse_encode(self.sound_stored_file_name, serializer);
+        <String>::sse_encode(self.sound_original_file_name, serializer);
+        <u32>::sse_encode(self.sound_volume, serializer);
+        <crate::models::MediaAnimationKind>::sse_encode(self.animation, serializer);
+        <crate::models::MediaPosition>::sse_encode(self.position, serializer);
+        <u32>::sse_encode(self.duration_ms, serializer);
+        <u32>::sse_encode(self.width_percent, serializer);
+        <u32>::sse_encode(self.volume, serializer);
+        <u32>::sse_encode(self.particle_count, serializer);
+        <u32>::sse_encode(self.particle_size, serializer);
+        <u32>::sse_encode(self.particle_speed, serializer);
+        <u32>::sse_encode(self.gravity, serializer);
+        <String>::sse_encode(self.particle_text, serializer);
+        <String>::sse_encode(self.ambient_preset, serializer);
+        <u32>::sse_encode(self.cooldown_sec, serializer);
+        <bool>::sse_encode(self.exclude_banned, serializer);
+        <String>::sse_encode(self.caption_template, serializer);
+        <bool>::sse_encode(self.enabled, serializer);
+    }
+}
+
+impl SseEncode for crate::models::MediaTriggerEvent {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.event_id, serializer);
+        <String>::sse_encode(self.rule_id, serializer);
+        <String>::sse_encode(self.rule_name, serializer);
+        <crate::models::MediaEffectType>::sse_encode(self.effect_type, serializer);
+        <String>::sse_encode(self.media_url, serializer);
+        <crate::models::MediaKind>::sse_encode(self.media_kind, serializer);
+        <Option<String>>::sse_encode(self.sound_url, serializer);
+        <u32>::sse_encode(self.sound_volume, serializer);
+        <crate::models::MediaAnimationKind>::sse_encode(self.animation, serializer);
+        <crate::models::MediaPosition>::sse_encode(self.position, serializer);
+        <u32>::sse_encode(self.duration_ms, serializer);
+        <u32>::sse_encode(self.width_percent, serializer);
+        <u32>::sse_encode(self.volume, serializer);
+        <u32>::sse_encode(self.particle_count, serializer);
+        <u32>::sse_encode(self.particle_size, serializer);
+        <u32>::sse_encode(self.particle_speed, serializer);
+        <u32>::sse_encode(self.gravity, serializer);
+        <String>::sse_encode(self.particle_text, serializer);
+        <String>::sse_encode(self.ambient_preset, serializer);
+        <String>::sse_encode(self.caption, serializer);
+        <String>::sse_encode(self.triggered_by, serializer);
+        <i64>::sse_encode(self.triggered_at_ms, serializer);
+    }
+}
+
+impl SseEncode for crate::models::MediaTriggerType {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::models::MediaTriggerType::Keyword => 0,
+                crate::models::MediaTriggerType::AnyComment => 1,
+                crate::models::MediaTriggerType::SuperChat => 2,
+                crate::models::MediaTriggerType::Membership => 3,
+                crate::models::MediaTriggerType::FirstTime => 4,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::MonetizationEventKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::models::MonetizationEventKind::SuperChat => 0,
+                crate::models::MonetizationEventKind::SuperSticker => 1,
+                crate::models::MonetizationEventKind::MembershipNew => 2,
+                crate::models::MonetizationEventKind::MembershipMilestone => 3,
+                crate::models::MonetizationEventKind::MembershipGift => 4,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::MonetizationItem {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.session_id, serializer);
+        <crate::models::PlatformKind>::sse_encode(self.platform, serializer);
+        <crate::models::MonetizationEventKind>::sse_encode(self.kind, serializer);
+        <String>::sse_encode(self.user_id, serializer);
+        <String>::sse_encode(self.user_name, serializer);
+        <String>::sse_encode(self.user_icon_url, serializer);
+        <String>::sse_encode(self.amount_display, serializer);
+        <u64>::sse_encode(self.amount_micros, serializer);
+        <String>::sse_encode(self.currency, serializer);
+        <String>::sse_encode(self.tier_color, serializer);
+        <String>::sse_encode(self.message, serializer);
+        <i64>::sse_encode(self.timestamp_ms, serializer);
+        <bool>::sse_encode(self.is_checked, serializer);
+        <Option<i64>>::sse_encode(self.checked_at_ms, serializer);
     }
 }
 
@@ -4441,6 +7197,56 @@ impl SseEncode for Option<crate::models::LotteryResult> {
     }
 }
 
+impl SseEncode for Option<crate::models::MediaTriggerEvent> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::models::MediaTriggerEvent>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::models::MonetizationEventKind> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::models::MonetizationEventKind>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::models::PickedCommentState> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::models::PickedCommentState>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::models::PollState> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::models::PollState>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::models::QueueState> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::models::QueueState>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<u32> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4471,6 +7277,16 @@ impl SseEncode for Option<Vec<crate::models::CommentItem>> {
     }
 }
 
+impl SseEncode for Option<Vec<crate::models::MonetizationItem>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <Vec<crate::models::MonetizationItem>>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<Vec<crate::models::WordCounterConfig>> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4495,18 +7311,46 @@ impl SseEncode for crate::models::OverlayConfig {
         <String>::sse_encode(self.lottery_theme, serializer);
         <String>::sse_encode(self.counter_theme, serializer);
         <String>::sse_encode(self.first_time_theme, serializer);
+        <String>::sse_encode(self.superchat_theme, serializer);
+        <String>::sse_encode(self.poll_theme, serializer);
+        <String>::sse_encode(self.pickup_theme, serializer);
+        <String>::sse_encode(self.queue_theme, serializer);
+        <String>::sse_encode(self.media_theme, serializer);
         <String>::sse_encode(self.comments_bg_color, serializer);
         <String>::sse_encode(self.lottery_bg_color, serializer);
         <String>::sse_encode(self.counter_bg_color, serializer);
         <String>::sse_encode(self.first_time_bg_color, serializer);
+        <String>::sse_encode(self.superchat_bg_color, serializer);
+        <String>::sse_encode(self.poll_bg_color, serializer);
+        <String>::sse_encode(self.pickup_bg_color, serializer);
+        <String>::sse_encode(self.queue_bg_color, serializer);
+        <String>::sse_encode(self.media_bg_color, serializer);
         <String>::sse_encode(self.comments_font_family, serializer);
         <String>::sse_encode(self.lottery_font_family, serializer);
         <String>::sse_encode(self.counter_font_family, serializer);
         <String>::sse_encode(self.first_time_font_family, serializer);
+        <String>::sse_encode(self.superchat_font_family, serializer);
+        <String>::sse_encode(self.poll_font_family, serializer);
+        <String>::sse_encode(self.pickup_font_family, serializer);
+        <String>::sse_encode(self.queue_font_family, serializer);
+        <String>::sse_encode(self.media_font_family, serializer);
         <String>::sse_encode(self.comments_custom_css, serializer);
         <String>::sse_encode(self.lottery_custom_css, serializer);
         <String>::sse_encode(self.counter_custom_css, serializer);
         <String>::sse_encode(self.first_time_custom_css, serializer);
+        <String>::sse_encode(self.superchat_custom_css, serializer);
+        <String>::sse_encode(self.poll_custom_css, serializer);
+        <String>::sse_encode(self.pickup_custom_css, serializer);
+        <String>::sse_encode(self.queue_custom_css, serializer);
+        <String>::sse_encode(self.media_custom_css, serializer);
+    }
+}
+
+impl SseEncode for crate::models::PickedCommentState {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<crate::models::CommentItem>>::sse_encode(self.comment, serializer);
+        <Option<i64>>::sse_encode(self.picked_at_ms, serializer);
     }
 }
 
@@ -4523,6 +7367,110 @@ impl SseEncode for crate::models::PlatformKind {
             },
             serializer,
         );
+    }
+}
+
+impl SseEncode for crate::models::PollConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.question, serializer);
+        <Vec<crate::models::PollOption>>::sse_encode(self.options, serializer);
+        <bool>::sse_encode(self.allow_vote_change, serializer);
+        <bool>::sse_encode(self.exclude_banned, serializer);
+        <bool>::sse_encode(self.show_percentage, serializer);
+        <bool>::sse_encode(self.show_vote_count, serializer);
+    }
+}
+
+impl SseEncode for crate::models::PollOption {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.label, serializer);
+        <Vec<String>>::sse_encode(self.keywords, serializer);
+        <String>::sse_encode(self.color, serializer);
+        <u64>::sse_encode(self.vote_count, serializer);
+    }
+}
+
+impl SseEncode for crate::models::PollState {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_active, serializer);
+        <Option<i64>>::sse_encode(self.started_at_ms, serializer);
+        <Option<i64>>::sse_encode(self.ended_at_ms, serializer);
+        <crate::models::PollConfig>::sse_encode(self.config, serializer);
+        <u64>::sse_encode(self.total_votes, serializer);
+    }
+}
+
+impl SseEncode for crate::models::QueueConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_accepting, serializer);
+        <u32>::sse_encode(self.max_active_slots, serializer);
+        <Vec<String>>::sse_encode(self.join_keywords, serializer);
+        <Vec<String>>::sse_encode(self.leave_keywords, serializer);
+        <crate::models::QueueSortMode>::sse_encode(self.sort_mode, serializer);
+        <bool>::sse_encode(self.exclude_banned, serializer);
+        <bool>::sse_encode(self.allow_rejoin_after_complete, serializer);
+    }
+}
+
+impl SseEncode for crate::models::QueueEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.user_id, serializer);
+        <crate::models::PlatformKind>::sse_encode(self.platform, serializer);
+        <String>::sse_encode(self.user_name, serializer);
+        <String>::sse_encode(self.user_icon_url, serializer);
+        <crate::models::QueueEntryStatus>::sse_encode(self.status, serializer);
+        <u32>::sse_encode(self.play_count, serializer);
+        <bool>::sse_encode(self.is_first_time, serializer);
+        <String>::sse_encode(self.note, serializer);
+        <i64>::sse_encode(self.joined_at_ms, serializer);
+    }
+}
+
+impl SseEncode for crate::models::QueueEntryStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::models::QueueEntryStatus::Active => 0,
+                crate::models::QueueEntryStatus::Waiting => 1,
+                crate::models::QueueEntryStatus::Completed => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::QueueSortMode {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::models::QueueSortMode::FirstCome => 0,
+                crate::models::QueueSortMode::FewestPlaysFirst => 1,
+                crate::models::QueueSortMode::FirstTimerFirst => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::QueueState {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::models::QueueConfig>::sse_encode(self.config, serializer);
+        <Vec<crate::models::QueueEntry>>::sse_encode(self.entries, serializer);
     }
 }
 

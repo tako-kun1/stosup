@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stosup WordParty 演出オーバーレイ</title>
+<link rel="icon" href="/favicon.ico" />
+<style id="stosup-base-css">
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--page-bg, transparent) !important;
+    overflow: hidden;
+    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
+  }
+  #fx-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 20;
+  }
+  .media-slot {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+  .media-slot.pos-center {
+    left: 50%; top: 50%; transform: translate(-50%, -50%);
+  }
+  .media-slot.pos-top_left { left: 28px; top: 28px; align-items: flex-start; }
+  .media-slot.pos-top_right { right: 28px; top: 28px; align-items: flex-end; }
+  .media-slot.pos-bottom_left { left: 28px; bottom: 28px; align-items: flex-start; }
+  .media-slot.pos-bottom_right { right: 28px; bottom: 28px; align-items: flex-end; }
+  .media-slot.pos-full_screen {
+    inset: 0;
+    justify-content: center;
+    align-items: center;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  .media-slot.leaving { opacity: 0 !important; }
+  .media-frame {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    max-height: 100%;
+  }
+  .media-el {
+    display: block;
+    max-width: 100%;
+    max-height: 82vh;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  }
+  .media-slot.pos-full_screen .media-el {
+    width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    object-fit: contain;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .media-caption {
+    padding: 8px 20px;
+    border-radius: 999px;
+    background: rgba(24, 24, 27, 0.9);
+    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    color: #f4f4f5;
+    font-size: 22px;
+    font-weight: 800;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+    text-align: center;
+    white-space: pre-wrap;
+  }
+
+  /* 登場アニメーション */
+  .anim-fade .media-frame { animation: animFade 0.35s ease forwards; }
+  .anim-pop_in .media-frame { animation: animPopIn 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  .anim-slide_up .media-frame { animation: animSlideUp 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+  .anim-slide_left .media-frame { animation: animSlideLeft 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+  .anim-bounce .media-frame { animation: animBounce 0.65s ease forwards; }
+  .anim-zoom_spin .media-frame { animation: animZoomSpin 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+  @keyframes animFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes animPopIn { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
+  @keyframes animSlideUp { from { opacity: 0; transform: translateY(70px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes animSlideLeft { from { opacity: 0; transform: translateX(90px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes animBounce {
+    0% { opacity: 0; transform: translateY(-60px) scale(0.8); }
+    45% { opacity: 1; transform: translateY(14px) scale(1.04); }
+    72% { transform: translateY(-8px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes animZoomSpin {
+    from { opacity: 0; transform: scale(0.2) rotate(-25deg); }
+    to   { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+
+  /* プリセット */
+  body[data-theme="minimal"] .media-el { border-radius: 4px; box-shadow: none; }
+  body[data-theme="minimal"] .media-caption {
+    background: rgba(15, 15, 18, 0.68);
+    border: none;
+    border-radius: 4px;
+  }
+  body[data-theme="pop"] .media-el {
+    border: 4px solid #18181b;
+    border-radius: 18px;
+    box-shadow: 6px 6px 0 #18181b;
+  }
+  body[data-theme="pop"] .media-caption {
+    background: #ffffff;
+    color: #18181b;
+    border: 3px solid #18181b;
+    box-shadow: 4px 4px 0 #18181b;
+    text-shadow: none;
+  }
+  body[data-theme="neon"] .media-el {
+    border: 2px solid #22d3ee;
+    box-shadow: 0 0 26px rgba(34, 211, 238, 0.55);
+  }
+  body[data-theme="neon"] .media-caption {
+    background: rgba(9, 11, 20, 0.92);
+    color: #ecfeff;
+    border: 2px solid #22d3ee;
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.4);
+  }
+  body[data-theme="pastel"] .media-el {
+    border: 3px solid #f472b6;
+    border-radius: 22px;
+    box-shadow: 0 8px 22px rgba(244, 114, 182, 0.3);
+  }
+  body[data-theme="pastel"] .media-caption {
+    background: rgba(255, 251, 245, 0.96);
+    color: #db2777;
+    border: 2.5px solid #f9a8d4;
+    text-shadow: none;
+  }
+
+  body.has-custom-font,
+  body.has-custom-font * {
+    font-family: var(--font-family) !important;
+  }
+</style>
+<style id="stosup-custom-css"></style>
+</head>
+<body data-theme="default">
+  <canvas id="fx-canvas"></canvas>
+  <div id="stage"></div>
+<script>
+  const canvas = document.getElementById('fx-canvas');
+  const ctx = canvas.getContext('2d');
+  const stage = document.getElementById('stage');
+  const customStyleEl = document.getElementById('stosup-custom-css');
+  const params = new URLSearchParams(location.search);
+  const urlTheme = params.get('theme');
+  const urlBg = params.get('bg');
+  const urlFont = params.get('font');
+
+  let enabled = true;
+  let mediaConfig = { playback_mode: 'Overlay', master_volume: 80, max_concurrent: 8 };
+  let config = {
+    media_theme: 'default',
+    media_bg_color: 'transparent',
+    media_font_family: '',
+    media_custom_css: ''
+  };
+
+  // ==================== Canvas リサイズ ====================
+  let vw = window.innerWidth;
+  let vh = window.innerHeight;
+  function resizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    vw = window.innerWidth;
+    vh = window.innerHeight;
+    canvas.width = Math.floor(vw * dpr);
+    canvas.height = Math.floor(vh * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // ==================== デザイン反映 ====================
+  function applyFont(raw) {
+    const f = (raw || '').trim();
+    if (f) {
+      const safe = f.replace(/["\\]/g, '');
+      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
+      document.body.classList.add('has-custom-font');
+    } else {
+      document.documentElement.style.removeProperty('--font-family');
+      document.body.classList.remove('has-custom-font');
+    }
+  }
+  function resolveBg(raw) {
+    const v = (raw || 'transparent').trim();
+    if (!v || v.toLowerCase() === 'transparent') return 'transparent';
+    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return '#' + v;
+    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return v;
+    return 'transparent';
+  }
+  function applyDesign() {
+    document.body.dataset.theme = urlTheme || config.media_theme || 'default';
+    document.documentElement.style.setProperty('--page-bg', resolveBg(urlBg || config.media_bg_color));
+    applyFont(urlFont || config.media_font_family);
+    customStyleEl.textContent = config.media_custom_css || '';
+  }
+
+  // ==================== 画像キャッシュ & 音声再生 ====================
+  const imageCache = new Map();
+  function loadSpriteImage(url) {
+    if (!url) return Promise.resolve(null);
+    if (imageCache.has(url)) {
+      const cached = imageCache.get(url);
+      if (cached.complete && cached.naturalWidth > 0) return Promise.resolve(cached);
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { imageCache.set(url, img); resolve(img); };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  const activeAudios = new Set();
+  function playAudioFile(url, ruleVol) {
+    if (!url) return null;
+    const vol = Math.max(0, Math.min(1, ((ruleVol ?? 80) / 100) * ((mediaConfig.master_volume ?? 80) / 100)));
+    if (vol <= 0) return null;
+    const audio = new Audio(url);
+    audio.volume = vol;
+    activeAudios.add(audio);
+    const cleanup = () => activeAudios.delete(audio);
+    audio.onended = cleanup;
+    audio.onerror = cleanup;
+    const p = audio.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(() => cleanup());
+    }
+    return audio;
+  }
+
+  // ==================== 60fps 物理パーティクルエンジン ====================
+  const CONFETTI_COLORS = ['#f43f5e', '#f59e0b', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899'];
+  const SAKURA_COLORS = ['#fbcfe8', '#f9a8d4', '#f472b6', '#fce7f3'];
+  const EMBER_COLORS = ['#fef08a', '#fb923c', '#f97316', '#ef4444'];
+
+  let particles = [];
+  let rings = [];
+  let ambientEmitters = [];
+  let rafRunning = false;
+  let lastFrameTs = 0;
+
+  function rand(min, max) { return min + Math.random() * (max - min); }
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function parseTokens(raw, fallback) {
+    const tokens = (raw || '').split(/[,、\n]/).map(s => s.trim()).filter(Boolean);
+    return tokens.length > 0 ? tokens : fallback;
+  }
+
+  function ensureLoop() {
+    if (rafRunning) return;
+    rafRunning = true;
+    lastFrameTs = performance.now();
+    requestAnimationFrame(tick);
+  }
+
+  function spawnCracker(trigger, img) {
+    const count = Math.max(4, Math.min(120, trigger.particle_count || 28));
+    const speedScale = (trigger.particle_speed || 100) / 100;
+    const gravScale = (trigger.gravity ?? 100) / 100;
+    const baseSize = Math.max(20, Math.min(220, trigger.particle_size || 58));
+    const tokens = parseTokens(trigger.particle_text, ['🎉', '🎊', '✨', '⭐']);
+    const lifeSec = Math.max(2.0, (trigger.duration_ms || 3800) / 1000);
+
+    for (let i = 0; i < count; i++) {
+      const fromLeft = i % 2 === 0;
+      const ox = fromLeft ? -10 : vw + 10;
+      const oy = vh * rand(0.68, 0.94);
+      const angle = fromLeft ? rand(-1.28, -0.35) : rand(-2.79, -1.86);
+      const spd = rand(520, 1080) * speedScale;
+      const useRibbon = !img && !trigger.particle_text && i % 3 !== 0;
+
+      particles.push({
+        kind: img ? 'image' : (useRibbon ? 'confetti' : 'text'),
+        img,
+        text: pick(tokens),
+        color: pick(CONFETTI_COLORS),
+        x: ox, y: oy,
+        vx: Math.cos(angle) * spd,
+        vy: Math.sin(angle) * spd,
+        g: 760 * gravScale,
+        drag: 0.986,
+        size: baseSize * rand(0.7, 1.25),
+        rot: rand(0, Math.PI * 2),
+        vrot: rand(-7, 7),
+        flip: rand(0, Math.PI * 2),
+        vflip: rand(4, 10),
+        swayAmp: rand(10, 35),
+        swayFreq: rand(2, 5),
+        phase: rand(0, Math.PI * 2),
+        age: 0,
+        maxAge: lifeSec * rand(0.75, 1.1),
+        bounceY: null,
+        bouncesLeft: 0
+      });
+    }
+    ensureLoop();
+  }
+
+  function spawnDrop(trigger, img) {
+    const count = Math.max(3, Math.min(120, trigger.particle_count || 22));
+    const speedScale = (trigger.particle_speed || 100) / 100;
+    const gravScale = (trigger.gravity ?? 100) / 100;
+    const baseSize = Math.max(20, Math.min(220, trigger.particle_size || 64));
+    const tokens = parseTokens(trigger.particle_text, ['✨', '⭐', '🌟']);
+    const lifeSec = Math.max(2.5, (trigger.duration_ms || 4500) / 1000);
+
+    for (let i = 0; i < count; i++) {
+      const delay = rand(0, Math.min(1.4, lifeSec * 0.35));
+      particles.push({
+        kind: img ? 'image' : 'text',
+        img,
+        text: pick(tokens),
+        color: pick(CONFETTI_COLORS),
+        x: rand(baseSize, Math.max(baseSize + 10, vw - baseSize)),
+        y: -baseSize * rand(1.0, 2.5),
+        vx: rand(-35, 35) * speedScale,
+        vy: rand(120, 280) * speedScale,
+        g: 240 * gravScale,
+        drag: 0.996,
+        size: baseSize * rand(0.75, 1.25),
+        rot: rand(-0.6, 0.6),
+        vrot: rand(-2.5, 2.5),
+        flip: 0,
+        vflip: 0,
+        swayAmp: rand(25, 75),
+        swayFreq: rand(1.8, 4.0),
+        phase: rand(0, Math.PI * 2),
+        age: -delay,
+        maxAge: lifeSec,
+        bounceY: null,
+        bouncesLeft: 0
+      });
+    }
+    ensureLoop();
+  }
+
+  function spawnConfetti(trigger, img) {
+    const count = Math.max(10, Math.min(120, trigger.particle_count || 65));
+    const speedScale = (trigger.particle_speed || 100) / 100;
+    const gravScale = (trigger.gravity ?? 100) / 100;
+    const baseSize = Math.max(14, Math.min(180, trigger.particle_size || 28));
+    const tokens = parseTokens(trigger.particle_text, []);
+    const lifeSec = Math.max(3.0, (trigger.duration_ms || 5000) / 1000);
+
+    for (let i = 0; i < count; i++) {
+      const delay = rand(0, 1.2);
+      const kind = img ? 'image' : (tokens.length > 0 && i % 2 === 0 ? 'text' : 'confetti');
+      particles.push({
+        kind,
+        img,
+        text: tokens.length > 0 ? pick(tokens) : '',
+        color: pick(CONFETTI_COLORS),
+        x: rand(0, vw),
+        y: rand(-120, -20),
+        vx: rand(-90, 90) * speedScale,
+        vy: rand(80, 220) * speedScale,
+        g: 160 * gravScale,
+        drag: 0.99,
+        size: kind === 'confetti' ? rand(14, 24) : baseSize * rand(0.75, 1.15),
+        rot: rand(0, Math.PI * 2),
+        vrot: rand(-5, 5),
+        flip: rand(0, Math.PI * 2),
+        vflip: rand(5, 11),
+        swayAmp: rand(40, 100),
+        swayFreq: rand(2.2, 4.6),
+        phase: rand(0, Math.PI * 2),
+        age: -delay,
+        maxAge: lifeSec * rand(0.85, 1.15),
+        bounceY: null,
+        bouncesLeft: 0
+      });
+    }
+    ensureLoop();
+  }
+
+  function spawnThrow(trigger, img) {
+    const count = Math.max(1, Math.min(30, trigger.particle_count || 5));
+    const speedScale = (trigger.particle_speed || 100) / 100;
+    const gravScale = (trigger.gravity ?? 100) / 100;
+    const baseSize = Math.max(36, Math.min(240, trigger.particle_size || 96));
+    const tokens = parseTokens(trigger.particle_text, ['🎯', '💥', '❤️', '⭐']);
+    const lifeSec = Math.max(2.0, (trigger.duration_ms || 3200) / 1000);
+
+    for (let i = 0; i < count; i++) {
+      const fromLeft = Math.random() < 0.5;
+      const sx = fromLeft ? -baseSize : vw + baseSize;
+      const sy = vh * rand(0.25, 0.72);
+      const tx = vw * rand(0.32, 0.68);
+      const ty = vh * rand(0.35, 0.72);
+      const flight = Math.max(0.45, 0.72 / speedScale);
+      const g = 980 * Math.max(0.3, gravScale);
+      const vx = (tx - sx) / flight;
+      const vy = (ty - sy - 0.5 * g * flight * flight) / flight;
+      const delay = i * 0.14;
+
+      particles.push({
+        kind: img ? 'image' : 'text',
+        img,
+        text: pick(tokens),
+        color: pick(CONFETTI_COLORS),
+        x: sx, y: sy,
+        vx, vy,
+        g,
+        drag: 0.998,
+        size: baseSize * rand(0.85, 1.15),
+        rot: 0,
+        vrot: (fromLeft ? 1 : -1) * rand(8, 15),
+        flip: 0,
+        vflip: 0,
+        swayAmp: 0,
+        swayFreq: 0,
+        phase: 0,
+        age: -delay,
+        maxAge: lifeSec,
+        bounceY: ty,
+        bouncesLeft: 2
+      });
+    }
+    ensureLoop();
+  }
+
+  function spawnAmbient(trigger, img) {
+    const durationMs = Math.max(2000, trigger.duration_ms || 6500);
+    ambientEmitters.push({
+      preset: (trigger.ambient_preset || 'snow').toLowerCase(),
+      img,
+      tokens: parseTokens(trigger.particle_text, []),
+      size: Math.max(14, Math.min(160, trigger.particle_size || 32)),
+      speedScale: (trigger.particle_speed || 100) / 100,
+      rate: Math.max(4, Math.min(50, Math.round((trigger.particle_count || 36) / 2))),
+      accum: 0,
+      remainingSec: durationMs / 1000
+    });
+    ensureLoop();
+  }
+
+  function emitOneAmbientParticle(em) {
+    const p = em.preset;
+    const s = em.speedScale;
+    if (em.img) {
+      particles.push({
+        kind: 'image', img: em.img, text: '', color: '#ffffff',
+        x: rand(0, vw), y: p === 'embers' || p === 'hearts' ? vh + 40 : -40,
+        vx: rand(-30, 30) * s, vy: (p === 'embers' || p === 'hearts' ? rand(-160, -70) : rand(60, 150)) * s,
+        g: 0, drag: 1, size: em.size * rand(0.65, 1.15),
+        rot: rand(0, Math.PI * 2), vrot: rand(-2, 2),
+        flip: 0, vflip: 0, swayAmp: rand(20, 50), swayFreq: rand(1.5, 3.2), phase: rand(0, 6.28),
+        age: 0, maxAge: rand(3.5, 6.0), bounceY: null, bouncesLeft: 0
+      });
+      return;
+    }
+    if (p === 'sakura') {
+      particles.push({
+        kind: 'petal', img: null, text: '', color: pick(SAKURA_COLORS),
+        x: rand(-80, vw + 80), y: -24,
+        vx: rand(55, 130) * s, vy: rand(70, 145) * s,
+        g: 0, drag: 1, size: rand(12, 24),
+        rot: rand(0, 6.28), vrot: rand(-3, 3),
+        flip: rand(0, 6.28), vflip: rand(3, 7),
+        swayAmp: rand(35, 85), swayFreq: rand(1.8, 3.4), phase: rand(0, 6.28),
+        age: 0, maxAge: rand(4.5, 7.0), bounceY: null, bouncesLeft: 0
+      });
+    } else if (p === 'rain') {
+      particles.push({
+        kind: 'rain', img: null, text: '', color: 'rgba(147, 197, 253, 0.78)',
+        x: rand(-60, vw + 120), y: -40,
+        vx: -140 * s, vy: rand(880, 1250) * s,
+        g: 0, drag: 1, size: rand(24, 46),
+        rot: 0, vrot: 0, flip: 0, vflip: 0, swayAmp: 0, swayFreq: 0, phase: 0,
+        age: 0, maxAge: 1.4, bounceY: null, bouncesLeft: 0
+      });
+    } else if (p === 'sparkle') {
+      particles.push({
+        kind: 'star', img: null, text: '', color: pick(['#fef08a', '#fde047', '#ffffff', '#bae6fd']),
+        x: rand(20, vw - 20), y: rand(20, vh - 20),
+        vx: rand(-15, 15) * s, vy: rand(-45, -15) * s,
+        g: 0, drag: 0.99, size: rand(14, 30),
+        rot: 0, vrot: rand(-1.5, 1.5), flip: 0, vflip: 0, swayAmp: 0, swayFreq: 0, phase: rand(0, 6.28),
+        age: 0, maxAge: rand(1.4, 2.6), bounceY: null, bouncesLeft: 0
+      });
+    } else if (p === 'hearts') {
+      particles.push({
+        kind: 'text', img: null, text: pick(['💖', '💗', '❤️', '💕']), color: '#f472b6',
+        x: rand(30, vw - 30), y: vh + 30,
+        vx: rand(-25, 25) * s, vy: rand(-180, -90) * s,
+        g: 0, drag: 1, size: rand(24, 46),
+        rot: rand(-0.2, 0.2), vrot: rand(-0.8, 0.8), flip: 0, vflip: 0,
+        swayAmp: rand(25, 65), swayFreq: rand(1.8, 3.5), phase: rand(0, 6.28),
+        age: 0, maxAge: rand(3.5, 5.5), bounceY: null, bouncesLeft: 0
+      });
+    } else if (p === 'embers') {
+      particles.push({
+        kind: 'glow', img: null, text: '', color: pick(EMBER_COLORS),
+        x: rand(0, vw), y: vh + 20,
+        vx: rand(-40, 40) * s, vy: rand(-220, -95) * s,
+        g: 0, drag: 0.995, size: rand(5, 13),
+        rot: 0, vrot: 0, flip: 0, vflip: 0,
+        swayAmp: rand(30, 80), swayFreq: rand(2.5, 5.0), phase: rand(0, 6.28),
+        age: 0, maxAge: rand(2.5, 4.6), bounceY: null, bouncesLeft: 0
+      });
+    } else {
+      // snow
+      particles.push({
+        kind: 'snow', img: null, text: '', color: 'rgba(255, 255, 255, 0.9)',
+        x: rand(-20, vw + 20), y: -20,
+        vx: rand(-22, 22) * s, vy: rand(55, 135) * s,
+        g: 0, drag: 1, size: rand(5, 14),
+        rot: 0, vrot: 0, flip: 0, vflip: 0,
+        swayAmp: rand(20, 60), swayFreq: rand(1.2, 2.6), phase: rand(0, 6.28),
+        age: 0, maxAge: rand(5.0, 8.0), bounceY: null, bouncesLeft: 0
+      });
+    }
+  }
+
+  function drawStar(c, r) {
+    c.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const rad = i % 2 === 0 ? r : r * 0.32;
+      const a = (i * Math.PI) / 4;
+      if (i === 0) c.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
+      else c.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+    }
+    c.closePath();
+    c.fill();
+  }
+
+  function tick(now) {
+    const dt = Math.min(0.05, Math.max(0.001, (now - lastFrameTs) / 1000));
+    lastFrameTs = now;
+    ctx.clearRect(0, 0, vw, vh);
+
+    // 環境エミッター更新
+    for (let i = ambientEmitters.length - 1; i >= 0; i--) {
+      const em = ambientEmitters[i];
+      em.remainingSec -= dt;
+      if (em.remainingSec <= 0) {
+        ambientEmitters.splice(i, 1);
+        continue;
+      }
+      em.accum += em.rate * dt;
+      while (em.accum >= 1 && particles.length < 450) {
+        em.accum -= 1;
+        emitOneAmbientParticle(em);
+      }
+    }
+
+    // 衝撃リング更新
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const rg = rings[i];
+      rg.age += dt;
+      if (rg.age >= rg.maxAge) { rings.splice(i, 1); continue; }
+      const t = rg.age / rg.maxAge;
+      ctx.save();
+      ctx.globalAlpha = 1 - t;
+      ctx.strokeStyle = rg.color;
+      ctx.lineWidth = Math.max(1, 5 * (1 - t));
+      ctx.beginPath();
+      ctx.arc(rg.x, rg.y, rg.maxR * t, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // パーティクル物理・描画
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age < 0) continue;
+      if (p.age >= p.maxAge) { particles.splice(i, 1); continue; }
+
+      p.vx *= Math.pow(p.drag, dt * 60);
+      p.vy = p.vy * Math.pow(p.drag, dt * 60) + p.g * dt;
+      const swayVx = p.swayAmp ? Math.cos(p.age * p.swayFreq + p.phase) * p.swayAmp : 0;
+      p.x += (p.vx + swayVx) * dt;
+      p.y += p.vy * dt;
+      p.rot += p.vrot * dt;
+      p.flip += p.vflip * dt;
+
+      if (p.bounceY !== null && p.bouncesLeft > 0 && p.y >= p.bounceY && p.vy > 0) {
+        p.y = p.bounceY;
+        p.vy = -p.vy * 0.56;
+        p.vx *= 0.72;
+        p.bouncesLeft--;
+        rings.push({ x: p.x, y: p.y, maxR: p.size * 0.9, color: '#ffffff', age: 0, maxAge: 0.38 });
+      }
+
+      const lifeRatio = p.age / p.maxAge;
+      let alpha = 1;
+      if (p.kind === 'star') {
+        alpha = Math.sin(lifeRatio * Math.PI);
+      } else if (lifeRatio > 0.75) {
+        alpha = Math.max(0, 1 - (lifeRatio - 0.75) / 0.25);
+      } else if (lifeRatio < 0.08) {
+        alpha = lifeRatio / 0.08;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+
+      if (p.kind === 'image' && p.img) {
+        const aspect = p.img.naturalWidth / Math.max(1, p.img.naturalHeight);
+        const w = aspect >= 1 ? p.size : p.size * aspect;
+        const h = aspect >= 1 ? p.size / aspect : p.size;
+        if (p.vflip) ctx.scale(1, Math.cos(p.flip));
+        ctx.drawImage(p.img, -w / 2, -h / 2, w, h);
+      } else if (p.kind === 'text') {
+        ctx.font = `bold ${Math.round(p.size)}px "Segoe UI Emoji", "Yu Gothic UI", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+        ctx.lineWidth = Math.max(2, p.size * 0.08);
+        ctx.strokeText(p.text, 0, 0);
+        ctx.fillText(p.text, 0, 0);
+      } else if (p.kind === 'confetti') {
+        ctx.scale(1, Math.cos(p.flip));
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size * 0.65, -p.size * 0.35, p.size * 1.3, p.size * 0.7);
+      } else if (p.kind === 'petal') {
+        ctx.scale(1, 0.55 + 0.45 * Math.cos(p.flip));
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size * 0.55, p.size * 0.32, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.kind === 'snow') {
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(0, 0, p.size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.kind === 'rain') {
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-p.size * 0.16, p.size);
+        ctx.stroke();
+      } else if (p.kind === 'star') {
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 14;
+        drawStar(ctx, p.size * 0.5);
+      } else if (p.kind === 'glow') {
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(0, 0, p.size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    if (particles.length > 0 || rings.length > 0 || ambientEmitters.length > 0) {
+      requestAnimationFrame(tick);
+    } else {
+      rafRunning = false;
+    }
+  }
+
+  // ==================== DOM 固定表示・テロップ管理 ====================
+  let queueList = [];
+  let isQueuePlaying = false;
+  let activeSlots = [];
+
+  function posClass(pos) {
+    switch (pos) {
+      case 'TopLeft': return 'pos-top_left';
+      case 'TopRight': return 'pos-top_right';
+      case 'BottomLeft': return 'pos-bottom_left';
+      case 'BottomRight': return 'pos-bottom_right';
+      case 'FullScreen': return 'pos-full_screen';
+      default: return 'pos-center';
+    }
+  }
+
+  function animClass(anim) {
+    switch (anim) {
+      case 'PopIn': return 'anim-pop_in';
+      case 'SlideUp': return 'anim-slide_up';
+      case 'SlideLeft': return 'anim-slide_left';
+      case 'Bounce': return 'anim-bounce';
+      case 'ZoomSpin': return 'anim-zoom_spin';
+      case 'None': return 'anim-none';
+      default: return 'anim-fade';
+    }
+  }
+
+  function clearAllPlayback() {
+    queueList = [];
+    isQueuePlaying = false;
+    activeSlots.forEach((s) => s.stopNow());
+    activeSlots = [];
+    stage.innerHTML = '';
+    particles = [];
+    rings = [];
+    ambientEmitters = [];
+    ctx.clearRect(0, 0, vw, vh);
+    activeAudios.forEach((a) => { try { a.pause(); } catch (_) {} });
+    activeAudios.clear();
+  }
+
+  function showCaptionBanner(trigger) {
+    if (!trigger.caption || !trigger.caption.trim()) return;
+    const slot = document.createElement('div');
+    slot.className = `media-slot ${posClass(trigger.position)} ${animClass(trigger.animation)}`;
+    const frame = document.createElement('div');
+    frame.className = 'media-frame';
+    const cap = document.createElement('div');
+    cap.className = 'media-caption';
+    cap.textContent = trigger.caption;
+    frame.appendChild(cap);
+    slot.appendChild(frame);
+    stage.appendChild(slot);
+
+    let done = false;
+    const stop = (immediate) => {
+      if (done) return;
+      done = true;
+      const rm = () => {
+        if (slot.parentNode) slot.parentNode.removeChild(slot);
+        activeSlots = activeSlots.filter((s) => s !== h);
+      };
+      if (immediate) rm();
+      else { slot.classList.add('leaving'); setTimeout(rm, 340); }
+    };
+    const h = { stopNow: () => stop(true) };
+    activeSlots.push(h);
+    setTimeout(() => stop(false), Math.max(1800, trigger.duration_ms || 3500));
+  }
+
+  function playFixedOne(trigger, onDone) {
+    const slot = document.createElement('div');
+    slot.className = `media-slot ${posClass(trigger.position)} ${animClass(trigger.animation)}`;
+    if (trigger.position !== 'FullScreen') {
+      const pct = Math.max(10, Math.min(100, trigger.width_percent || 45));
+      slot.style.width = `${pct}vw`;
+    }
+
+    const frame = document.createElement('div');
+    frame.className = 'media-frame';
+
+    let finished = false;
+    let timerId = null;
+    let videoEl = null;
+
+    const finish = (immediate) => {
+      if (finished) return;
+      finished = true;
+      if (timerId) clearTimeout(timerId);
+      if (videoEl) {
+        try { videoEl.pause(); videoEl.removeAttribute('src'); videoEl.load(); } catch (_) {}
+      }
+      const removeDom = () => {
+        if (slot.parentNode) slot.parentNode.removeChild(slot);
+        activeSlots = activeSlots.filter((s) => s !== handle);
+        if (onDone) onDone();
+      };
+      if (immediate) removeDom();
+      else { slot.classList.add('leaving'); setTimeout(removeDom, 340); }
+    };
+
+    const handle = { stopNow: () => finish(true) };
+    activeSlots.push(handle);
+
+    if (trigger.sound_url) {
+      playAudioFile(trigger.sound_url, trigger.sound_volume);
+    }
+
+    if (trigger.media_url && trigger.media_kind === 'Video') {
+      const v = document.createElement('video');
+      videoEl = v;
+      v.className = 'media-el';
+      v.src = trigger.media_url;
+      v.playsInline = true;
+      v.autoplay = true;
+      const vol = Math.max(0, Math.min(1, ((trigger.volume ?? 80) / 100) * ((mediaConfig.master_volume ?? 80) / 100)));
+      v.volume = vol;
+      v.muted = vol === 0;
+      v.onended = () => finish(false);
+      v.onerror = () => finish(true);
+      frame.appendChild(v);
+
+      const playPromise = v.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+          v.muted = true;
+          v.play().catch(() => finish(true));
+        });
+      }
+      const maxDur = trigger.duration_ms > 0 ? trigger.duration_ms : 60000;
+      timerId = setTimeout(() => finish(false), maxDur);
+    } else if (trigger.media_url && trigger.media_kind === 'Audio') {
+      playAudioFile(trigger.media_url, trigger.volume);
+      const dur = trigger.duration_ms > 0 ? trigger.duration_ms : 3000;
+      timerId = setTimeout(() => finish(false), dur);
+    } else if (trigger.media_url) {
+      const img = document.createElement('img');
+      img.className = 'media-el';
+      img.src = trigger.media_url;
+      img.onerror = () => finish(true);
+      frame.appendChild(img);
+      const dur = trigger.duration_ms > 0 ? trigger.duration_ms : 4000;
+      timerId = setTimeout(() => finish(false), dur);
+    } else {
+      const dur = trigger.duration_ms > 0 ? trigger.duration_ms : 3500;
+      timerId = setTimeout(() => finish(false), dur);
+    }
+
+    if (trigger.caption && trigger.caption.trim()) {
+      const cap = document.createElement('div');
+      cap.className = 'media-caption';
+      cap.textContent = trigger.caption;
+      frame.appendChild(cap);
+    }
+
+    slot.appendChild(frame);
+    stage.appendChild(slot);
+  }
+
+  async function playParticleEffect(trigger) {
+    if (trigger.sound_url) {
+      playAudioFile(trigger.sound_url, trigger.sound_volume);
+    }
+    const img = trigger.media_url && trigger.media_kind === 'Image'
+      ? await loadSpriteImage(trigger.media_url)
+      : null;
+
+    switch (trigger.effect_type) {
+      case 'Cracker': spawnCracker(trigger, img); break;
+      case 'Drop': spawnDrop(trigger, img); break;
+      case 'Confetti': spawnConfetti(trigger, img); break;
+      case 'Throw': spawnThrow(trigger, img); break;
+      case 'Ambient': spawnAmbient(trigger, img); break;
+      default: break;
+    }
+    showCaptionBanner(trigger);
+  }
+
+  function pumpQueue() {
+    if (isQueuePlaying || queueList.length === 0) return;
+    isQueuePlaying = true;
+    const next = queueList.shift();
+    playFixedOne(next, () => {
+      isQueuePlaying = false;
+      pumpQueue();
+    });
+  }
+
+  function handleTrigger(trigger) {
+    if (!enabled || !trigger) return;
+    const mode = mediaConfig.playback_mode || 'Overlay';
+    const isFixed = !trigger.effect_type || trigger.effect_type === 'Fixed';
+
+    if (mode === 'Replace') {
+      clearAllPlayback();
+      if (isFixed) playFixedOne(trigger, null);
+      else playParticleEffect(trigger);
+      return;
+    }
+
+    if (!isFixed) {
+      // WordParty パーティクル系はコメント連打でも爽快に同時発火
+      playParticleEffect(trigger);
+      return;
+    }
+
+    if (mode === 'Overlay') {
+      const maxC = Math.max(1, mediaConfig.max_concurrent || 8);
+      while (activeSlots.length >= maxC) {
+        activeSlots[0].stopNow();
+      }
+      playFixedOne(trigger, null);
+    } else {
+      queueList.push(trigger);
+      pumpQueue();
+    }
+  }
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${proto}//${location.host}/ws`);
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === 'snapshot') {
+          config = Object.assign(config, data.config || {});
+          if (data.media_config) mediaConfig = data.media_config;
+          if (typeof data.media_enabled === 'boolean') enabled = data.media_enabled;
+          applyDesign();
+        } else if (data.type === 'media_trigger') {
+          handleTrigger(data.trigger);
+        } else if (data.type === 'media_config') {
+          if (data.media_config) mediaConfig = data.media_config;
+          if (typeof data.enabled === 'boolean') enabled = data.enabled;
+        } else if (data.type === 'clear_media') {
+          clearAllPlayback();
+        } else if (data.type === 'config_updated') {
+          config = Object.assign(config, data.config || {});
+          applyDesign();
+        }
+      } catch (e) { console.error(e); }
+    };
+    ws.onclose = () => setTimeout(connect, 2000);
+    ws.onerror = () => ws.close();
+  }
+  applyDesign();
+  connect();
+</script>
+</body>
+</html>

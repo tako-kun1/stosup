@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stosup コメントピックアップオーバーレイ</title>
+<link rel="icon" href="/favicon.ico" />
+<style id="stosup-base-css">
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--page-bg, transparent) !important;
+    overflow: hidden;
+    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
+  }
+  #stage {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .pickup-card {
+    max-width: 820px;
+    width: 100%;
+    background: rgba(24, 24, 27, 0.95);
+    border: 2px solid var(--accent, #3b82f6);
+    border-radius: 16px;
+    padding: 20px 26px;
+    color: #f4f4f5;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    animation: pickPop 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  @keyframes pickPop {
+    from { opacity: 0; transform: translateY(18px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .pickup-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .pickup-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2.5px solid var(--accent, #3b82f6);
+    background: #3f3f46;
+    flex-shrink: 0;
+  }
+  .pickup-author-wrap {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pickup-author {
+    font-size: 20px;
+    font-weight: 800;
+  }
+  .pickup-badge {
+    font-size: 12px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 5px;
+    background: var(--accent, #3b82f6);
+    color: #ffffff;
+  }
+  .pickup-message {
+    font-size: 26px;
+    line-height: 1.48;
+    font-weight: 600;
+    word-break: break-word;
+  }
+
+  /* minimal */
+  body[data-theme="minimal"] .pickup-card {
+    background: rgba(15, 15, 18, 0.78);
+    border: none;
+    border-left: 6px solid var(--accent, #3b82f6);
+    border-radius: 0 12px 12px 0;
+    box-shadow: none;
+  }
+
+  /* pop */
+  body[data-theme="pop"] .pickup-card {
+    background: #ffffff;
+    color: #18181b;
+    border: 4px solid #18181b;
+    border-radius: 22px;
+    box-shadow: 7px 7px 0 #18181b;
+  }
+  body[data-theme="pop"] .pickup-author { color: #2563eb; }
+
+  /* neon */
+  body[data-theme="neon"] .pickup-card {
+    background: rgba(9, 11, 20, 0.94);
+    border: 2px solid #22d3ee;
+    box-shadow: 0 0 28px rgba(34, 211, 238, 0.4);
+  }
+  body[data-theme="neon"] .pickup-author { color: #67e8f9; }
+
+  /* pastel */
+  body[data-theme="pastel"] .pickup-card {
+    background: rgba(255, 251, 245, 0.98);
+    color: #27272a;
+    border: 3px solid #f472b6;
+    border-radius: 24px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+  }
+  body[data-theme="pastel"] .pickup-author { color: #db2777; }
+
+  body.has-custom-font,
+  body.has-custom-font * {
+    font-family: var(--font-family) !important;
+  }
+</style>
+<style id="stosup-custom-css"></style>
+</head>
+<body data-theme="default">
+  <div id="stage"></div>
+<script>
+  const stage = document.getElementById('stage');
+  const customStyleEl = document.getElementById('stosup-custom-css');
+  const params = new URLSearchParams(location.search);
+  const urlTheme = params.get('theme');
+  const urlBg = params.get('bg');
+  const urlFont = params.get('font');
+
+  let enabled = true;
+  let picked = { comment: null };
+  let config = {
+    pickup_theme: 'default',
+    pickup_bg_color: 'transparent',
+    pickup_font_family: '',
+    pickup_custom_css: ''
+  };
+
+  function applyFont(raw) {
+    const f = (raw || '').trim();
+    if (f) {
+      const safe = f.replace(/["\\]/g, '');
+      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
+      document.body.classList.add('has-custom-font');
+    } else {
+      document.documentElement.style.removeProperty('--font-family');
+      document.body.classList.remove('has-custom-font');
+    }
+  }
+  function resolveBg(raw) {
+    const v = (raw || 'transparent').trim();
+    if (!v || v.toLowerCase() === 'transparent') return 'transparent';
+    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return '#' + v;
+    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return v;
+    return 'transparent';
+  }
+  function applyDesign() {
+    document.body.dataset.theme = urlTheme || config.pickup_theme || 'default';
+    document.documentElement.style.setProperty('--page-bg', resolveBg(urlBg || config.pickup_bg_color));
+    applyFont(urlFont || config.pickup_font_family);
+    customStyleEl.textContent = config.pickup_custom_css || '';
+  }
+  function fallbackAvatar(name) {
+    const ch = (name || '?').slice(0, 1);
+    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%2352525b'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
+  }
+
+  function render() {
+    stage.innerHTML = '';
+    if (!enabled || !picked || !picked.comment) return;
+    const c = picked.comment;
+
+    const card = document.createElement('div');
+    card.className = 'pickup-card';
+    if (c.event_accent_color) {
+      card.style.setProperty('--accent', c.event_accent_color);
+    }
+
+    const head = document.createElement('div');
+    head.className = 'pickup-head';
+
+    const img = document.createElement('img');
+    img.className = 'pickup-avatar';
+    img.src = c.user_icon_url || fallbackAvatar(c.user_name);
+    img.onerror = () => { img.src = fallbackAvatar(c.user_name); };
+
+    const authorWrap = document.createElement('div');
+    authorWrap.className = 'pickup-author-wrap';
+    const author = document.createElement('span');
+    author.className = 'pickup-author';
+    author.textContent = c.user_name;
+    authorWrap.appendChild(author);
+
+    if (c.amount_display) {
+      const b = document.createElement('span');
+      b.className = 'pickup-badge';
+      b.textContent = c.amount_display;
+      authorWrap.appendChild(b);
+    } else if (c.is_member) {
+      const b = document.createElement('span');
+      b.className = 'pickup-badge';
+      b.style.background = '#16a34a';
+      b.textContent = 'メンバー';
+      authorWrap.appendChild(b);
+    }
+
+    head.appendChild(img);
+    head.appendChild(authorWrap);
+
+    const msg = document.createElement('div');
+    msg.className = 'pickup-message';
+    msg.textContent = c.message;
+
+    card.appendChild(head);
+    card.appendChild(msg);
+    stage.appendChild(card);
+  }
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${proto}//${location.host}/ws`);
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === 'snapshot') {
+          config = Object.assign(config, data.config || {});
+          picked = data.picked_comment || { comment: null };
+          if (typeof data.pickup_enabled === 'boolean') enabled = data.pickup_enabled;
+          applyDesign();
+          render();
+        } else if (data.type === 'picked_comment') {
+          picked = data.picked || { comment: null };
+          if (typeof data.enabled === 'boolean') enabled = data.enabled;
+          render();
+        } else if (data.type === 'config_updated') {
+          config = Object.assign(config, data.config || {});
+          applyDesign();
+        }
+      } catch (e) { console.error(e); }
+    };
+    ws.onclose = () => setTimeout(connect, 2000);
+    ws.onerror = () => ws.close();
+  }
+  applyDesign();
+  connect();
+</script>
+</body>
+</html>

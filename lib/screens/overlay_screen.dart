@@ -45,6 +45,11 @@ class _OverlayScreenState extends State<OverlayScreen>
   late TextEditingController _lotteryCssCtrl;
   late TextEditingController _counterCssCtrl;
   late TextEditingController _firstTimeCssCtrl;
+  late TextEditingController _superchatCssCtrl;
+  late TextEditingController _pollCssCtrl;
+  late TextEditingController _pickupCssCtrl;
+  late TextEditingController _queueCssCtrl;
+  late TextEditingController _mediaCssCtrl;
 
   late int _fontSize;
   late int _maxItems;
@@ -56,14 +61,72 @@ class _OverlayScreenState extends State<OverlayScreen>
   late String _lotteryTheme;
   late String _counterTheme;
   late String _firstTimeTheme;
+  late String _superchatTheme;
+  late String _pollTheme;
+  late String _pickupTheme;
+  late String _queueTheme;
+  late String _mediaTheme;
   late String _commentsBgColor;
   late String _lotteryBgColor;
   late String _counterBgColor;
   late String _firstTimeBgColor;
+  late String _superchatBgColor;
+  late String _pollBgColor;
+  late String _pickupBgColor;
+  late String _queueBgColor;
+  late String _mediaBgColor;
   late String _commentsFont;
   late String _lotteryFont;
   late String _counterFont;
   late String _firstTimeFont;
+  late String _superchatFont;
+  late String _pollFont;
+  late String _pickupFont;
+  late String _queueFont;
+  late String _mediaFont;
+
+  static const List<_PresetMeta> _richOverlayPresets = [
+    _PresetMeta(
+      id: 'default',
+      name: 'スタンダード',
+      desc: '落ち着いたダークカード。どんな配信画面にも馴染む。',
+      bg: Color(0xFF18181B),
+      fg: Color(0xFFF4F4F5),
+      border: Color(0xFF3B82F6),
+    ),
+    _PresetMeta(
+      id: 'minimal',
+      name: 'ミニマル字幕風',
+      desc: '背景控えめ＆左アクセントラインで画面を邪魔しない。',
+      bg: Color(0xB80F0F12),
+      fg: Color(0xFFFFFFFF),
+      border: Color(0xFFA1A1AA),
+    ),
+    _PresetMeta(
+      id: 'pop',
+      name: 'ポップ・コミック',
+      desc: '白ベース＋太黒枠の明るく視認性の高いカード。',
+      bg: Color(0xFFFFFFFF),
+      fg: Color(0xFF18181B),
+      border: Color(0xFF18181B),
+    ),
+    _PresetMeta(
+      id: 'neon',
+      name: 'サイバー・ネオン',
+      desc: '発光フレーム付きのゲーム・大会配信向けデザイン。',
+      bg: Color(0xFF090B14),
+      fg: Color(0xFFECFEFF),
+      border: Color(0xFF22D3EE),
+    ),
+    _PresetMeta(
+      id: 'pastel',
+      name: 'パステル・ふんわり',
+      desc: 'やわらかい白＆ピンク系の可愛らしいデザイン。',
+      bg: Color(0xFFFFFBF5),
+      fg: Color(0xFF27272A),
+      border: Color(0xFFF472B6),
+    ),
+  ];
 
   static const List<_PresetMeta> _commentPresets = [
     _PresetMeta(
@@ -197,13 +260,18 @@ class _OverlayScreenState extends State<OverlayScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 5, vsync: this);
+    _tabCtrl = TabController(length: 10, vsync: this);
     final cfg = widget.controller.overlayConfig;
     _portCtrl = TextEditingController(text: cfg.port.toString());
     _commentsCssCtrl = TextEditingController(text: cfg.commentsCustomCss);
     _lotteryCssCtrl = TextEditingController(text: cfg.lotteryCustomCss);
     _counterCssCtrl = TextEditingController(text: cfg.counterCustomCss);
     _firstTimeCssCtrl = TextEditingController(text: cfg.firstTimeCustomCss);
+    _superchatCssCtrl = TextEditingController(text: cfg.superchatCustomCss);
+    _pollCssCtrl = TextEditingController(text: cfg.pollCustomCss);
+    _pickupCssCtrl = TextEditingController(text: cfg.pickupCustomCss);
+    _queueCssCtrl = TextEditingController(text: cfg.queueCustomCss);
+    _mediaCssCtrl = TextEditingController(text: cfg.mediaCustomCss);
     _fontSize = cfg.commentFontSize;
     _maxItems = cfg.commentMaxItems;
     _showIcons = cfg.showIcons;
@@ -214,14 +282,29 @@ class _OverlayScreenState extends State<OverlayScreen>
     _lotteryTheme = cfg.lotteryTheme;
     _counterTheme = cfg.counterTheme;
     _firstTimeTheme = cfg.firstTimeTheme;
+    _superchatTheme = cfg.superchatTheme;
+    _pollTheme = cfg.pollTheme;
+    _pickupTheme = cfg.pickupTheme;
+    _queueTheme = cfg.queueTheme;
+    _mediaTheme = cfg.mediaTheme;
     _commentsBgColor = cfg.commentsBgColor;
     _lotteryBgColor = cfg.lotteryBgColor;
     _counterBgColor = cfg.counterBgColor;
     _firstTimeBgColor = cfg.firstTimeBgColor;
+    _superchatBgColor = cfg.superchatBgColor;
+    _pollBgColor = cfg.pollBgColor;
+    _pickupBgColor = cfg.pickupBgColor;
+    _queueBgColor = cfg.queueBgColor;
+    _mediaBgColor = cfg.mediaBgColor;
     _commentsFont = cfg.commentsFontFamily;
     _lotteryFont = cfg.lotteryFontFamily;
     _counterFont = cfg.counterFontFamily;
     _firstTimeFont = cfg.firstTimeFontFamily;
+    _superchatFont = cfg.superchatFontFamily;
+    _pollFont = cfg.pollFontFamily;
+    _pickupFont = cfg.pickupFontFamily;
+    _queueFont = cfg.queueFontFamily;
+    _mediaFont = cfg.mediaFontFamily;
   }
 
   @override
@@ -232,6 +315,11 @@ class _OverlayScreenState extends State<OverlayScreen>
     _lotteryCssCtrl.dispose();
     _counterCssCtrl.dispose();
     _firstTimeCssCtrl.dispose();
+    _superchatCssCtrl.dispose();
+    _pollCssCtrl.dispose();
+    _pickupCssCtrl.dispose();
+    _queueCssCtrl.dispose();
+    _mediaCssCtrl.dispose();
     super.dispose();
   }
 
@@ -257,18 +345,38 @@ class _OverlayScreenState extends State<OverlayScreen>
       lotteryTheme: _lotteryTheme,
       counterTheme: _counterTheme,
       firstTimeTheme: _firstTimeTheme,
+      superchatTheme: _superchatTheme,
+      pollTheme: _pollTheme,
+      pickupTheme: _pickupTheme,
+      queueTheme: _queueTheme,
+      mediaTheme: _mediaTheme,
       commentsBgColor: _commentsBgColor,
       lotteryBgColor: _lotteryBgColor,
       counterBgColor: _counterBgColor,
       firstTimeBgColor: _firstTimeBgColor,
+      superchatBgColor: _superchatBgColor,
+      pollBgColor: _pollBgColor,
+      pickupBgColor: _pickupBgColor,
+      queueBgColor: _queueBgColor,
+      mediaBgColor: _mediaBgColor,
       commentsFontFamily: _commentsFont,
       lotteryFontFamily: _lotteryFont,
       counterFontFamily: _counterFont,
       firstTimeFontFamily: _firstTimeFont,
+      superchatFontFamily: _superchatFont,
+      pollFontFamily: _pollFont,
+      pickupFontFamily: _pickupFont,
+      queueFontFamily: _queueFont,
+      mediaFontFamily: _mediaFont,
       commentsCustomCss: _commentsCssCtrl.text,
       lotteryCustomCss: _lotteryCssCtrl.text,
       counterCustomCss: _counterCssCtrl.text,
       firstTimeCustomCss: _firstTimeCssCtrl.text,
+      superchatCustomCss: _superchatCssCtrl.text,
+      pollCustomCss: _pollCssCtrl.text,
+      pickupCustomCss: _pickupCssCtrl.text,
+      queueCustomCss: _queueCssCtrl.text,
+      mediaCustomCss: _mediaCssCtrl.text,
     ));
   }
 
@@ -318,6 +426,11 @@ class _OverlayScreenState extends State<OverlayScreen>
                 tabs: const [
                   Tab(text: 'OBS URL・基本設定'),
                   Tab(text: 'コメント表示 / CSS'),
+                  Tab(text: 'スパチャ / CSS'),
+                  Tab(text: 'ピックアップ / CSS'),
+                  Tab(text: '投票グラフ / CSS'),
+                  Tab(text: '参加型キュー / CSS'),
+                  Tab(text: 'ワード演出 / CSS'),
                   Tab(text: '抽選画面 / CSS'),
                   Tab(text: 'ワードカウント / CSS'),
                   Tab(text: '初見カウンター / CSS'),
@@ -345,11 +458,128 @@ class _OverlayScreenState extends State<OverlayScreen>
                     '${widget.controller.overlayBaseUrl}/overlay/comments',
                 obsEnabled: obsEnabled,
                 selectorsHelp:
-                    '.comment-row / .avatar / .bubble / .bubble.highlighted / .author / .message',
+                    '.comment-row / .avatar / .bubble / .bubble.highlighted / .bubble.monetization / .author / .message',
                 sampleCss:
                     '/* 例: 吹き出しを角張らせて文字に縁取りを付ける */\n.bubble {\n  border-radius: 4px;\n  padding: 12px 18px;\n}\n.message {\n  font-weight: 700;\n  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);\n}',
                 previewBuilder: (meta, font) =>
                     _buildCommentMiniPreview(meta, font),
+              ),
+              _buildDesignTab(
+                title: 'スパチャ・メンバーシップオーバーレイのデザイン',
+                presets: _richOverlayPresets,
+                selectedId: _superchatTheme,
+                onSelect: (id) => setState(() => _superchatTheme = id),
+                bgColor: _superchatBgColor,
+                onBgChanged: (bg) => setState(() => _superchatBgColor = bg),
+                fontFamily: _superchatFont,
+                onFontChanged: (f) => setState(() => _superchatFont = f),
+                cssController: _superchatCssCtrl,
+                previewUrl:
+                    '${widget.controller.overlayBaseUrl}/overlay/superchat',
+                obsEnabled: obsEnabled,
+                selectorsHelp:
+                    '.sc-card / .sc-header / .sc-avatar / .sc-name / .sc-amount / .sc-body',
+                sampleCss:
+                    '/* 例: 金額文字をさらに大きく表示 */\n.sc-amount {\n  font-size: 24px;\n}\n.sc-card {\n  border-radius: 14px;\n}',
+                previewBuilder: (meta, font) => _buildGenericMiniPreview(
+                  meta,
+                  '応援リスナー  ¥1,000',
+                  'いつも配信ありがとう！応援してます！',
+                  font,
+                ),
+              ),
+              _buildDesignTab(
+                title: 'コメントピックアップオーバーレイのデザイン',
+                presets: _richOverlayPresets,
+                selectedId: _pickupTheme,
+                onSelect: (id) => setState(() => _pickupTheme = id),
+                bgColor: _pickupBgColor,
+                onBgChanged: (bg) => setState(() => _pickupBgColor = bg),
+                fontFamily: _pickupFont,
+                onFontChanged: (f) => setState(() => _pickupFont = f),
+                cssController: _pickupCssCtrl,
+                previewUrl:
+                    '${widget.controller.overlayBaseUrl}/overlay/pickup',
+                obsEnabled: obsEnabled,
+                selectorsHelp:
+                    '.pickup-card / .pickup-head / .pickup-avatar / .pickup-author / .pickup-badge / .pickup-message',
+                sampleCss:
+                    '/* 例: ピックアップ本文を大きく強調 */\n.pickup-message {\n  font-size: 30px;\n  line-height: 1.55;\n}',
+                previewBuilder: (meta, font) => _buildGenericMiniPreview(
+                  meta,
+                  '質問リスナー（ピックアップ中）',
+                  '次のコラボ企画はいつ頃を予定していますか？',
+                  font,
+                ),
+              ),
+              _buildDesignTab(
+                title: 'リアルタイム投票グラフオーバーレイのデザイン',
+                presets: _richOverlayPresets,
+                selectedId: _pollTheme,
+                onSelect: (id) => setState(() => _pollTheme = id),
+                bgColor: _pollBgColor,
+                onBgChanged: (bg) => setState(() => _pollBgColor = bg),
+                fontFamily: _pollFont,
+                onFontChanged: (f) => setState(() => _pollFont = f),
+                cssController: _pollCssCtrl,
+                previewUrl: '${widget.controller.overlayBaseUrl}/overlay/poll',
+                obsEnabled: obsEnabled,
+                selectorsHelp:
+                    '.poll-card / .poll-question / .poll-opt / .poll-opt.leader / .poll-bar / .poll-stats / .poll-footer',
+                sampleCss:
+                    '/* 例: 1位の選択肢を目立たせる */\n.poll-opt.leader {\n  border-width: 2.5px;\n}',
+                previewBuilder: (meta, font) => _buildGenericMiniPreview(
+                  meta,
+                  '投票受付中: 次の企画はどれがいい？',
+                  '1. 雑談トーク (45%)  /  2. 参加型ゲーム (55%)',
+                  font,
+                ),
+              ),
+              _buildDesignTab(
+                title: '参加型キューオーバーレイのデザイン',
+                presets: _richOverlayPresets,
+                selectedId: _queueTheme,
+                onSelect: (id) => setState(() => _queueTheme = id),
+                bgColor: _queueBgColor,
+                onBgChanged: (bg) => setState(() => _queueBgColor = bg),
+                fontFamily: _queueFont,
+                onFontChanged: (f) => setState(() => _queueFont = f),
+                cssController: _queueCssCtrl,
+                previewUrl: '${widget.controller.overlayBaseUrl}/overlay/queue',
+                obsEnabled: obsEnabled,
+                selectorsHelp:
+                    '.q-card / .q-section-title / .q-item / .q-item.active / .q-rank / .q-name / .q-tag',
+                sampleCss:
+                    '/* 例: 順番待ちボードの幅を広げる */\n.q-card {\n  max-width: 500px;\n}',
+                previewBuilder: (meta, font) => _buildGenericMiniPreview(
+                  meta,
+                  '参加中 (2/3)  ・  待機中 (4人)',
+                  '1. たこやき太郎 [初見]   2. さくらもち [1回]',
+                  font,
+                ),
+              ),
+              _buildDesignTab(
+                title: '特定ワード反応アニメーションオーバーレイのデザイン',
+                presets: _richOverlayPresets,
+                selectedId: _mediaTheme,
+                onSelect: (id) => setState(() => _mediaTheme = id),
+                bgColor: _mediaBgColor,
+                onBgChanged: (bg) => setState(() => _mediaBgColor = bg),
+                fontFamily: _mediaFont,
+                onFontChanged: (f) => setState(() => _mediaFont = f),
+                cssController: _mediaCssCtrl,
+                previewUrl: '${widget.controller.overlayBaseUrl}/overlay/media',
+                obsEnabled: obsEnabled,
+                selectorsHelp:
+                    '.media-slot / .media-frame / .media-el / .media-caption',
+                sampleCss:
+                    '/* 例: テロップの文字サイズを大きくする */\n.media-caption {\n  font-size: 26px;\n  padding: 8px 22px;\n}',
+                previewBuilder: (meta, font) => _buildGenericMiniPreview(
+                  meta,
+                  'ワード反応演出（画像 / GIF / 動画）',
+                  '指定ワードでアニメーション＋テロップを表示します',
+                  font,
+                ),
               ),
               _buildDesignTab(
                 title: '抽選演出・当選者オーバーレイのデザイン',
@@ -422,6 +652,11 @@ class _OverlayScreenState extends State<OverlayScreen>
     final p = context.palette;
     final base = widget.controller.overlayBaseUrl;
     final commentsUrl = '$base/overlay/comments';
+    final superchatUrl = '$base/overlay/superchat';
+    final pickupUrl = '$base/overlay/pickup';
+    final pollUrl = '$base/overlay/poll';
+    final queueUrl = '$base/overlay/queue';
+    final mediaUrl = '$base/overlay/media';
     final lotteryUrl = '$base/overlay/lottery';
     final counterUrl = '$base/overlay/counter';
     final firstTimeUrl = '$base/overlay/first_time';
@@ -450,6 +685,62 @@ class _OverlayScreenState extends State<OverlayScreen>
             onCopy: () => _copy(commentsUrl, 'コメント表示'),
             onOpen:
                 obsEnabled ? () => widget.controller.openUrl(commentsUrl) : null,
+          ),
+          const SizedBox(height: 10),
+          _OverlayUrlCard(
+            icon: Icons.volunteer_activism_outlined,
+            title: 'スーパーチャット・メンバーシップオーバーレイ',
+            description:
+                '推奨サイズ: 幅 480 × 高さ 640。未読のみ表示する場合は末尾に ?unread_only=1 を付けられます。',
+            url: superchatUrl,
+            onCopy: () => _copy(superchatUrl, 'スパチャ・メンバー表示'),
+            onOpen: obsEnabled
+                ? () => widget.controller.openUrl(superchatUrl)
+                : null,
+          ),
+          const SizedBox(height: 10),
+          _OverlayUrlCard(
+            icon: Icons.push_pin_outlined,
+            title: 'コメントピックアップ（ピン留め表示）オーバーレイ',
+            description:
+                '推奨サイズ: 幅 900 × 高さ 260。コメント画面・スパチャ画面でピン留めしたコメントを大きく表示します。',
+            url: pickupUrl,
+            onCopy: () => _copy(pickupUrl, 'コメントピックアップ'),
+            onOpen:
+                obsEnabled ? () => widget.controller.openUrl(pickupUrl) : null,
+          ),
+          const SizedBox(height: 10),
+          _OverlayUrlCard(
+            icon: Icons.poll_outlined,
+            title: 'リアルタイム投票・アンケートオーバーレイ',
+            description:
+                '推奨サイズ: 幅 680 × 高さ 420。視聴者コメントから集計したリアルタイム棒グラフを表示します。',
+            url: pollUrl,
+            onCopy: () => _copy(pollUrl, 'リアルタイム投票'),
+            onOpen:
+                obsEnabled ? () => widget.controller.openUrl(pollUrl) : null,
+          ),
+          const SizedBox(height: 10),
+          _OverlayUrlCard(
+            icon: Icons.queue_play_next,
+            title: '参加型キュー（順番待ちリスト）オーバーレイ',
+            description:
+                '推奨サイズ: 幅 440 × 高さ 600。現在の参加中メンバーと順番待ちリストを表示します。',
+            url: queueUrl,
+            onCopy: () => _copy(queueUrl, '参加型キュー'),
+            onOpen:
+                obsEnabled ? () => widget.controller.openUrl(queueUrl) : null,
+          ),
+          const SizedBox(height: 10),
+          _OverlayUrlCard(
+            icon: Icons.movie_filter_outlined,
+            title: '特定ワード反応アニメーション・動画演出オーバーレイ',
+            description:
+                '推奨サイズ: 幅 1920 × 高さ 1080（配信キャンバスと同サイズ推奨）。画像・GIF・動画を再生します。',
+            url: mediaUrl,
+            onCopy: () => _copy(mediaUrl, 'ワード反応演出'),
+            onOpen:
+                obsEnabled ? () => widget.controller.openUrl(mediaUrl) : null,
           ),
           const SizedBox(height: 10),
           _OverlayUrlCard(
@@ -939,6 +1230,49 @@ class _OverlayScreenState extends State<OverlayScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGenericMiniPreview(
+      _PresetMeta meta, String heading, String body, String? font) {
+    final radius = meta.id == 'pastel'
+        ? 18.0
+        : (meta.id == 'pop' ? 14.0 : (meta.id == 'minimal' ? 4.0 : 10.0));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: meta.bg,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: meta.border,
+          width: meta.id == 'pop' ? 2.5 : 1.8,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            heading,
+            style: TextStyle(
+              fontFamily: font,
+              color: meta.border,
+              fontWeight: FontWeight.w800,
+              fontSize: 13.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            body,
+            style: TextStyle(
+              fontFamily: font,
+              color: meta.fg,
+              fontWeight: FontWeight.w600,
+              fontSize: 14.5,
+            ),
+          ),
+        ],
       ),
     );
   }

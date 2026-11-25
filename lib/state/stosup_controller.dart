@@ -59,23 +59,102 @@ class StosupController extends ChangeNotifier {
     lotteryTheme: 'default',
     counterTheme: 'default',
     firstTimeTheme: 'default',
+    superchatTheme: 'default',
+    pollTheme: 'default',
+    pickupTheme: 'default',
+    queueTheme: 'default',
+    mediaTheme: 'default',
     commentsBgColor: 'transparent',
     lotteryBgColor: 'transparent',
     counterBgColor: 'transparent',
     firstTimeBgColor: 'transparent',
+    superchatBgColor: 'transparent',
+    pollBgColor: 'transparent',
+    pickupBgColor: 'transparent',
+    queueBgColor: 'transparent',
+    mediaBgColor: 'transparent',
     commentsFontFamily: '',
     lotteryFontFamily: '',
     counterFontFamily: '',
     firstTimeFontFamily: '',
+    superchatFontFamily: '',
+    pollFontFamily: '',
+    pickupFontFamily: '',
+    queueFontFamily: '',
+    mediaFontFamily: '',
     commentsCustomCss: '',
     lotteryCustomCss: '',
     counterCustomCss: '',
     firstTimeCustomCss: '',
+    superchatCustomCss: '',
+    pollCustomCss: '',
+    pickupCustomCss: '',
+    queueCustomCss: '',
+    mediaCustomCss: '',
   );
 
   List<String> systemFonts = [];
 
   AppThemeMode themeMode = AppThemeMode.dark;
+
+  List<MonetizationItem> monetizationItems = [];
+
+  PollState pollState = PollState(
+    isActive: false,
+    config: PollConfig(
+      question: '次の企画はどれがいい？',
+      options: [
+        PollOption(
+          id: 'opt-1',
+          label: '雑談トーク',
+          keywords: const ['1', '雑談'],
+          color: '#3B82F6',
+          voteCount: BigInt.zero,
+        ),
+        PollOption(
+          id: 'opt-2',
+          label: '参加型ゲーム',
+          keywords: const ['2', 'ゲーム'],
+          color: '#22C55E',
+          voteCount: BigInt.zero,
+        ),
+      ],
+      allowVoteChange: true,
+      excludeBanned: true,
+      showPercentage: true,
+      showVoteCount: true,
+    ),
+    totalVotes: BigInt.zero,
+  );
+
+  PickedCommentState pickedComment = const PickedCommentState();
+
+  QueueState queueState = const QueueState(
+    config: QueueConfig(
+      isAccepting: false,
+      maxActiveSlots: 3,
+      joinKeywords: ['参加希望', '!join'],
+      leaveKeywords: ['辞退', 'キャンセル', '!leave'],
+      sortMode: QueueSortMode.firstCome,
+      excludeBanned: true,
+      allowRejoinAfterComplete: true,
+    ),
+    entries: [],
+  );
+
+  List<MediaReactionRule> mediaReactionRules = [];
+
+  MediaReactionConfig mediaReactionConfig = const MediaReactionConfig(
+    playbackMode: MediaPlaybackMode.overlay,
+    masterVolume: 80,
+    maxConcurrent: 8,
+    allowMultipleMatch: true,
+  );
+
+  MediaTriggerEvent? lastMediaTrigger;
+
+  int get unreadMonetizationCount =>
+      monetizationItems.where((e) => !e.isChecked).length;
 
   FirstTimeCounterState firstTimeState = FirstTimeCounterState(
     count: BigInt.zero,
@@ -101,6 +180,11 @@ class StosupController extends ChangeNotifier {
     userTrackingEnabled: true,
     userMemoDisplayEnabled: true,
     firstTimeCounterEnabled: true,
+    superchatEnabled: true,
+    pollEnabled: true,
+    pickupEnabled: true,
+    queueEnabled: true,
+    mediaReactionEnabled: true,
     obsOverlayEnabled: true,
     autoUpdateCheckEnabled: true,
   );
@@ -166,6 +250,12 @@ class StosupController extends ChangeNotifier {
       api.getThemeMode(),
       api.getFirstTimeState(),
       api.listSystemFonts(),
+      api.listMonetizationEvents(limit: 150),
+      api.getPollState(),
+      api.getPickedComment(),
+      api.getQueueState(),
+      api.listMediaReactionRules(),
+      api.getMediaReactionConfig(),
     ]);
 
     connectionState = results[0] as ConnectionStateDto;
@@ -182,6 +272,12 @@ class StosupController extends ChangeNotifier {
     themeMode = results[11] as AppThemeMode;
     firstTimeState = results[12] as FirstTimeCounterState;
     systemFonts = results[13] as List<String>;
+    monetizationItems = results[14] as List<MonetizationItem>;
+    pollState = results[15] as PollState;
+    pickedComment = results[16] as PickedCommentState;
+    queueState = results[17] as QueueState;
+    mediaReactionRules = results[18] as List<MediaReactionRule>;
+    mediaReactionConfig = results[19] as MediaReactionConfig;
     notifyListeners();
   }
 
@@ -230,6 +326,31 @@ class StosupController extends ChangeNotifier {
             lastUserLotteryResult = res;
           }
           lotteryHistory = [res, ...lotteryHistory.take(29)];
+          notifyListeners();
+        }
+      case AppEventKind.monetizationUpdated:
+        if (ev.monetizationItems != null) {
+          monetizationItems = ev.monetizationItems!;
+          notifyListeners();
+        }
+      case AppEventKind.pollUpdated:
+        if (ev.pollState != null) {
+          pollState = ev.pollState!;
+          notifyListeners();
+        }
+      case AppEventKind.pickedCommentUpdated:
+        if (ev.pickedComment != null) {
+          pickedComment = ev.pickedComment!;
+          notifyListeners();
+        }
+      case AppEventKind.queueUpdated:
+        if (ev.queueState != null) {
+          queueState = ev.queueState!;
+          notifyListeners();
+        }
+      case AppEventKind.mediaTriggered:
+        if (ev.mediaTrigger != null) {
+          lastMediaTrigger = ev.mediaTrigger!;
           notifyListeners();
         }
       case AppEventKind.featureFlagsUpdated:
@@ -601,6 +722,11 @@ class StosupController extends ChangeNotifier {
     bool? userTracking,
     bool? userMemoDisplay,
     bool? firstTimeCounter,
+    bool? superchat,
+    bool? poll,
+    bool? pickup,
+    bool? queue,
+    bool? mediaReaction,
     bool? obsOverlay,
     bool? autoUpdateCheck,
     String? featureLabel,
@@ -618,6 +744,12 @@ class StosupController extends ChangeNotifier {
           userMemoDisplay ?? featureFlags.userMemoDisplayEnabled,
       firstTimeCounterEnabled:
           firstTimeCounter ?? featureFlags.firstTimeCounterEnabled,
+      superchatEnabled: superchat ?? featureFlags.superchatEnabled,
+      pollEnabled: poll ?? featureFlags.pollEnabled,
+      pickupEnabled: pickup ?? featureFlags.pickupEnabled,
+      queueEnabled: queue ?? featureFlags.queueEnabled,
+      mediaReactionEnabled:
+          mediaReaction ?? featureFlags.mediaReactionEnabled,
       obsOverlayEnabled: obsOverlay ?? featureFlags.obsOverlayEnabled,
       autoUpdateCheckEnabled:
           autoUpdateCheck ?? featureFlags.autoUpdateCheckEnabled,
@@ -630,6 +762,11 @@ class StosupController extends ChangeNotifier {
         userTracking ??
         userMemoDisplay ??
         firstTimeCounter ??
+        superchat ??
+        poll ??
+        pickup ??
+        queue ??
+        mediaReaction ??
         obsOverlay ??
         autoUpdateCheck;
     final msg = (featureLabel != null && switchedValue != null)
@@ -648,6 +785,11 @@ class StosupController extends ChangeNotifier {
       userTrackingEnabled: enabled,
       userMemoDisplayEnabled: enabled,
       firstTimeCounterEnabled: enabled,
+      superchatEnabled: enabled,
+      pollEnabled: enabled,
+      pickupEnabled: enabled,
+      queueEnabled: enabled,
+      mediaReactionEnabled: enabled,
       obsOverlayEnabled: enabled,
       autoUpdateCheckEnabled: enabled,
     );
@@ -655,6 +797,305 @@ class StosupController extends ChangeNotifier {
       next,
       noticeMessage: enabled ? 'すべての機能をオンにしました' : 'すべての機能をオフにしました',
     );
+  }
+
+  // ==================== スーパーチャット / メンバーシップ ====================
+
+  Future<void> setMonetizationChecked(String id, bool checked) async {
+    try {
+      monetizationItems =
+          await api.setMonetizationChecked(id: id, checked: checked);
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> markAllMonetizationChecked() async {
+    try {
+      monetizationItems = await api.markAllMonetizationChecked();
+      notifyListeners();
+      onNotice?.call('success', 'すべての未読スパチャ・メンバーをお礼済みにしました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> deleteMonetizationEvent(String id) async {
+    try {
+      monetizationItems = await api.deleteMonetizationEvent(id: id);
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> clearMonetizationEvents({required bool checkedOnly}) async {
+    try {
+      monetizationItems =
+          await api.clearMonetizationEvents(checkedOnly: checkedOnly);
+      notifyListeners();
+      onNotice?.call(
+        'info',
+        checkedOnly ? 'お礼済みの履歴をクリアしました' : 'スパチャ・メンバー履歴をすべてクリアしました',
+      );
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> sendDemoMonetization(
+    MonetizationEventKind kind,
+    String userName,
+    String amountDisplay,
+    String message,
+  ) async {
+    try {
+      monetizationItems = await api.sendDemoMonetization(
+        kind: kind,
+        userName: userName,
+        amountDisplay: amountDisplay,
+        message: message,
+      );
+      notifyListeners();
+      onNotice?.call('success', 'テスト支援イベントを送信しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== リアルタイム投票 / アンケート ====================
+
+  Future<void> savePollConfig(PollConfig config) async {
+    try {
+      pollState = await api.savePollConfig(config: config);
+      notifyListeners();
+      onNotice?.call('success', '投票設定を保存しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> startPoll(PollConfig config) async {
+    try {
+      pollState = await api.startPoll(config: config);
+      notifyListeners();
+      onNotice?.call('success', 'リアルタイム投票の受付を開始しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> stopPoll() async {
+    try {
+      pollState = await api.stopPoll();
+      notifyListeners();
+      onNotice?.call('info', '投票の受付を締め切りました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> resetPoll() async {
+    try {
+      pollState = await api.resetPoll();
+      notifyListeners();
+      onNotice?.call('info', '投票の集計をリセットしました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> clearOverlayPoll() async {
+    try {
+      await api.clearOverlayPoll();
+      onNotice?.call('info', 'OBS 投票オーバーレイの表示をクリアしました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== コメントピックアップ（ピン留め表示） ====================
+
+  Future<void> togglePickComment(CommentItem comment) async {
+    if (pickedComment.comment?.id == comment.id) {
+      await clearPickedComment();
+      return;
+    }
+    try {
+      pickedComment = await api.pickComment(comment: comment);
+      notifyListeners();
+      onNotice?.call('success', '${comment.userName} さんのコメントをピックアップ表示しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> clearPickedComment() async {
+    try {
+      pickedComment = await api.clearPickedComment();
+      notifyListeners();
+      onNotice?.call('info', 'ピックアップ表示を解除しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== 参加型キュー（順番待ちリスト） ====================
+
+  Future<void> saveQueueConfig(QueueConfig config) async {
+    try {
+      queueState = await api.saveQueueConfig(config: config);
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> queueAddManual(String userName, String note) async {
+    try {
+      queueState = await api.queueAddManual(userName: userName, note: note);
+      notifyListeners();
+      onNotice?.call('success', '待機列へ手動追加しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> queueSetStatus(String userId, QueueEntryStatus status) async {
+    try {
+      queueState = await api.queueSetStatus(userId: userId, status: status);
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> queuePromoteNext() async {
+    try {
+      queueState = await api.queuePromoteNext();
+      notifyListeners();
+      onNotice?.call('info', '空き枠へ待機ユーザーを繰り上げました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> queueRotateActive() async {
+    try {
+      queueState = await api.queueRotateActive();
+      notifyListeners();
+      onNotice?.call('success', '現在の参加者を交代し、次の待機者を繰り上げました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> queueMoveEntry(String userId, int delta) async {
+    try {
+      queueState = await api.queueMoveEntry(userId: userId, delta: delta);
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> queueRemoveEntry(String userId) async {
+    try {
+      queueState = await api.queueRemoveEntry(userId: userId);
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> queueReset({required bool resetPlayCounts}) async {
+    try {
+      queueState = await api.queueReset(resetPlayCounts: resetPlayCounts);
+      notifyListeners();
+      onNotice?.call('warning', '参加型キューをリセットしました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== 特定ワード反応メディアアニメーション ====================
+
+  Future<String?> pickMediaFileDialog() async {
+    try {
+      return await api.pickMediaFileDialog();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+      return null;
+    }
+  }
+
+  Future<String?> pickSoundFileDialog() async {
+    try {
+      return await api.pickSoundFileDialog();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+      return null;
+    }
+  }
+
+  Future<ImportedMediaFile?> importMediaFile(String sourcePath) async {
+    try {
+      final res = await api.importMediaFile(sourcePath: sourcePath);
+      onNotice?.call('success', 'メディアをアプリ内へ保存しました: ${res.originalFileName}');
+      return res;
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+      return null;
+    }
+  }
+
+  Future<void> saveMediaReactionRule(MediaReactionRule rule) async {
+    try {
+      mediaReactionRules = await api.saveMediaReactionRule(rule: rule);
+      notifyListeners();
+      onNotice?.call('success', 'ワード反応アニメーションルールを保存しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> deleteMediaReactionRule(String id) async {
+    try {
+      mediaReactionRules = await api.deleteMediaReactionRule(id: id);
+      notifyListeners();
+      onNotice?.call('info', 'アニメーションルールを削除しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> saveMediaReactionConfig(MediaReactionConfig config) async {
+    try {
+      mediaReactionConfig = await api.saveMediaReactionConfig(config: config);
+      notifyListeners();
+      onNotice?.call('success', 'アニメーション再生方式・音量設定を保存しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> testMediaReactionRule(String id) async {
+    try {
+      await api.testMediaReactionRule(id: id);
+      onNotice?.call('info', 'OBS オーバーレイへテスト再生を送信しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> clearOverlayMedia() async {
+    try {
+      await api.clearOverlayMedia();
+      onNotice?.call('info', '再生中のメディア演出をすべて停止しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
   }
 
   // ==================== 初見カウンター ====================

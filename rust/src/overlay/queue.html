@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stosup 参加型キューオーバーレイ</title>
+<link rel="icon" href="/favicon.ico" />
+<style id="stosup-base-css">
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--page-bg, transparent) !important;
+    overflow: hidden;
+    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
+  }
+  #wrap {
+    padding: 14px;
+    width: 100%;
+  }
+  .q-card {
+    background: rgba(24, 24, 27, 0.93);
+    border: 1.5px solid #3f3f46;
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: #f4f4f5;
+    max-width: 420px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  }
+  .q-section-title {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: #a1a1aa;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .q-section-title.active-title { color: #4ade80; }
+  .q-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .q-list:last-child { margin-bottom: 0; }
+  .q-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+  }
+  .q-item.active {
+    background: rgba(34, 197, 94, 0.16);
+    border-color: rgba(74, 222, 128, 0.55);
+  }
+  .q-rank {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    background: #3f3f46;
+    color: #f4f4f5;
+    font-size: 12px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .q-item.active .q-rank {
+    background: #22c55e;
+    color: #052e16;
+  }
+  .q-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #3f3f46;
+    flex-shrink: 0;
+  }
+  .q-name {
+    font-size: 14px;
+    font-weight: 700;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .q-tag {
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(59, 130, 246, 0.25);
+    color: #93c5fd;
+    flex-shrink: 0;
+  }
+  .q-tag.first {
+    background: rgba(34, 197, 94, 0.25);
+    color: #86efac;
+  }
+  .q-empty {
+    font-size: 12.5px;
+    color: #71717a;
+    padding: 4px 2px;
+  }
+
+  /* minimal */
+  body[data-theme="minimal"] .q-card {
+    background: rgba(15, 15, 18, 0.72);
+    border: none;
+    border-left: 4px solid #22c55e;
+    border-radius: 0 8px 8px 0;
+    box-shadow: none;
+  }
+
+  /* pop */
+  body[data-theme="pop"] .q-card {
+    background: #ffffff;
+    color: #18181b;
+    border: 3px solid #18181b;
+    border-radius: 16px;
+    box-shadow: 5px 5px 0 #18181b;
+  }
+  body[data-theme="pop"] .q-section-title { color: #52525b; }
+  body[data-theme="pop"] .q-section-title.active-title { color: #15803d; }
+  body[data-theme="pop"] .q-item { background: #f4f4f5; border-color: #18181b; }
+  body[data-theme="pop"] .q-tag { background: #dbeafe; color: #1d4ed8; }
+
+  /* neon */
+  body[data-theme="neon"] .q-card {
+    background: rgba(9, 11, 20, 0.92);
+    border: 2px solid #22d3ee;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+  }
+  body[data-theme="neon"] .q-section-title.active-title { color: #67e8f9; }
+
+  /* pastel */
+  body[data-theme="pastel"] .q-card {
+    background: rgba(255, 251, 245, 0.97);
+    color: #27272a;
+    border: 2.5px solid #f472b6;
+    border-radius: 18px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
+  }
+  body[data-theme="pastel"] .q-item { background: #fff5f8; border-color: #fbcfe8; }
+  body[data-theme="pastel"] .q-section-title { color: #71717a; }
+  body[data-theme="pastel"] .q-section-title.active-title { color: #db2777; }
+  body[data-theme="pastel"] .q-tag { background: #fce7f3; color: #be185d; }
+
+  body.has-custom-font,
+  body.has-custom-font * {
+    font-family: var(--font-family) !important;
+  }
+</style>
+<style id="stosup-custom-css"></style>
+</head>
+<body data-theme="default">
+  <div id="wrap"></div>
+<script>
+  const wrap = document.getElementById('wrap');
+  const customStyleEl = document.getElementById('stosup-custom-css');
+  const params = new URLSearchParams(location.search);
+  const urlTheme = params.get('theme');
+  const urlBg = params.get('bg');
+  const urlFont = params.get('font');
+
+  let enabled = true;
+  let queue = { config: { max_active_slots: 3 }, entries: [] };
+  let config = {
+    queue_theme: 'default',
+    queue_bg_color: 'transparent',
+    queue_font_family: '',
+    queue_custom_css: ''
+  };
+
+  function applyFont(raw) {
+    const f = (raw || '').trim();
+    if (f) {
+      const safe = f.replace(/["\\]/g, '');
+      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
+      document.body.classList.add('has-custom-font');
+    } else {
+      document.documentElement.style.removeProperty('--font-family');
+      document.body.classList.remove('has-custom-font');
+    }
+  }
+  function resolveBg(raw) {
+    const v = (raw || 'transparent').trim();
+    if (!v || v.toLowerCase() === 'transparent') return 'transparent';
+    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return '#' + v;
+    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return v;
+    return 'transparent';
+  }
+  function applyDesign() {
+    document.body.dataset.theme = urlTheme || config.queue_theme || 'default';
+    document.documentElement.style.setProperty('--page-bg', resolveBg(urlBg || config.queue_bg_color));
+    applyFont(urlFont || config.queue_font_family);
+    customStyleEl.textContent = config.queue_custom_css || '';
+  }
+  function fallbackAvatar(name) {
+    const ch = (name || '?').slice(0, 1);
+    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%2352525b'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
+  }
+
+  function buildItem(entry, rank, isActive) {
+    const row = document.createElement('div');
+    row.className = 'q-item' + (isActive ? ' active' : '');
+
+    const r = document.createElement('div');
+    r.className = 'q-rank';
+    r.textContent = String(rank);
+
+    const img = document.createElement('img');
+    img.className = 'q-avatar';
+    img.src = entry.user_icon_url || fallbackAvatar(entry.user_name);
+    img.onerror = () => { img.src = fallbackAvatar(entry.user_name); };
+
+    const name = document.createElement('div');
+    name.className = 'q-name';
+    name.textContent = entry.user_name;
+
+    row.appendChild(r);
+    row.appendChild(img);
+    row.appendChild(name);
+
+    if (entry.is_first_time) {
+      const f = document.createElement('span');
+      f.className = 'q-tag first';
+      f.textContent = '初見';
+      row.appendChild(f);
+    }
+    if (entry.play_count > 0) {
+      const c = document.createElement('span');
+      c.className = 'q-tag';
+      c.textContent = `${entry.play_count}回`;
+      row.appendChild(c);
+    }
+    return row;
+  }
+
+  function render() {
+    wrap.innerHTML = '';
+    if (!enabled || !queue) return;
+
+    const entries = queue.entries || [];
+    const active = entries.filter(e => e.status === 'Active');
+    const waiting = entries.filter(e => e.status === 'Waiting');
+    const maxSlots = (queue.config && queue.config.max_active_slots) || 3;
+
+    const card = document.createElement('div');
+    card.className = 'q-card';
+
+    const t1 = document.createElement('div');
+    t1.className = 'q-section-title active-title';
+    t1.innerHTML = `<span>参加中</span><span>${active.length} / ${maxSlots}</span>`;
+    card.appendChild(t1);
+
+    const l1 = document.createElement('div');
+    l1.className = 'q-list';
+    if (active.length === 0) {
+      const emp = document.createElement('div');
+      emp.className = 'q-empty';
+      emp.textContent = '現在の参加者はいません';
+      l1.appendChild(emp);
+    } else {
+      active.forEach((e, i) => l1.appendChild(buildItem(e, i + 1, true)));
+    }
+    card.appendChild(l1);
+
+    const t2 = document.createElement('div');
+    t2.className = 'q-section-title';
+    t2.innerHTML = `<span>順番待ちリスト</span><span>${waiting.length}人</span>`;
+    card.appendChild(t2);
+
+    const l2 = document.createElement('div');
+    l2.className = 'q-list';
+    if (waiting.length === 0) {
+      const emp = document.createElement('div');
+      emp.className = 'q-empty';
+      emp.textContent = '待機中のユーザーはいません';
+      l2.appendChild(emp);
+    } else {
+      waiting.slice(0, 10).forEach((e, i) => l2.appendChild(buildItem(e, i + 1, false)));
+    }
+    card.appendChild(l2);
+
+    wrap.appendChild(card);
+  }
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${proto}//${location.host}/ws`);
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === 'snapshot') {
+          config = Object.assign(config, data.config || {});
+          queue = data.queue_state || queue;
+          if (typeof data.queue_enabled === 'boolean') enabled = data.queue_enabled;
+          applyDesign();
+          render();
+        } else if (data.type === 'queue') {
+          queue = data.queue || queue;
+          if (typeof data.enabled === 'boolean') enabled = data.enabled;
+          render();
+        } else if (data.type === 'config_updated') {
+          config = Object.assign(config, data.config || {});
+          applyDesign();
+        }
+      } catch (e) { console.error(e); }
+    };
+    ws.onclose = () => setTimeout(connect, 2000);
+    ws.onerror = () => ws.close();
+  }
+  applyDesign();
+  connect();
+</script>
+</body>
+</html>

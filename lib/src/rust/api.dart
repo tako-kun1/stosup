@@ -249,3 +249,132 @@ Future<ReleaseNotesInfo> getCurrentReleaseNotes() =>
 
 Future<void> markReleaseNotesSeen() =>
     RustLib.instance.api.crateApiMarkReleaseNotesSeen();
+
+Future<List<MonetizationItem>> listMonetizationEvents({required int limit}) =>
+    RustLib.instance.api.crateApiListMonetizationEvents(limit: limit);
+
+Future<List<MonetizationItem>> setMonetizationChecked({
+  required String id,
+  required bool checked,
+}) => RustLib.instance.api.crateApiSetMonetizationChecked(
+  id: id,
+  checked: checked,
+);
+
+Future<List<MonetizationItem>> markAllMonetizationChecked() =>
+    RustLib.instance.api.crateApiMarkAllMonetizationChecked();
+
+Future<List<MonetizationItem>> deleteMonetizationEvent({required String id}) =>
+    RustLib.instance.api.crateApiDeleteMonetizationEvent(id: id);
+
+Future<List<MonetizationItem>> clearMonetizationEvents({
+  required bool checkedOnly,
+}) => RustLib.instance.api.crateApiClearMonetizationEvents(
+  checkedOnly: checkedOnly,
+);
+
+Future<List<MonetizationItem>> sendDemoMonetization({
+  required MonetizationEventKind kind,
+  required String userName,
+  required String amountDisplay,
+  required String message,
+}) => RustLib.instance.api.crateApiSendDemoMonetization(
+  kind: kind,
+  userName: userName,
+  amountDisplay: amountDisplay,
+  message: message,
+);
+
+Future<PollState> getPollState() => RustLib.instance.api.crateApiGetPollState();
+
+Future<PollState> savePollConfig({required PollConfig config}) =>
+    RustLib.instance.api.crateApiSavePollConfig(config: config);
+
+Future<PollState> startPoll({required PollConfig config}) =>
+    RustLib.instance.api.crateApiStartPoll(config: config);
+
+Future<PollState> stopPoll() => RustLib.instance.api.crateApiStopPoll();
+
+Future<PollState> resetPoll() => RustLib.instance.api.crateApiResetPoll();
+
+Future<void> clearOverlayPoll() =>
+    RustLib.instance.api.crateApiClearOverlayPoll();
+
+Future<PickedCommentState> getPickedComment() =>
+    RustLib.instance.api.crateApiGetPickedComment();
+
+Future<PickedCommentState> pickComment({required CommentItem comment}) =>
+    RustLib.instance.api.crateApiPickComment(comment: comment);
+
+Future<PickedCommentState> clearPickedComment() =>
+    RustLib.instance.api.crateApiClearPickedComment();
+
+Future<QueueState> getQueueState() =>
+    RustLib.instance.api.crateApiGetQueueState();
+
+Future<QueueState> saveQueueConfig({required QueueConfig config}) =>
+    RustLib.instance.api.crateApiSaveQueueConfig(config: config);
+
+Future<QueueState> queueAddManual({
+  required String userName,
+  required String note,
+}) =>
+    RustLib.instance.api.crateApiQueueAddManual(userName: userName, note: note);
+
+Future<QueueState> queueSetStatus({
+  required String userId,
+  required QueueEntryStatus status,
+}) =>
+    RustLib.instance.api.crateApiQueueSetStatus(userId: userId, status: status);
+
+Future<QueueState> queuePromoteNext() =>
+    RustLib.instance.api.crateApiQueuePromoteNext();
+
+Future<QueueState> queueRotateActive() =>
+    RustLib.instance.api.crateApiQueueRotateActive();
+
+Future<QueueState> queueMoveEntry({
+  required String userId,
+  required int delta,
+}) => RustLib.instance.api.crateApiQueueMoveEntry(userId: userId, delta: delta);
+
+Future<QueueState> queueRemoveEntry({required String userId}) =>
+    RustLib.instance.api.crateApiQueueRemoveEntry(userId: userId);
+
+Future<QueueState> queueReset({required bool resetPlayCounts}) =>
+    RustLib.instance.api.crateApiQueueReset(resetPlayCounts: resetPlayCounts);
+
+/// OS ネイティブのファイル選択ダイアログを開き、画像・動画・音声ファイルパスを返す
+Future<String?> pickMediaFileDialog() =>
+    RustLib.instance.api.crateApiPickMediaFileDialog();
+
+/// OS ネイティブのファイル選択ダイアログを開き、効果音（SE）ファイルパスを返す
+Future<String?> pickSoundFileDialog() =>
+    RustLib.instance.api.crateApiPickSoundFileDialog();
+
+/// 選択した画像・動画ファイルを Stosup のアプリ内フォルダへコピー保存する
+Future<ImportedMediaFile> importMediaFile({required String sourcePath}) =>
+    RustLib.instance.api.crateApiImportMediaFile(sourcePath: sourcePath);
+
+Future<List<MediaReactionRule>> listMediaReactionRules() =>
+    RustLib.instance.api.crateApiListMediaReactionRules();
+
+Future<List<MediaReactionRule>> saveMediaReactionRule({
+  required MediaReactionRule rule,
+}) => RustLib.instance.api.crateApiSaveMediaReactionRule(rule: rule);
+
+Future<List<MediaReactionRule>> deleteMediaReactionRule({required String id}) =>
+    RustLib.instance.api.crateApiDeleteMediaReactionRule(id: id);
+
+Future<MediaReactionConfig> getMediaReactionConfig() =>
+    RustLib.instance.api.crateApiGetMediaReactionConfig();
+
+Future<MediaReactionConfig> saveMediaReactionConfig({
+  required MediaReactionConfig config,
+}) => RustLib.instance.api.crateApiSaveMediaReactionConfig(config: config);
+
+Future<void> testMediaReactionRule({required String id}) =>
+    RustLib.instance.api.crateApiTestMediaReactionRule(id: id);
+
+Future<void> clearOverlayMedia() =>
+    RustLib.instance.api.crateApiClearOverlayMedia();

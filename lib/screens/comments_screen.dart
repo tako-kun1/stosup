@@ -326,6 +326,15 @@ class _CommentsScreenState extends State<CommentsScreen> {
                               featureLabel: '名前メモ表示',
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          FeatureToggleSwitch(
+                            label: 'ピックアップ',
+                            enabled: ctrl.featureFlags.pickupEnabled,
+                            onChanged: (v) => ctrl.setFeatureEnabled(
+                              pickup: v,
+                              featureLabel: 'コメントピックアップ表示',
+                            ),
+                          ),
                           const Spacer(),
                           Text('自動スクロール',
                               style: TextStyle(
@@ -346,6 +355,43 @@ class _CommentsScreenState extends State<CommentsScreen> {
                       ),
                     ),
                     const Divider(height: 1),
+                    if (ctrl.pickedComment.comment != null)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: p.accent.withValues(alpha: 0.12),
+                          border: Border(bottom: BorderSide(color: p.border)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.push_pin, size: 16, color: p.accent),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'OBS ピックアップ表示中: ${ctrl.pickedComment.comment!.userName}「${ctrl.pickedComment.comment!.message}」',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: p.textPrimary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              onPressed: ctrl.clearPickedComment,
+                              icon: const Icon(Icons.close, size: 14),
+                              label: const Text('解除'),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (!ctrl.featureFlags.commentDisplayEnabled)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
@@ -388,11 +434,16 @@ class _CommentsScreenState extends State<CommentsScreen> {
                               itemCount: ctrl.comments.length,
                               itemBuilder: (context, idx) {
                                 final c = ctrl.comments[idx];
+                                final isPicked =
+                                    ctrl.pickedComment.comment?.id == c.id;
                                 return _CommentBubbleCard(
                                   comment: c,
                                   showMemo: ctrl
                                       .featureFlags.userMemoDisplayEnabled,
+                                  pickupEnabled: ctrl.featureFlags.pickupEnabled,
+                                  isPicked: isPicked,
                                   timeLabel: _formatTime(c.timestampMs),
+                                  onPickToggle: () => ctrl.togglePickComment(c),
                                   onMemoTap: () => _editUserMemo(c),
                                   onBanTap: () => _confirmBan(c),
                                   onUnbanTap: () => ctrl.setUserBan(
@@ -728,7 +779,10 @@ class _CommentBubbleCard extends StatelessWidget {
   const _CommentBubbleCard({
     required this.comment,
     required this.showMemo,
+    required this.pickupEnabled,
+    required this.isPicked,
     required this.timeLabel,
+    required this.onPickToggle,
     required this.onMemoTap,
     required this.onBanTap,
     required this.onUnbanTap,
@@ -736,7 +790,10 @@ class _CommentBubbleCard extends StatelessWidget {
 
   final CommentItem comment;
   final bool showMemo;
+  final bool pickupEnabled;
+  final bool isPicked;
   final String timeLabel;
+  final VoidCallback onPickToggle;
   final VoidCallback onMemoTap;
   final VoidCallback onBanTap;
   final VoidCallback onUnbanTap;
@@ -744,16 +801,24 @@ class _CommentBubbleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final isMonetization = comment.eventKind != null;
+    final eventAccent = isMonetization
+        ? AppTheme.parseCssHex(comment.eventAccentColor, fallback: p.warning)
+        : null;
     final isHighlighted = comment.bubbleBgColor != null;
     final bg = isHighlighted
         ? AppTheme.parseCssHex(comment.bubbleBgColor, fallback: p.cardBg)
-        : p.cardBg;
+        : (eventAccent != null
+            ? eventAccent.withValues(alpha: 0.14)
+            : p.cardBg);
     final fg = comment.bubbleTextColor != null
         ? AppTheme.parseCssHex(comment.bubbleTextColor, fallback: p.textPrimary)
         : p.textPrimary;
     final border = comment.bubbleBorderColor != null
         ? AppTheme.parseCssHex(comment.bubbleBorderColor, fallback: p.border)
-        : p.border;
+        : (isPicked
+            ? p.accent
+            : (eventAccent ?? p.border));
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -782,7 +847,8 @@ class _CommentBubbleCard extends StatelessWidget {
                   ),
                   border: Border.all(
                     color: comment.isBanned ? p.danger : border,
-                    width: isHighlighted ? 1.5 : 1.0,
+                    width:
+                        (isHighlighted || isPicked || isMonetization) ? 1.8 : 1.0,
                   ),
                 ),
                 child: Column(
@@ -836,6 +902,13 @@ class _CommentBubbleCard extends StatelessWidget {
                                     ),
                                   ),
                                 ),
+                              if (isMonetization &&
+                                  (comment.amountDisplay?.isNotEmpty ?? false))
+                                _MiniBadge(
+                                  comment.amountDisplay!,
+                                  eventAccent ?? p.warning,
+                                  Colors.black,
+                                ),
                               if (comment.isFirstTime)
                                 _MiniBadge('初見', p.success, Colors.white),
                               if (comment.isOwner)
@@ -857,7 +930,30 @@ class _CommentBubbleCard extends StatelessWidget {
                             fontSize: 11,
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        if (pickupEnabled) ...[
+                          const SizedBox(width: 2),
+                          IconButton(
+                            tooltip:
+                                isPicked ? 'ピックアップ表示を解除' : 'OBS にピックアップ表示',
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 26,
+                              minHeight: 26,
+                            ),
+                            onPressed: onPickToggle,
+                            icon: Icon(
+                              isPicked
+                                  ? Icons.push_pin
+                                  : Icons.push_pin_outlined,
+                              size: 15,
+                              color: isPicked
+                                  ? p.accent
+                                  : fg.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 2),
                         PopupMenuButton<String>(
                           icon: Icon(Icons.more_vert,
                               size: 15, color: fg.withValues(alpha: 0.65)),

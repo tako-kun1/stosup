@@ -5,8 +5,12 @@ import 'screens/counters_screen.dart';
 import 'screens/first_time_screen.dart';
 import 'screens/highlight_rules_screen.dart';
 import 'screens/lottery_screen.dart';
+import 'screens/media_reaction_screen.dart';
 import 'screens/overlay_screen.dart';
+import 'screens/poll_screen.dart';
+import 'screens/queue_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/superchat_screen.dart';
 import 'screens/users_screen.dart';
 import 'src/rust/models.dart';
 import 'state/stosup_controller.dart';
@@ -157,18 +161,26 @@ class _StosupShellState extends State<StosupShell> {
       case 0:
         return CommentsScreen(controller: c);
       case 1:
-        return HighlightRulesScreen(controller: c);
+        return SuperchatScreen(controller: c);
       case 2:
-        return CountersScreen(controller: c);
+        return HighlightRulesScreen(controller: c);
       case 3:
-        return FirstTimeScreen(controller: c);
+        return MediaReactionScreen(controller: c);
       case 4:
-        return LotteryScreen(controller: c);
+        return CountersScreen(controller: c);
       case 5:
-        return UsersScreen(controller: c);
+        return FirstTimeScreen(controller: c);
       case 6:
-        return OverlayScreen(controller: c);
+        return PollScreen(controller: c);
       case 7:
+        return QueueScreen(controller: c);
+      case 8:
+        return LotteryScreen(controller: c);
+      case 9:
+        return UsersScreen(controller: c);
+      case 10:
+        return OverlayScreen(controller: c);
+      case 11:
         return SettingsScreen(controller: c);
       default:
         return CommentsScreen(controller: c);
@@ -347,27 +359,51 @@ class _StosupShellState extends State<StosupShell> {
                               onTap: () => setState(() => _selectedIndex = 0),
                             ),
                             _NavTile(
+                              icon: Icons.volunteer_activism_outlined,
+                              label: 'スパチャ・メンバー',
+                              selected: _selectedIndex == 1,
+                              badge: !flags.superchatEnabled
+                                  ? 'OFF'
+                                  : (ctrl.unreadMonetizationCount > 0
+                                      ? '未読${ctrl.unreadMonetizationCount}'
+                                      : null),
+                              badgeColor: !flags.superchatEnabled
+                                  ? p.textMuted
+                                  : p.warning,
+                              dimmed: !flags.superchatEnabled,
+                              onTap: () => setState(() => _selectedIndex = 1),
+                            ),
+                            _NavTile(
                               icon: Icons.palette_outlined,
                               label: 'ワード色反応',
-                              selected: _selectedIndex == 1,
+                              selected: _selectedIndex == 2,
                               badge: !flags.wordHighlightEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.wordHighlightEnabled,
-                              onTap: () => setState(() => _selectedIndex = 1),
+                              onTap: () => setState(() => _selectedIndex = 2),
+                            ),
+                            _NavTile(
+                              icon: Icons.movie_filter_outlined,
+                              label: 'ワード演出・動画',
+                              selected: _selectedIndex == 3,
+                              badge: !flags.mediaReactionEnabled ? 'OFF' : null,
+                              badgeColor: p.textMuted,
+                              dimmed: !flags.mediaReactionEnabled,
+                              onTap: () => setState(() => _selectedIndex = 3),
                             ),
                             _NavTile(
                               icon: Icons.pin_outlined,
                               label: 'ワードカウント',
-                              selected: _selectedIndex == 2,
+                              selected: _selectedIndex == 4,
                               badge: !flags.wordCounterEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.wordCounterEnabled,
-                              onTap: () => setState(() => _selectedIndex = 2),
+                              onTap: () => setState(() => _selectedIndex = 4),
                             ),
                             _NavTile(
                               icon: Icons.waving_hand_outlined,
                               label: '初見カウンター',
-                              selected: _selectedIndex == 3,
+                              selected: _selectedIndex == 5,
                               badge: !flags.firstTimeCounterEnabled
                                   ? 'OFF'
                                   : (ctrl.firstTimeState.count > BigInt.zero
@@ -377,12 +413,40 @@ class _StosupShellState extends State<StosupShell> {
                                   ? p.textMuted
                                   : p.success,
                               dimmed: !flags.firstTimeCounterEnabled,
-                              onTap: () => setState(() => _selectedIndex = 3),
+                              onTap: () => setState(() => _selectedIndex = 5),
+                            ),
+                            _NavTile(
+                              icon: Icons.poll_outlined,
+                              label: '投票・アンケート',
+                              selected: _selectedIndex == 6,
+                              badge: !flags.pollEnabled
+                                  ? 'OFF'
+                                  : (ctrl.pollState.isActive ? '受付中' : null),
+                              badgeColor: !flags.pollEnabled
+                                  ? p.textMuted
+                                  : p.success,
+                              dimmed: !flags.pollEnabled,
+                              onTap: () => setState(() => _selectedIndex = 6),
+                            ),
+                            _NavTile(
+                              icon: Icons.queue_play_next,
+                              label: '参加型キュー',
+                              selected: _selectedIndex == 7,
+                              badge: !flags.queueEnabled
+                                  ? 'OFF'
+                                  : (ctrl.queueState.config.isAccepting
+                                      ? '受付中'
+                                      : null),
+                              badgeColor: !flags.queueEnabled
+                                  ? p.textMuted
+                                  : p.accent,
+                              dimmed: !flags.queueEnabled,
+                              onTap: () => setState(() => _selectedIndex = 7),
                             ),
                             _NavTile(
                               icon: Icons.casino_outlined,
                               label: '抽選システム',
-                              selected: _selectedIndex == 4,
+                              selected: _selectedIndex == 8,
                               badge: allLotteryOff
                                   ? 'OFF'
                                   : (ctrl.commentLottery.isAccepting
@@ -391,25 +455,25 @@ class _StosupShellState extends State<StosupShell> {
                               badgeColor:
                                   allLotteryOff ? p.textMuted : p.warning,
                               dimmed: allLotteryOff,
-                              onTap: () => setState(() => _selectedIndex = 4),
+                              onTap: () => setState(() => _selectedIndex = 8),
                             ),
                             _NavTile(
                               icon: Icons.people_outline,
                               label: 'ユーザー / BAN',
-                              selected: _selectedIndex == 5,
+                              selected: _selectedIndex == 9,
                               badge: !flags.userTrackingEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.userTrackingEnabled,
-                              onTap: () => setState(() => _selectedIndex = 5),
+                              onTap: () => setState(() => _selectedIndex = 9),
                             ),
                             _NavTile(
                               icon: Icons.brush_outlined,
                               label: 'OBS・デザイン',
-                              selected: _selectedIndex == 6,
+                              selected: _selectedIndex == 10,
                               badge: !flags.obsOverlayEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.obsOverlayEnabled,
-                              onTap: () => setState(() => _selectedIndex = 6),
+                              onTap: () => setState(() => _selectedIndex = 10),
                             ),
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 8),
@@ -418,11 +482,11 @@ class _StosupShellState extends State<StosupShell> {
                             _NavTile(
                               icon: Icons.settings_outlined,
                               label: '設定・機能管理',
-                              selected: _selectedIndex == 7,
+                              selected: _selectedIndex == 11,
                               badge:
                                   updateInfo?.hasUpdate == true ? 'NEW' : null,
                               badgeColor: p.accent,
-                              onTap: () => setState(() => _selectedIndex = 7),
+                              onTap: () => setState(() => _selectedIndex = 11),
                             ),
                           ],
                         ),

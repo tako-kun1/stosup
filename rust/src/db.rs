@@ -6,8 +6,10 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::models::{
     AppThemeMode, FeatureFlags, FirstTimeCounterConfig, HighlightRule, LotteryResult,
-    LotteryWinner, MatchMode, OverlayConfig, PlatformKind, RawIncomingComment, UserRecord,
-    WordCounterConfig,
+    LotteryWinner, MatchMode, MediaAnimationKind, MediaEffectType, MediaKind, MediaPosition,
+    MediaReactionConfig, MediaReactionRule, MediaTriggerType, MonetizationEventKind,
+    MonetizationItem, OverlayConfig, PlatformKind, PollConfig, QueueState, RawIncomingComment,
+    UserRecord, WordCounterConfig,
 };
 
 /// コメント処理時に DB から取得するユーザーメタ情報
@@ -131,6 +133,46 @@ impl Database {
                 candidate_count INTEGER NOT NULL,
                 drawn_at_ms INTEGER NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS monetization_events (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                user_name TEXT NOT NULL,
+                user_icon_url TEXT NOT NULL,
+                amount_display TEXT NOT NULL,
+                amount_micros INTEGER NOT NULL DEFAULT 0,
+                currency TEXT NOT NULL DEFAULT '',
+                tier_color TEXT NOT NULL DEFAULT '#FFB300',
+                message TEXT NOT NULL DEFAULT '',
+                timestamp_ms INTEGER NOT NULL,
+                is_checked INTEGER NOT NULL DEFAULT 0,
+                checked_at_ms INTEGER
+            );
+            CREATE INDEX IF NOT EXISTS idx_monetization_ts
+                ON monetization_events(timestamp_ms DESC);
+
+            CREATE TABLE IF NOT EXISTS media_reaction_rules (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                pattern TEXT NOT NULL,
+                match_mode TEXT NOT NULL,
+                case_sensitive INTEGER NOT NULL DEFAULT 0,
+                media_kind TEXT NOT NULL,
+                stored_file_name TEXT NOT NULL,
+                original_file_name TEXT NOT NULL,
+                animation TEXT NOT NULL DEFAULT 'pop_in',
+                position TEXT NOT NULL DEFAULT 'center',
+                duration_ms INTEGER NOT NULL DEFAULT 4000,
+                width_percent INTEGER NOT NULL DEFAULT 45,
+                volume INTEGER NOT NULL DEFAULT 80,
+                cooldown_sec INTEGER NOT NULL DEFAULT 3,
+                exclude_banned INTEGER NOT NULL DEFAULT 1,
+                caption_template TEXT NOT NULL DEFAULT '',
+                enabled INTEGER NOT NULL DEFAULT 1
+            );
             ",
         )?;
 
@@ -139,6 +181,24 @@ impl Database {
             "ALTER TABLE users ADD COLUMN first_time_detected INTEGER NOT NULL DEFAULT 0",
             [],
         );
+        let media_migrations = [
+            "ALTER TABLE media_reaction_rules ADD COLUMN effect_type TEXT NOT NULL DEFAULT 'fixed'",
+            "ALTER TABLE media_reaction_rules ADD COLUMN trigger_type TEXT NOT NULL DEFAULT 'keyword'",
+            "ALTER TABLE media_reaction_rules ADD COLUMN min_superchat_amount INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE media_reaction_rules ADD COLUMN priority INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE media_reaction_rules ADD COLUMN sound_stored_file_name TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE media_reaction_rules ADD COLUMN sound_original_file_name TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE media_reaction_rules ADD COLUMN sound_volume INTEGER NOT NULL DEFAULT 80",
+            "ALTER TABLE media_reaction_rules ADD COLUMN particle_count INTEGER NOT NULL DEFAULT 24",
+            "ALTER TABLE media_reaction_rules ADD COLUMN particle_size INTEGER NOT NULL DEFAULT 64",
+            "ALTER TABLE media_reaction_rules ADD COLUMN particle_speed INTEGER NOT NULL DEFAULT 100",
+            "ALTER TABLE media_reaction_rules ADD COLUMN gravity INTEGER NOT NULL DEFAULT 100",
+            "ALTER TABLE media_reaction_rules ADD COLUMN particle_text TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE media_reaction_rules ADD COLUMN ambient_preset TEXT NOT NULL DEFAULT 'snow'",
+        ];
+        for sql in media_migrations {
+            let _ = self.conn.execute(sql, []);
+        }
 
         self.seed_defaults_if_empty()?;
         Ok(())
@@ -297,6 +357,48 @@ impl Database {
     pub fn set_first_time_config(&self, cfg: &FirstTimeCounterConfig) -> Result<()> {
         let json = serde_json::to_string(cfg)?;
         self.set_setting("first_time_config", &json)
+    }
+
+    pub fn get_poll_config(&self) -> Result<PollConfig> {
+        if let Some(json) = self.get_setting("poll_config")? {
+            if let Ok(cfg) = serde_json::from_str(&json) {
+                return Ok(cfg);
+            }
+        }
+        Ok(PollConfig::default())
+    }
+
+    pub fn set_poll_config(&self, cfg: &PollConfig) -> Result<()> {
+        let json = serde_json::to_string(cfg)?;
+        self.set_setting("poll_config", &json)
+    }
+
+    pub fn get_queue_state(&self) -> Result<QueueState> {
+        if let Some(json) = self.get_setting("queue_state")? {
+            if let Ok(st) = serde_json::from_str(&json) {
+                return Ok(st);
+            }
+        }
+        Ok(QueueState::default())
+    }
+
+    pub fn set_queue_state(&self, st: &QueueState) -> Result<()> {
+        let json = serde_json::to_string(st)?;
+        self.set_setting("queue_state", &json)
+    }
+
+    pub fn get_media_reaction_config(&self) -> Result<MediaReactionConfig> {
+        if let Some(json) = self.get_setting("media_reaction_config")? {
+            if let Ok(cfg) = serde_json::from_str(&json) {
+                return Ok(cfg);
+            }
+        }
+        Ok(MediaReactionConfig::default())
+    }
+
+    pub fn set_media_reaction_config(&self, cfg: &MediaReactionConfig) -> Result<()> {
+        let json = serde_json::to_string(cfg)?;
+        self.set_setting("media_reaction_config", &json)
     }
 
     // ==================== 配信セッション ====================
@@ -907,6 +1009,290 @@ impl Database {
         }
         Ok(list)
     }
+
+    // ==================== スーパーチャット / メンバーシップ ====================
+
+    pub fn insert_monetization_event(&self, item: &MonetizationItem) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO monetization_events (
+                id, session_id, platform, kind, user_id, user_name, user_icon_url,
+                amount_display, amount_micros, currency, tier_color, message,
+                timestamp_ms, is_checked, checked_at_ms
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            params![
+                item.id,
+                item.session_id,
+                item.platform.as_str(),
+                item.kind.as_str(),
+                item.user_id,
+                item.user_name,
+                item.user_icon_url,
+                item.amount_display,
+                item.amount_micros as i64,
+                item.currency,
+                item.tier_color,
+                item.message,
+                item.timestamp_ms,
+                if item.is_checked { 1 } else { 0 },
+                item.checked_at_ms,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_monetization_events(&self, limit: usize) -> Result<Vec<MonetizationItem>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT
+                id, session_id, platform, kind, user_id, user_name, user_icon_url,
+                amount_display, amount_micros, currency, tier_color, message,
+                timestamp_ms, is_checked, checked_at_ms
+             FROM monetization_events
+             ORDER BY timestamp_ms DESC
+             LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![limit as i64], |row| {
+            let platform_str: String = row.get(2)?;
+            let kind_str: String = row.get(3)?;
+            Ok(MonetizationItem {
+                id: row.get(0)?,
+                session_id: row.get(1)?,
+                platform: PlatformKind::from_str_lossy(&platform_str),
+                kind: MonetizationEventKind::from_str_lossy(&kind_str),
+                user_id: row.get(4)?,
+                user_name: row.get(5)?,
+                user_icon_url: row.get(6)?,
+                amount_display: row.get(7)?,
+                amount_micros: row.get::<_, i64>(8)?.max(0) as u64,
+                currency: row.get(9)?,
+                tier_color: row.get(10)?,
+                message: row.get(11)?,
+                timestamp_ms: row.get(12)?,
+                is_checked: row.get::<_, i64>(13)? != 0,
+                checked_at_ms: row.get(14)?,
+            })
+        })?;
+        let mut list = Vec::new();
+        for r in rows {
+            list.push(r?);
+        }
+        Ok(list)
+    }
+
+    pub fn set_monetization_checked(
+        &self,
+        id: &str,
+        checked: bool,
+        now_ms: i64,
+    ) -> Result<()> {
+        let checked_at = if checked { Some(now_ms) } else { None };
+        self.conn.execute(
+            "UPDATE monetization_events SET is_checked = ?1, checked_at_ms = ?2 WHERE id = ?3",
+            params![if checked { 1 } else { 0 }, checked_at, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn mark_all_monetization_checked(&self, now_ms: i64) -> Result<()> {
+        self.conn.execute(
+            "UPDATE monetization_events SET is_checked = 1, checked_at_ms = COALESCE(checked_at_ms, ?1) WHERE is_checked = 0",
+            params![now_ms],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_monetization_event(&self, id: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM monetization_events WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn clear_monetization_events(&self, checked_only: bool) -> Result<()> {
+        if checked_only {
+            self.conn
+                .execute("DELETE FROM monetization_events WHERE is_checked = 1", [])?;
+        } else {
+            self.conn.execute("DELETE FROM monetization_events", [])?;
+        }
+        Ok(())
+    }
+
+    // ==================== 特定ワード反応演出 (WordParty) ====================
+
+    pub fn list_media_reaction_rules(&self) -> Result<Vec<MediaReactionRule>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT
+                id, name, pattern, match_mode, case_sensitive, media_kind,
+                stored_file_name, original_file_name, animation, position,
+                duration_ms, width_percent, volume, cooldown_sec,
+                exclude_banned, caption_template, enabled,
+                effect_type, trigger_type, min_superchat_amount, priority,
+                sound_stored_file_name, sound_original_file_name, sound_volume,
+                particle_count, particle_size, particle_speed, gravity,
+                particle_text, ambient_preset
+             FROM media_reaction_rules
+             ORDER BY priority DESC, name ASC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let mode_str: String = row.get(3)?;
+            let kind_str: String = row.get(5)?;
+            let anim_str: String = row.get(8)?;
+            let pos_str: String = row.get(9)?;
+            let effect_str: String = row.get(17)?;
+            let trig_str: String = row.get(18)?;
+            Ok(MediaReactionRule {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                pattern: row.get(2)?,
+                match_mode: MatchMode::from_str_lossy(&mode_str),
+                case_sensitive: row.get::<_, i64>(4)? != 0,
+                media_kind: MediaKind::from_str_lossy(&kind_str),
+                stored_file_name: row.get(6)?,
+                original_file_name: row.get(7)?,
+                animation: MediaAnimationKind::from_str_lossy(&anim_str),
+                position: MediaPosition::from_str_lossy(&pos_str),
+                duration_ms: row.get::<_, i64>(10)?.max(0) as u32,
+                width_percent: row.get::<_, i64>(11)?.clamp(10, 100) as u32,
+                volume: row.get::<_, i64>(12)?.clamp(0, 100) as u32,
+                cooldown_sec: row.get::<_, i64>(13)?.max(0) as u32,
+                exclude_banned: row.get::<_, i64>(14)? != 0,
+                caption_template: row.get(15)?,
+                enabled: row.get::<_, i64>(16)? != 0,
+                effect_type: MediaEffectType::from_str_lossy(&effect_str),
+                trigger_type: MediaTriggerType::from_str_lossy(&trig_str),
+                min_superchat_amount: row.get::<_, i64>(19)?.max(0) as u64,
+                priority: row.get::<_, i64>(20)? as i32,
+                sound_stored_file_name: row.get(21)?,
+                sound_original_file_name: row.get(22)?,
+                sound_volume: row.get::<_, i64>(23)?.clamp(0, 100) as u32,
+                particle_count: row.get::<_, i64>(24)?.clamp(1, 120) as u32,
+                particle_size: row.get::<_, i64>(25)?.clamp(20, 260) as u32,
+                particle_speed: row.get::<_, i64>(26)?.clamp(30, 250) as u32,
+                gravity: row.get::<_, i64>(27)?.clamp(0, 200) as u32,
+                particle_text: row.get(28)?,
+                ambient_preset: row.get(29)?,
+            })
+        })?;
+        let mut list = Vec::new();
+        for r in rows {
+            list.push(r?);
+        }
+        Ok(list)
+    }
+
+    pub fn upsert_media_reaction_rule(&self, rule: &MediaReactionRule) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO media_reaction_rules (
+                id, name, pattern, match_mode, case_sensitive, media_kind,
+                stored_file_name, original_file_name, animation, position,
+                duration_ms, width_percent, volume, cooldown_sec,
+                exclude_banned, caption_template, enabled,
+                effect_type, trigger_type, min_superchat_amount, priority,
+                sound_stored_file_name, sound_original_file_name, sound_volume,
+                particle_count, particle_size, particle_speed, gravity,
+                particle_text, ambient_preset
+            ) VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
+                ?11, ?12, ?13, ?14, ?15, ?16, ?17,
+                ?18, ?19, ?20, ?21, ?22, ?23, ?24,
+                ?25, ?26, ?27, ?28, ?29, ?30
+            )
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                pattern = excluded.pattern,
+                match_mode = excluded.match_mode,
+                case_sensitive = excluded.case_sensitive,
+                media_kind = excluded.media_kind,
+                stored_file_name = excluded.stored_file_name,
+                original_file_name = excluded.original_file_name,
+                animation = excluded.animation,
+                position = excluded.position,
+                duration_ms = excluded.duration_ms,
+                width_percent = excluded.width_percent,
+                volume = excluded.volume,
+                cooldown_sec = excluded.cooldown_sec,
+                exclude_banned = excluded.exclude_banned,
+                caption_template = excluded.caption_template,
+                enabled = excluded.enabled,
+                effect_type = excluded.effect_type,
+                trigger_type = excluded.trigger_type,
+                min_superchat_amount = excluded.min_superchat_amount,
+                priority = excluded.priority,
+                sound_stored_file_name = excluded.sound_stored_file_name,
+                sound_original_file_name = excluded.sound_original_file_name,
+                sound_volume = excluded.sound_volume,
+                particle_count = excluded.particle_count,
+                particle_size = excluded.particle_size,
+                particle_speed = excluded.particle_speed,
+                gravity = excluded.gravity,
+                particle_text = excluded.particle_text,
+                ambient_preset = excluded.ambient_preset",
+            params![
+                rule.id,
+                rule.name,
+                rule.pattern,
+                rule.match_mode.as_str(),
+                if rule.case_sensitive { 1 } else { 0 },
+                rule.media_kind.as_str(),
+                rule.stored_file_name,
+                rule.original_file_name,
+                rule.animation.as_str(),
+                rule.position.as_str(),
+                rule.duration_ms as i64,
+                rule.width_percent as i64,
+                rule.volume as i64,
+                rule.cooldown_sec as i64,
+                if rule.exclude_banned { 1 } else { 0 },
+                rule.caption_template,
+                if rule.enabled { 1 } else { 0 },
+                rule.effect_type.as_str(),
+                rule.trigger_type.as_str(),
+                rule.min_superchat_amount as i64,
+                rule.priority as i64,
+                rule.sound_stored_file_name,
+                rule.sound_original_file_name,
+                rule.sound_volume as i64,
+                rule.particle_count as i64,
+                rule.particle_size as i64,
+                rule.particle_speed as i64,
+                rule.gravity as i64,
+                rule.particle_text,
+                rule.ambient_preset,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_media_reaction_rule(&self, id: &str) -> Result<Vec<String>> {
+        let files: Option<(String, String)> = self
+            .conn
+            .query_row(
+                "SELECT stored_file_name, sound_stored_file_name FROM media_reaction_rules WHERE id = ?1",
+                params![id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        self.conn
+            .execute("DELETE FROM media_reaction_rules WHERE id = ?1", params![id])?;
+
+        let mut removable = Vec::new();
+        if let Some((media_f, sound_f)) = files {
+            for fname in [media_f, sound_f] {
+                if fname.trim().is_empty() {
+                    continue;
+                }
+                let still_used: i64 = self.conn.query_row(
+                    "SELECT COUNT(*) FROM media_reaction_rules
+                     WHERE stored_file_name = ?1 OR sound_stored_file_name = ?1",
+                    params![fname],
+                    |row| row.get(0),
+                )?;
+                if still_used == 0 {
+                    removable.push(fname);
+                }
+            }
+        }
+        Ok(removable)
+    }
 }
 
 #[cfg(test)]
@@ -925,6 +1311,11 @@ mod tests {
             is_owner: false,
             is_moderator: false,
             is_member: false,
+            event_kind: None,
+            amount_display: None,
+            amount_micros: 0,
+            currency: String::new(),
+            tier_color: None,
         }
     }
 
@@ -1027,6 +1418,11 @@ mod tests {
             user_tracking_enabled: false,
             user_memo_display_enabled: false,
             first_time_counter_enabled: false,
+            superchat_enabled: false,
+            poll_enabled: true,
+            pickup_enabled: false,
+            queue_enabled: true,
+            media_reaction_enabled: false,
             obs_overlay_enabled: false,
             auto_update_check_enabled: false,
         };
@@ -1133,5 +1529,80 @@ mod tests {
         db.reset_users(false).unwrap();
         let after_all = db.list_users(Some(&s1)).unwrap();
         assert!(after_all.is_empty());
+    }
+
+    #[test]
+    fn test_monetization_and_media_rules_persistence() {
+        let db = Database::open_in_memory().unwrap();
+        let sc = MonetizationItem {
+            id: "sc-1".to_string(),
+            session_id: "sess-1".to_string(),
+            platform: PlatformKind::YouTube,
+            kind: MonetizationEventKind::SuperChat,
+            user_id: "u1".to_string(),
+            user_name: "応援太郎".to_string(),
+            user_icon_url: String::new(),
+            amount_display: "¥1,000".to_string(),
+            amount_micros: 1_000_000_000,
+            currency: "JPY".to_string(),
+            tier_color: "#FFCA28".to_string(),
+            message: "応援してます！".to_string(),
+            timestamp_ms: 1000,
+            is_checked: false,
+            checked_at_ms: None,
+        };
+        db.insert_monetization_event(&sc).unwrap();
+        let items = db.list_monetization_events(50).unwrap();
+        assert_eq!(items.len(), 1);
+        assert!(!items[0].is_checked);
+
+        db.set_monetization_checked("sc-1", true, 2000).unwrap();
+        let checked = db.list_monetization_events(50).unwrap();
+        assert!(checked[0].is_checked);
+        assert_eq!(checked[0].checked_at_ms, Some(2000));
+
+        db.clear_monetization_events(true).unwrap();
+        assert!(db.list_monetization_events(50).unwrap().is_empty());
+
+        let rule = MediaReactionRule {
+            id: "mr-1".to_string(),
+            name: "拍手アニメ".to_string(),
+            pattern: "888\nパチパチ".to_string(),
+            match_mode: MatchMode::Contains,
+            case_sensitive: false,
+            effect_type: MediaEffectType::Cracker,
+            trigger_type: MediaTriggerType::Keyword,
+            min_superchat_amount: 0,
+            priority: 10,
+            media_kind: MediaKind::Image,
+            stored_file_name: "clap.gif".to_string(),
+            original_file_name: "clap.gif".to_string(),
+            sound_stored_file_name: "clap.mp3".to_string(),
+            sound_original_file_name: "clap.mp3".to_string(),
+            sound_volume: 90,
+            animation: MediaAnimationKind::Bounce,
+            position: MediaPosition::BottomRight,
+            duration_ms: 3500,
+            width_percent: 40,
+            volume: 70,
+            particle_count: 30,
+            particle_size: 64,
+            particle_speed: 110,
+            gravity: 100,
+            particle_text: "👏,🎉".to_string(),
+            ambient_preset: "snow".to_string(),
+            cooldown_sec: 4,
+            exclude_banned: true,
+            caption_template: "{user} さんありがとう！".to_string(),
+            enabled: true,
+        };
+        db.upsert_media_reaction_rule(&rule).unwrap();
+        let list = db.list_media_reaction_rules().unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].stored_file_name, "clap.gif");
+        assert_eq!(list[0].effect_type, MediaEffectType::Cracker);
+        assert_eq!(list[0].sound_stored_file_name, "clap.mp3");
+        let deleted_files = db.delete_media_reaction_rule("mr-1").unwrap();
+        assert_eq!(deleted_files, vec!["clap.gif".to_string(), "clap.mp3".to_string()]);
     }
 }

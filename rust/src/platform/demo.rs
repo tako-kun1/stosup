@@ -4,7 +4,7 @@ use chrono::Utc;
 use rand::seq::SliceRandom;
 use tokio::sync::watch;
 
-use crate::models::{PlatformKind, RawIncomingComment};
+use crate::models::{MonetizationEventKind, PlatformKind, RawIncomingComment};
 use crate::platform::{IncomingCommentTx, ProviderConnection};
 
 struct DemoUser {
@@ -119,17 +119,45 @@ pub fn connect_demo(
                     (u, *m)
                 };
 
+                let (event_kind, amount_display, amount_micros, currency, tier_color, final_msg) =
+                    if idx > 0 && idx % 6 == 0 {
+                        (
+                            Some(MonetizationEventKind::SuperChat),
+                            Some("¥1,000".to_string()),
+                            1_000_000_000u64,
+                            "JPY".to_string(),
+                            Some("#FFCA28".to_string()),
+                            "いつも配信ありがとう！応援してます！".to_string(),
+                        )
+                    } else if idx > 0 && idx % 9 == 0 {
+                        (
+                            Some(MonetizationEventKind::MembershipNew),
+                            Some("新規メンバー加入".to_string()),
+                            0u64,
+                            String::new(),
+                            Some("#0F9D58".to_string()),
+                            "メンバーシップに加入しました！よろしくお願いします！".to_string(),
+                        )
+                    } else {
+                        (None, None, 0u64, String::new(), None, msg.to_string())
+                    };
+
                 let raw = RawIncomingComment {
                     id: uuid::Uuid::new_v4().to_string(),
                     platform: PlatformKind::Demo,
                     user_id: user.id.to_string(),
                     user_name: user.name.to_string(),
                     user_icon_url: make_svg_avatar(user.color, user.initial),
-                    message: msg.to_string(),
+                    message: final_msg,
                     timestamp_ms: Utc::now().timestamp_millis(),
                     is_owner: false,
                     is_moderator: user.is_mod,
-                    is_member: user.is_member,
+                    is_member: user.is_member || event_kind == Some(MonetizationEventKind::MembershipNew),
+                    event_kind,
+                    amount_display,
+                    amount_micros,
+                    currency,
+                    tier_color,
                 };
                 if comment_tx.send(raw).is_err() {
                     break;

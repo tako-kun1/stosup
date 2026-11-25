@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stosup スパチャ・メンバーシップオーバーレイ</title>
+<link rel="icon" href="/favicon.ico" />
+<style id="stosup-base-css">
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--page-bg, transparent) !important;
+    overflow: hidden;
+    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
+  }
+  #sc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    width: 100%;
+  }
+  .sc-card {
+    background: rgba(24, 24, 27, 0.94);
+    border: 2px solid var(--tier, #ffca28);
+    border-radius: 10px;
+    overflow: hidden;
+    color: #f4f4f5;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.42);
+    animation: scSlide 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .sc-card.checked { opacity: 0.72; }
+  @keyframes scSlide {
+    from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .sc-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--tier, #ffca28);
+    color: #111827;
+    font-weight: 800;
+  }
+  .sc-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    background: #3f3f46;
+    flex-shrink: 0;
+  }
+  .sc-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+  .sc-name {
+    font-size: 13.5px;
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sc-kind {
+    font-size: 11px;
+    opacity: 0.85;
+    font-weight: 700;
+  }
+  .sc-amount {
+    font-size: 18px;
+    font-weight: 900;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .sc-body {
+    padding: 10px 14px;
+    font-size: 14.5px;
+    line-height: 1.45;
+    word-break: break-word;
+  }
+
+  /* minimal */
+  body[data-theme="minimal"] .sc-card {
+    background: rgba(15, 15, 18, 0.72);
+    border: none;
+    border-left: 5px solid var(--tier, #ffca28);
+    border-radius: 0 8px 8px 0;
+    box-shadow: none;
+  }
+  body[data-theme="minimal"] .sc-header {
+    background: transparent;
+    color: #f4f4f5;
+    padding-bottom: 4px;
+  }
+  body[data-theme="minimal"] .sc-amount { color: var(--tier, #ffca28); }
+
+  /* pop */
+  body[data-theme="pop"] .sc-card {
+    background: #ffffff;
+    color: #18181b;
+    border: 3px solid #18181b;
+    border-radius: 16px;
+    box-shadow: 5px 5px 0 #18181b;
+  }
+  body[data-theme="pop"] .sc-header {
+    border-bottom: 3px solid #18181b;
+  }
+
+  /* neon */
+  body[data-theme="neon"] .sc-card {
+    background: rgba(9, 11, 20, 0.92);
+    border: 2px solid var(--tier, #22d3ee);
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.32);
+  }
+  body[data-theme="neon"] .sc-header {
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    border-bottom: 1px solid var(--tier, #22d3ee);
+  }
+  body[data-theme="neon"] .sc-amount {
+    color: var(--tier, #22d3ee);
+    text-shadow: 0 0 10px var(--tier, #22d3ee);
+  }
+
+  /* pastel */
+  body[data-theme="pastel"] .sc-card {
+    background: rgba(255, 253, 249, 0.97);
+    color: #27272a;
+    border: 2.5px solid var(--tier, #f472b6);
+    border-radius: 18px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+  }
+
+  body.has-custom-font,
+  body.has-custom-font * {
+    font-family: var(--font-family) !important;
+  }
+</style>
+<style id="stosup-custom-css"></style>
+</head>
+<body data-theme="default">
+  <div id="sc-list"></div>
+<script>
+  const listEl = document.getElementById('sc-list');
+  const customStyleEl = document.getElementById('stosup-custom-css');
+  const params = new URLSearchParams(location.search);
+  const urlTheme = params.get('theme');
+  const urlBg = params.get('bg');
+  const urlFont = params.get('font');
+  const unreadOnly = params.get('unread_only') === '1';
+  const maxItems = Math.max(1, Math.min(20, Number(params.get('limit') || 6)));
+
+  let enabled = true;
+  let items = [];
+  let config = {
+    superchat_theme: 'default',
+    superchat_bg_color: 'transparent',
+    superchat_font_family: '',
+    superchat_custom_css: ''
+  };
+
+  function applyFont(raw) {
+    const f = (raw || '').trim();
+    if (f) {
+      const safe = f.replace(/["\\]/g, '');
+      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
+      document.body.classList.add('has-custom-font');
+    } else {
+      document.documentElement.style.removeProperty('--font-family');
+      document.body.classList.remove('has-custom-font');
+    }
+  }
+  function resolveBg(raw) {
+    const v = (raw || 'transparent').trim();
+    if (!v || v.toLowerCase() === 'transparent') return 'transparent';
+    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return '#' + v;
+    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return v;
+    return 'transparent';
+  }
+  function applyDesign() {
+    document.body.dataset.theme = urlTheme || config.superchat_theme || 'default';
+    document.documentElement.style.setProperty('--page-bg', resolveBg(urlBg || config.superchat_bg_color));
+    applyFont(urlFont || config.superchat_font_family);
+    customStyleEl.textContent = config.superchat_custom_css || '';
+  }
+  function kindLabel(k) {
+    switch (k) {
+      case 'SuperChat': return 'スーパーチャット';
+      case 'SuperSticker': return 'スーパーステッカー';
+      case 'MembershipNew': return '新規メンバー加入';
+      case 'MembershipMilestone': return 'メンバー継続';
+      case 'MembershipGift': return 'メンバーシップギフト';
+      default: return '支援イベント';
+    }
+  }
+  function fallbackAvatar(name) {
+    const ch = (name || '?').slice(0, 1);
+    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%2352525b'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
+  }
+
+  function render() {
+    listEl.innerHTML = '';
+    if (!enabled) return;
+    const filtered = (unreadOnly ? items.filter(i => !i.is_checked) : items).slice(0, maxItems);
+    filtered.forEach((it) => {
+      const card = document.createElement('div');
+      card.className = 'sc-card' + (it.is_checked ? ' checked' : '');
+      card.style.setProperty('--tier', it.tier_color || '#ffca28');
+
+      const header = document.createElement('div');
+      header.className = 'sc-header';
+
+      const img = document.createElement('img');
+      img.className = 'sc-avatar';
+      img.src = it.user_icon_url || fallbackAvatar(it.user_name);
+      img.onerror = () => { img.src = fallbackAvatar(it.user_name); };
+
+      const meta = document.createElement('div');
+      meta.className = 'sc-meta';
+      const name = document.createElement('div');
+      name.className = 'sc-name';
+      name.textContent = it.user_name;
+      const kind = document.createElement('div');
+      kind.className = 'sc-kind';
+      kind.textContent = kindLabel(it.kind);
+      meta.appendChild(name);
+      meta.appendChild(kind);
+
+      const amount = document.createElement('div');
+      amount.className = 'sc-amount';
+      amount.textContent = it.amount_display || '';
+
+      header.appendChild(img);
+      header.appendChild(meta);
+      header.appendChild(amount);
+      card.appendChild(header);
+
+      if (it.message) {
+        const body = document.createElement('div');
+        body.className = 'sc-body';
+        body.textContent = it.message;
+        card.appendChild(body);
+      }
+      listEl.appendChild(card);
+    });
+  }
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${proto}//${location.host}/ws`);
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === 'snapshot') {
+          config = Object.assign(config, data.config || {});
+          items = data.monetization_items || [];
+          if (typeof data.superchat_enabled === 'boolean') enabled = data.superchat_enabled;
+          applyDesign();
+          render();
+        } else if (data.type === 'super_chat') {
+          items = data.items || [];
+          if (typeof data.enabled === 'boolean') enabled = data.enabled;
+          render();
+        } else if (data.type === 'config_updated') {
+          config = Object.assign(config, data.config || {});
+          applyDesign();
+        }
+      } catch (e) { console.error(e); }
+    };
+    ws.onclose = () => setTimeout(connect, 2000);
+    ws.onerror = () => ws.close();
+  }
+  applyDesign();
+  connect();
+</script>
+</body>
+</html>

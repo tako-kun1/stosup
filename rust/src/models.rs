@@ -110,6 +110,38 @@ pub struct HighlightRule {
     pub enabled: bool,
 }
 
+/// スーパーチャット・メンバーシップ等の支援イベント種別
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MonetizationEventKind {
+    SuperChat,
+    SuperSticker,
+    MembershipNew,
+    MembershipMilestone,
+    MembershipGift,
+}
+
+impl MonetizationEventKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            MonetizationEventKind::SuperChat => "super_chat",
+            MonetizationEventKind::SuperSticker => "super_sticker",
+            MonetizationEventKind::MembershipNew => "membership_new",
+            MonetizationEventKind::MembershipMilestone => "membership_milestone",
+            MonetizationEventKind::MembershipGift => "membership_gift",
+        }
+    }
+
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "super_sticker" => MonetizationEventKind::SuperSticker,
+            "membership_new" => MonetizationEventKind::MembershipNew,
+            "membership_milestone" => MonetizationEventKind::MembershipMilestone,
+            "membership_gift" => MonetizationEventKind::MembershipGift,
+            _ => MonetizationEventKind::SuperChat,
+        }
+    }
+}
+
 /// 配信から受信し、ルール評価済みのコメント
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommentItem {
@@ -131,6 +163,533 @@ pub struct CommentItem {
     pub bubble_bg_color: Option<String>,
     pub bubble_text_color: Option<String>,
     pub bubble_border_color: Option<String>,
+    /// スパチャ・メンバーシップ等のイベント種別（通常コメントは None）
+    #[serde(default)]
+    pub event_kind: Option<MonetizationEventKind>,
+    /// スパチャ金額やメンバー継続期間などの表示ラベル
+    #[serde(default)]
+    pub amount_display: Option<String>,
+    /// スパチャ・メンバーシップのティア強調色
+    #[serde(default)]
+    pub event_accent_color: Option<String>,
+}
+
+/// スーパーチャット / メンバーシップ専用管理アイテム（お礼済み・読み忘れチェック対応）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MonetizationItem {
+    pub id: String,
+    pub session_id: String,
+    pub platform: PlatformKind,
+    pub kind: MonetizationEventKind,
+    pub user_id: String,
+    pub user_name: String,
+    pub user_icon_url: String,
+    pub amount_display: String,
+    pub amount_micros: u64,
+    pub currency: String,
+    pub tier_color: String,
+    pub message: String,
+    pub timestamp_ms: i64,
+    pub is_checked: bool,
+    pub checked_at_ms: Option<i64>,
+}
+
+/// リアルタイム投票の選択肢
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PollOption {
+    pub id: String,
+    pub label: String,
+    pub keywords: Vec<String>,
+    pub color: String,
+    pub vote_count: u64,
+}
+
+/// リアルタイム投票の設定
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PollConfig {
+    #[serde(default)]
+    pub question: String,
+    #[serde(default)]
+    pub options: Vec<PollOption>,
+    /// 同一ユーザーが別選択肢へ投票を変更できるか
+    #[serde(default = "default_true")]
+    pub allow_vote_change: bool,
+    #[serde(default = "default_true")]
+    pub exclude_banned: bool,
+    #[serde(default = "default_true")]
+    pub show_percentage: bool,
+    #[serde(default = "default_true")]
+    pub show_vote_count: bool,
+}
+
+impl Default for PollConfig {
+    fn default() -> Self {
+        Self {
+            question: "次の企画はどれがいい？".to_string(),
+            options: vec![
+                PollOption {
+                    id: "opt-1".to_string(),
+                    label: "雑談トーク".to_string(),
+                    keywords: vec!["1".to_string(), "雑談".to_string()],
+                    color: "#3B82F6".to_string(),
+                    vote_count: 0,
+                },
+                PollOption {
+                    id: "opt-2".to_string(),
+                    label: "参加型ゲーム".to_string(),
+                    keywords: vec!["2".to_string(), "ゲーム".to_string()],
+                    color: "#22C55E".to_string(),
+                    vote_count: 0,
+                },
+                PollOption {
+                    id: "opt-3".to_string(),
+                    label: "歌枠・リクエスト".to_string(),
+                    keywords: vec!["3".to_string(), "歌".to_string()],
+                    color: "#F59E0B".to_string(),
+                    vote_count: 0,
+                },
+            ],
+            allow_vote_change: true,
+            exclude_banned: true,
+            show_percentage: true,
+            show_vote_count: true,
+        }
+    }
+}
+
+/// リアルタイム投票の現在状態
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PollState {
+    pub is_active: bool,
+    pub started_at_ms: Option<i64>,
+    pub ended_at_ms: Option<i64>,
+    pub config: PollConfig,
+    pub total_votes: u64,
+}
+
+impl Default for PollState {
+    fn default() -> Self {
+        Self {
+            is_active: false,
+            started_at_ms: None,
+            ended_at_ms: None,
+            config: PollConfig::default(),
+            total_votes: 0,
+        }
+    }
+}
+
+/// コメントピックアップ（ピン留め表示）の現在状態
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PickedCommentState {
+    pub comment: Option<CommentItem>,
+    pub picked_at_ms: Option<i64>,
+}
+
+/// 参加型キューのエントリ状態
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum QueueEntryStatus {
+    Active,
+    Waiting,
+    Completed,
+}
+
+/// 参加型キューの並び順・優先方式
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum QueueSortMode {
+    /// 先着順
+    FirstCome,
+    /// 参加回数が少ない人優先（同数なら先着）
+    FewestPlaysFirst,
+    /// 初見さん優先 → 参加回数が少ない順 → 先着
+    FirstTimerFirst,
+}
+
+/// 参加型キューの設定
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QueueConfig {
+    #[serde(default)]
+    pub is_accepting: bool,
+    #[serde(default = "default_queue_slots")]
+    pub max_active_slots: u32,
+    #[serde(default = "default_queue_join_keywords")]
+    pub join_keywords: Vec<String>,
+    #[serde(default = "default_queue_leave_keywords")]
+    pub leave_keywords: Vec<String>,
+    #[serde(default = "default_queue_sort_mode")]
+    pub sort_mode: QueueSortMode,
+    #[serde(default = "default_true")]
+    pub exclude_banned: bool,
+    #[serde(default = "default_true")]
+    pub allow_rejoin_after_complete: bool,
+}
+
+fn default_queue_slots() -> u32 {
+    3
+}
+
+fn default_queue_join_keywords() -> Vec<String> {
+    vec!["参加希望".to_string(), "!join".to_string()]
+}
+
+fn default_queue_leave_keywords() -> Vec<String> {
+    vec!["辞退".to_string(), "キャンセル".to_string(), "!leave".to_string()]
+}
+
+fn default_queue_sort_mode() -> QueueSortMode {
+    QueueSortMode::FirstCome
+}
+
+impl Default for QueueConfig {
+    fn default() -> Self {
+        Self {
+            is_accepting: false,
+            max_active_slots: default_queue_slots(),
+            join_keywords: default_queue_join_keywords(),
+            leave_keywords: default_queue_leave_keywords(),
+            sort_mode: default_queue_sort_mode(),
+            exclude_banned: true,
+            allow_rejoin_after_complete: true,
+        }
+    }
+}
+
+/// 参加型キューの1人分のエントリ
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueueEntry {
+    pub user_id: String,
+    pub platform: PlatformKind,
+    pub user_name: String,
+    pub user_icon_url: String,
+    pub status: QueueEntryStatus,
+    pub play_count: u32,
+    pub is_first_time: bool,
+    pub note: String,
+    pub joined_at_ms: i64,
+}
+
+/// 参加型キューの全体状態
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct QueueState {
+    pub config: QueueConfig,
+    pub entries: Vec<QueueEntry>,
+}
+
+/// ワード反応メディア種別
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MediaKind {
+    Image,
+    Video,
+    Audio,
+}
+
+impl MediaKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            MediaKind::Image => "image",
+            MediaKind::Video => "video",
+            MediaKind::Audio => "audio",
+        }
+    }
+
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "video" => MediaKind::Video,
+            "audio" => MediaKind::Audio,
+            _ => MediaKind::Image,
+        }
+    }
+}
+
+/// WordParty 演出タイプ
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MediaEffectType {
+    /// 指定位置への固定表示（画像・GIF・透過WebM/MP4・音声）
+    Fixed,
+    /// 画面左右から勢いよく飛び出すクラッカー演出
+    Cracker,
+    /// 画面上部からアイテムがヒラヒラ降ってくる落下物演出
+    Drop,
+    /// 画面全体に紙吹雪が舞うお祝い演出
+    Confetti,
+    /// 画面端から放物線で投げ込まれてバウンドする投てき演出
+    Throw,
+    /// 雪・桜吹雪・雨・キラキラ・ハート・火の粉などの環境演出
+    Ambient,
+}
+
+impl MediaEffectType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            MediaEffectType::Fixed => "fixed",
+            MediaEffectType::Cracker => "cracker",
+            MediaEffectType::Drop => "drop",
+            MediaEffectType::Confetti => "confetti",
+            MediaEffectType::Throw => "throw",
+            MediaEffectType::Ambient => "ambient",
+        }
+    }
+
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "cracker" => MediaEffectType::Cracker,
+            "drop" => MediaEffectType::Drop,
+            "confetti" => MediaEffectType::Confetti,
+            "throw" => MediaEffectType::Throw,
+            "ambient" => MediaEffectType::Ambient,
+            _ => MediaEffectType::Fixed,
+        }
+    }
+}
+
+/// WordParty 演出の発動トリガー条件
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MediaTriggerType {
+    /// 指定キーワード（複数行可）に一致
+    Keyword,
+    /// すべてのコメントに反応
+    AnyComment,
+    /// スーパーチャット / スーパーステッカー受信時
+    SuperChat,
+    /// メンバーシップ加入・継続・ギフト受信時
+    Membership,
+    /// 初見さん検知時
+    FirstTime,
+}
+
+impl MediaTriggerType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            MediaTriggerType::Keyword => "keyword",
+            MediaTriggerType::AnyComment => "any_comment",
+            MediaTriggerType::SuperChat => "super_chat",
+            MediaTriggerType::Membership => "membership",
+            MediaTriggerType::FirstTime => "first_time",
+        }
+    }
+
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "any_comment" => MediaTriggerType::AnyComment,
+            "super_chat" => MediaTriggerType::SuperChat,
+            "membership" => MediaTriggerType::Membership,
+            "first_time" => MediaTriggerType::FirstTime,
+            _ => MediaTriggerType::Keyword,
+        }
+    }
+}
+
+/// 複数同時トリガー時のメディア再生方式
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MediaPlaybackMode {
+    /// キューで順番に1つずつ再生
+    Queue,
+    /// 画面上に同時に重ねて再生
+    Overlay,
+    /// 再生中のものを上書きして最新のみ再生
+    Replace,
+}
+
+/// メディア登場・退場アニメーション種別
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MediaAnimationKind {
+    Fade,
+    PopIn,
+    SlideUp,
+    SlideLeft,
+    Bounce,
+    ZoomSpin,
+    None,
+}
+
+impl MediaAnimationKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            MediaAnimationKind::Fade => "fade",
+            MediaAnimationKind::PopIn => "pop_in",
+            MediaAnimationKind::SlideUp => "slide_up",
+            MediaAnimationKind::SlideLeft => "slide_left",
+            MediaAnimationKind::Bounce => "bounce",
+            MediaAnimationKind::ZoomSpin => "zoom_spin",
+            MediaAnimationKind::None => "none",
+        }
+    }
+
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "pop_in" => MediaAnimationKind::PopIn,
+            "slide_up" => MediaAnimationKind::SlideUp,
+            "slide_left" => MediaAnimationKind::SlideLeft,
+            "bounce" => MediaAnimationKind::Bounce,
+            "zoom_spin" => MediaAnimationKind::ZoomSpin,
+            "none" => MediaAnimationKind::None,
+            _ => MediaAnimationKind::Fade,
+        }
+    }
+}
+
+/// メディア表示位置
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MediaPosition {
+    Center,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+    FullScreen,
+}
+
+impl MediaPosition {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            MediaPosition::Center => "center",
+            MediaPosition::TopLeft => "top_left",
+            MediaPosition::TopRight => "top_right",
+            MediaPosition::BottomLeft => "bottom_left",
+            MediaPosition::BottomRight => "bottom_right",
+            MediaPosition::FullScreen => "full_screen",
+        }
+    }
+
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "top_left" => MediaPosition::TopLeft,
+            "top_right" => MediaPosition::TopRight,
+            "bottom_left" => MediaPosition::BottomLeft,
+            "bottom_right" => MediaPosition::BottomRight,
+            "full_screen" => MediaPosition::FullScreen,
+            _ => MediaPosition::Center,
+        }
+    }
+}
+
+/// ワード反応メディア全体の再生設定
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MediaReactionConfig {
+    #[serde(default = "default_media_playback_mode")]
+    pub playback_mode: MediaPlaybackMode,
+    /// マスター音量 (0〜100)
+    #[serde(default = "default_media_volume")]
+    pub master_volume: u32,
+    /// 重ね表示時の同時最大再生数
+    #[serde(default = "default_media_max_concurrent")]
+    pub max_concurrent: u32,
+    /// 1つのコメントで複数ルールを同時発動する（false = 優先順位最上位1件のみ）
+    #[serde(default = "default_true")]
+    pub allow_multiple_match: bool,
+}
+
+fn default_media_playback_mode() -> MediaPlaybackMode {
+    MediaPlaybackMode::Overlay
+}
+
+fn default_media_volume() -> u32 {
+    80
+}
+
+fn default_media_max_concurrent() -> u32 {
+    8
+}
+
+impl Default for MediaReactionConfig {
+    fn default() -> Self {
+        Self {
+            playback_mode: default_media_playback_mode(),
+            master_volume: default_media_volume(),
+            max_concurrent: default_media_max_concurrent(),
+            allow_multiple_match: true,
+        }
+    }
+}
+
+/// 特定ワード反応演出（WordParty）のルール
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaReactionRule {
+    pub id: String,
+    pub name: String,
+    /// 反応ワード（改行区切りで複数登録可能）
+    pub pattern: String,
+    pub match_mode: MatchMode,
+    pub case_sensitive: bool,
+    /// 演出タイプ（固定表示 / クラッカー / 落下物 / 紙吹雪 / 投てき / 環境演出）
+    pub effect_type: MediaEffectType,
+    /// 発動トリガー条件（キーワード / 全コメント / スパチャ / メンバー / 初見）
+    pub trigger_type: MediaTriggerType,
+    /// スパチャ発動時の最低金額（0 = 全額）
+    pub min_superchat_amount: u64,
+    /// ルール優先順位（大きいほど先に判定）
+    pub priority: i32,
+    pub media_kind: MediaKind,
+    /// Stosup 内にコピー保存された画像・動画・音声ファイル名（空 = テキスト/標準シェイプ）
+    pub stored_file_name: String,
+    /// ユーザーが選んだ元のファイル名
+    pub original_file_name: String,
+    /// 同時再生する効果音（SE）ファイル名（空 = 効果音なし）
+    pub sound_stored_file_name: String,
+    pub sound_original_file_name: String,
+    pub sound_volume: u32,
+    pub animation: MediaAnimationKind,
+    pub position: MediaPosition,
+    /// 表示・再生時間（ミリ秒）。動画で 0 の場合は動画の最後まで自動再生
+    pub duration_ms: u32,
+    /// 固定表示時の画面幅に対する割合（10〜100%）
+    pub width_percent: u32,
+    /// 動画/音声の音量（0〜100）
+    pub volume: u32,
+    /// パーティクル個数（1〜120）
+    pub particle_count: u32,
+    /// パーティクルサイズ px（24〜240）
+    pub particle_size: u32,
+    /// パーティクル速度 %（30〜250）
+    pub particle_speed: u32,
+    /// 重力強さ %（0〜200）
+    pub gravity: u32,
+    /// 画像未指定時に飛ばす絵文字・テキスト（カンマ区切りで複数指定可）
+    pub particle_text: String,
+    /// 環境演出プリセット ("snow" | "sakura" | "rain" | "sparkle" | "hearts" | "embers")
+    pub ambient_preset: String,
+    /// 連打防止クールダウン秒数
+    pub cooldown_sec: u32,
+    pub exclude_banned: bool,
+    /// 任意テロップ（`{user}` で発動者名を置換、空なら非表示）
+    pub caption_template: String,
+    pub enabled: bool,
+}
+
+/// アプリ内へインポート完了したメディア情報
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportedMediaFile {
+    pub stored_file_name: String,
+    pub original_file_name: String,
+    pub media_kind: MediaKind,
+    pub file_size_bytes: u64,
+}
+
+/// OBS メディアオーバーレイへ送信する再生トリガーイベント
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaTriggerEvent {
+    pub event_id: String,
+    pub rule_id: String,
+    pub rule_name: String,
+    pub effect_type: MediaEffectType,
+    pub media_url: String,
+    pub media_kind: MediaKind,
+    pub sound_url: Option<String>,
+    pub sound_volume: u32,
+    pub animation: MediaAnimationKind,
+    pub position: MediaPosition,
+    pub duration_ms: u32,
+    pub width_percent: u32,
+    pub volume: u32,
+    pub particle_count: u32,
+    pub particle_size: u32,
+    pub particle_speed: u32,
+    pub gravity: u32,
+    pub particle_text: String,
+    pub ambient_preset: String,
+    pub caption: String,
+    pub triggered_by: String,
+    pub triggered_at_ms: i64,
 }
 
 /// 初見カウンターの設定
@@ -443,6 +1002,21 @@ pub struct OverlayConfig {
     /// 初見カウンターオーバーレイのデザインプリセット ("default" | "compact" | "scoreboard" | "neon" | "pastel")
     #[serde(default = "default_theme_name")]
     pub first_time_theme: String,
+    /// スパチャ・メンバーオーバーレイのデザインプリセット
+    #[serde(default = "default_theme_name")]
+    pub superchat_theme: String,
+    /// リアルタイム投票オーバーレイのデザインプリセット
+    #[serde(default = "default_theme_name")]
+    pub poll_theme: String,
+    /// コメントピックアップオーバーレイのデザインプリセット
+    #[serde(default = "default_theme_name")]
+    pub pickup_theme: String,
+    /// 参加型キューオーバーレイのデザインプリセット
+    #[serde(default = "default_theme_name")]
+    pub queue_theme: String,
+    /// ワード反応メディアオーバーレイのデザインプリセット
+    #[serde(default = "default_theme_name")]
+    pub media_theme: String,
     /// 各オーバーレイの背景色 ("transparent" または "#RRGGBB" / "#RRGGBBAA")
     #[serde(default = "default_overlay_bg")]
     pub comments_bg_color: String,
@@ -452,6 +1026,16 @@ pub struct OverlayConfig {
     pub counter_bg_color: String,
     #[serde(default = "default_overlay_bg")]
     pub first_time_bg_color: String,
+    #[serde(default = "default_overlay_bg")]
+    pub superchat_bg_color: String,
+    #[serde(default = "default_overlay_bg")]
+    pub poll_bg_color: String,
+    #[serde(default = "default_overlay_bg")]
+    pub pickup_bg_color: String,
+    #[serde(default = "default_overlay_bg")]
+    pub queue_bg_color: String,
+    #[serde(default = "default_overlay_bg")]
+    pub media_bg_color: String,
     /// 各オーバーレイのシステムフォントファミリー名（空文字 = プリセット標準）
     #[serde(default)]
     pub comments_font_family: String,
@@ -461,6 +1045,16 @@ pub struct OverlayConfig {
     pub counter_font_family: String,
     #[serde(default)]
     pub first_time_font_family: String,
+    #[serde(default)]
+    pub superchat_font_family: String,
+    #[serde(default)]
+    pub poll_font_family: String,
+    #[serde(default)]
+    pub pickup_font_family: String,
+    #[serde(default)]
+    pub queue_font_family: String,
+    #[serde(default)]
+    pub media_font_family: String,
     /// コメント表示用ユーザーカスタム CSS
     #[serde(default)]
     pub comments_custom_css: String,
@@ -473,6 +1067,21 @@ pub struct OverlayConfig {
     /// 初見カウンター用ユーザーカスタム CSS
     #[serde(default)]
     pub first_time_custom_css: String,
+    /// スパチャ・メンバー用ユーザーカスタム CSS
+    #[serde(default)]
+    pub superchat_custom_css: String,
+    /// リアルタイム投票用ユーザーカスタム CSS
+    #[serde(default)]
+    pub poll_custom_css: String,
+    /// コメントピックアップ用ユーザーカスタム CSS
+    #[serde(default)]
+    pub pickup_custom_css: String,
+    /// 参加型キュー用ユーザーカスタム CSS
+    #[serde(default)]
+    pub queue_custom_css: String,
+    /// ワード反応メディア用ユーザーカスタム CSS
+    #[serde(default)]
+    pub media_custom_css: String,
 }
 
 impl Default for OverlayConfig {
@@ -489,18 +1098,38 @@ impl Default for OverlayConfig {
             lottery_theme: default_theme_name(),
             counter_theme: default_theme_name(),
             first_time_theme: default_theme_name(),
+            superchat_theme: default_theme_name(),
+            poll_theme: default_theme_name(),
+            pickup_theme: default_theme_name(),
+            queue_theme: default_theme_name(),
+            media_theme: default_theme_name(),
             comments_bg_color: default_overlay_bg(),
             lottery_bg_color: default_overlay_bg(),
             counter_bg_color: default_overlay_bg(),
             first_time_bg_color: default_overlay_bg(),
+            superchat_bg_color: default_overlay_bg(),
+            poll_bg_color: default_overlay_bg(),
+            pickup_bg_color: default_overlay_bg(),
+            queue_bg_color: default_overlay_bg(),
+            media_bg_color: default_overlay_bg(),
             comments_font_family: String::new(),
             lottery_font_family: String::new(),
             counter_font_family: String::new(),
             first_time_font_family: String::new(),
+            superchat_font_family: String::new(),
+            poll_font_family: String::new(),
+            pickup_font_family: String::new(),
+            queue_font_family: String::new(),
+            media_font_family: String::new(),
             comments_custom_css: String::new(),
             lottery_custom_css: String::new(),
             counter_custom_css: String::new(),
             first_time_custom_css: String::new(),
+            superchat_custom_css: String::new(),
+            poll_custom_css: String::new(),
+            pickup_custom_css: String::new(),
+            queue_custom_css: String::new(),
+            media_custom_css: String::new(),
         }
     }
 }
@@ -563,6 +1192,11 @@ pub struct RawIncomingComment {
     pub is_owner: bool,
     pub is_moderator: bool,
     pub is_member: bool,
+    pub event_kind: Option<MonetizationEventKind>,
+    pub amount_display: Option<String>,
+    pub amount_micros: u64,
+    pub currency: String,
+    pub tier_color: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -596,6 +1230,21 @@ pub struct FeatureFlags {
     /// 初見カウンター機能
     #[serde(default = "default_true")]
     pub first_time_counter_enabled: bool,
+    /// スーパーチャット / メンバーシップ専用管理機能
+    #[serde(default = "default_true")]
+    pub superchat_enabled: bool,
+    /// リアルタイム投票 / アンケート機能
+    #[serde(default = "default_true")]
+    pub poll_enabled: bool,
+    /// コメントピックアップ（ピン留め表示）機能
+    #[serde(default = "default_true")]
+    pub pickup_enabled: bool,
+    /// 参加型キュー（順番待ちリスト）機能
+    #[serde(default = "default_true")]
+    pub queue_enabled: bool,
+    /// 特定ワード反応メディアアニメーション機能
+    #[serde(default = "default_true")]
+    pub media_reaction_enabled: bool,
     /// OBS Studio オーバーレイローカルサーバー
     #[serde(default = "default_true")]
     pub obs_overlay_enabled: bool,
@@ -615,6 +1264,11 @@ impl Default for FeatureFlags {
             user_tracking_enabled: true,
             user_memo_display_enabled: true,
             first_time_counter_enabled: true,
+            superchat_enabled: true,
+            poll_enabled: true,
+            pickup_enabled: true,
+            queue_enabled: true,
+            media_reaction_enabled: true,
             obs_overlay_enabled: true,
             auto_update_check_enabled: true,
         }
@@ -632,6 +1286,11 @@ pub enum AppEventKind {
     UsersUpdated,
     CommentLotteryUpdated,
     LotteryDrawn,
+    MonetizationUpdated,
+    PollUpdated,
+    PickedCommentUpdated,
+    QueueUpdated,
+    MediaTriggered,
     FeatureFlagsUpdated,
     SystemNotice,
 }
@@ -647,6 +1306,11 @@ pub struct AppEvent {
     pub first_time_state: Option<FirstTimeCounterState>,
     pub comment_lottery: Option<CommentLotteryState>,
     pub lottery_result: Option<LotteryResult>,
+    pub monetization_items: Option<Vec<MonetizationItem>>,
+    pub poll_state: Option<PollState>,
+    pub picked_comment: Option<PickedCommentState>,
+    pub queue_state: Option<QueueState>,
+    pub media_trigger: Option<MediaTriggerEvent>,
     pub feature_flags: Option<FeatureFlags>,
     pub notice_level: Option<String>,
     pub notice_message: Option<String>,
@@ -663,6 +1327,11 @@ impl AppEvent {
             first_time_state: None,
             comment_lottery: None,
             lottery_result: None,
+            monetization_items: None,
+            poll_state: None,
+            picked_comment: None,
+            queue_state: None,
+            media_trigger: None,
             feature_flags: None,
             notice_level: None,
             notice_message: None,
@@ -712,6 +1381,36 @@ impl AppEvent {
     pub fn lottery_drawn(result: LotteryResult) -> Self {
         let mut e = Self::empty(AppEventKind::LotteryDrawn);
         e.lottery_result = Some(result);
+        e
+    }
+
+    pub fn monetization_updated(items: Vec<MonetizationItem>) -> Self {
+        let mut e = Self::empty(AppEventKind::MonetizationUpdated);
+        e.monetization_items = Some(items);
+        e
+    }
+
+    pub fn poll_updated(state: PollState) -> Self {
+        let mut e = Self::empty(AppEventKind::PollUpdated);
+        e.poll_state = Some(state);
+        e
+    }
+
+    pub fn picked_comment_updated(state: PickedCommentState) -> Self {
+        let mut e = Self::empty(AppEventKind::PickedCommentUpdated);
+        e.picked_comment = Some(state);
+        e
+    }
+
+    pub fn queue_updated(state: QueueState) -> Self {
+        let mut e = Self::empty(AppEventKind::QueueUpdated);
+        e.queue_state = Some(state);
+        e
+    }
+
+    pub fn media_triggered(trigger: MediaTriggerEvent) -> Self {
+        let mut e = Self::empty(AppEventKind::MediaTriggered);
+        e.media_trigger = Some(trigger);
         e
     }
 

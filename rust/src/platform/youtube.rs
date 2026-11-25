@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use tokio::sync::{watch, Mutex};
 
 use crate::db::Database;
-use crate::models::{PlatformKind, RawIncomingComment};
+use crate::models::{MonetizationEventKind, PlatformKind, RawIncomingComment};
 use crate::platform::{youtube_oauth, IncomingCommentTx, ProviderConnection};
 
 const USER_AGENT: &str =
@@ -434,11 +434,26 @@ async fn poll_innertube_chat(
     if let Some(actions) = live_chat["actions"].as_array() {
         for action in actions {
             if let Some(item) = action["addChatItemAction"]["item"].as_object() {
-                if let Some(renderer) = item
-                    .get("liveChatTextMessageRenderer")
-                    .or_else(|| item.get("liveChatPaidMessageRenderer"))
+                if let Some(renderer) = item.get("liveChatTextMessageRenderer") {
+                    if let Some(c) = parse_innertube_text_renderer(renderer) {
+                        comments.push(c);
+                    }
+                } else if let Some(renderer) = item.get("liveChatPaidMessageRenderer") {
+                    if let Some(c) = parse_innertube_paid_message_renderer(renderer) {
+                        comments.push(c);
+                    }
+                } else if let Some(renderer) = item.get("liveChatPaidStickerRenderer") {
+                    if let Some(c) = parse_innertube_paid_sticker_renderer(renderer) {
+                        comments.push(c);
+                    }
+                } else if let Some(renderer) = item.get("liveChatMembershipItemRenderer") {
+                    if let Some(c) = parse_innertube_membership_renderer(renderer) {
+                        comments.push(c);
+                    }
+                } else if let Some(renderer) =
+                    item.get("liveChatSponsorshipsGiftPurchaseAnnouncementRenderer")
                 {
-                    if let Some(c) = parse_innertube_renderer(renderer) {
+                    if let Some(c) = parse_innertube_gift_renderer(renderer) {
                         comments.push(c);
                     }
                 }
@@ -470,7 +485,28 @@ async fn poll_innertube_chat(
     Ok((comments, next_cont, timeout_ms))
 }
 
-fn parse_innertube_renderer(renderer: &Value) -> Option<RawIncomingComment> {
+fn argb_u64_to_hex(val: u64) -> String {
+    let r = (val >> 16) & 0xFF;
+    let g = (val >> 8) & 0xFF;
+    let b = val & 0xFF;
+    format!("#{:02X}{:02X}{:02X}", r, g, b)
+}
+
+fn estimate_amount_micros(display: &str) -> u64 {
+    let digits: String = display
+        .chars()
+        .filter(|c| c.is_ascii_digit() || *c == '.')
+        .collect();
+    if let Ok(num) = digits.parse::<f64>() {
+        (num * 1_000_000.0).max(0.0) as u64
+    } else {
+        0
+    }
+}
+
+fn extract_common_innertube_author(
+    renderer: &Value,
+) -> Option<(String, String, String, String, i64, bool, bool, bool)> {
     let id = renderer["id"].as_str()?.to_string();
     let user_id = renderer["authorExternalChannelId"]
         .as_str()
@@ -480,19 +516,12 @@ fn parse_innertube_renderer(renderer: &Value) -> Option<RawIncomingComment> {
         .as_str()
         .unwrap_or("匿名ユーザー")
         .to_string();
-
     let user_icon_url = renderer["authorPhoto"]["thumbnails"]
         .as_array()
         .and_then(|arr| arr.last())
         .and_then(|t| t["url"].as_str())
         .unwrap_or("")
         .to_string();
-
-    let message = extract_runs_text(&renderer["message"]["runs"]);
-    if message.is_empty() {
-        return None;
-    }
-
     let timestamp_ms = renderer["timestampUsec"]
         .as_str()
         .and_then(|s| s.parse::<i64>().ok())
@@ -518,6 +547,26 @@ fn parse_innertube_renderer(renderer: &Value) -> Option<RawIncomingComment> {
         }
     }
 
+    Some((
+        id,
+        user_id,
+        user_name,
+        user_icon_url,
+        timestamp_ms,
+        is_owner,
+        is_moderator,
+        is_member,
+    ))
+}
+
+fn parse_innertube_text_renderer(renderer: &Value) -> Option<RawIncomingComment> {
+    let (id, user_id, user_name, user_icon_url, timestamp_ms, is_owner, is_moderator, is_member) =
+        extract_common_innertube_author(renderer)?;
+    let message = extract_runs_text(&renderer["message"]["runs"]);
+    if message.is_empty() {
+        return None;
+    }
+
     Some(RawIncomingComment {
         id,
         platform: PlatformKind::YouTube,
@@ -529,6 +578,178 @@ fn parse_innertube_renderer(renderer: &Value) -> Option<RawIncomingComment> {
         is_owner,
         is_moderator,
         is_member,
+        event_kind: None,
+        amount_display: None,
+        amount_micros: 0,
+        currency: String::new(),
+        tier_color: None,
+    })
+}
+
+fn parse_innertube_paid_message_renderer(renderer: &Value) -> Option<RawIncomingComment> {
+    let (id, user_id, user_name, user_icon_url, timestamp_ms, is_owner, is_moderator, is_member) =
+        extract_common_innertube_author(renderer)?;
+    let amount_display = renderer["purchaseAmountText"]["simpleText"]
+        .as_str()
+        .unwrap_or("Super Chat")
+        .to_string();
+    let mut message = extract_runs_text(&renderer["message"]["runs"]);
+    if message.is_empty() {
+        message = format!("（メッセージなしのスーパーチャット: {}）", amount_display);
+    }
+    let tier_color = renderer["bodyBackgroundColor"]
+        .as_u64()
+        .or_else(|| renderer["headerBackgroundColor"].as_u64())
+        .map(argb_u64_to_hex)
+        .unwrap_or_else(|| "#FFB300".to_string());
+    let amount_micros = estimate_amount_micros(&amount_display);
+
+    Some(RawIncomingComment {
+        id,
+        platform: PlatformKind::YouTube,
+        user_id,
+        user_name,
+        user_icon_url,
+        message,
+        timestamp_ms,
+        is_owner,
+        is_moderator,
+        is_member,
+        event_kind: Some(MonetizationEventKind::SuperChat),
+        amount_display: Some(amount_display),
+        amount_micros,
+        currency: String::new(),
+        tier_color: Some(tier_color),
+    })
+}
+
+fn parse_innertube_paid_sticker_renderer(renderer: &Value) -> Option<RawIncomingComment> {
+    let (id, user_id, user_name, user_icon_url, timestamp_ms, is_owner, is_moderator, is_member) =
+        extract_common_innertube_author(renderer)?;
+    let amount_display = renderer["purchaseAmountText"]["simpleText"]
+        .as_str()
+        .unwrap_or("Super Sticker")
+        .to_string();
+    let label = renderer["sticker"]["accessibility"]["accessibilityData"]["label"]
+        .as_str()
+        .unwrap_or("スーパーステッカー");
+    let message = format!("ステッカー: {}", label);
+    let tier_color = renderer["backgroundColor"]
+        .as_u64()
+        .map(argb_u64_to_hex)
+        .unwrap_or_else(|| "#E91E63".to_string());
+    let amount_micros = estimate_amount_micros(&amount_display);
+
+    Some(RawIncomingComment {
+        id,
+        platform: PlatformKind::YouTube,
+        user_id,
+        user_name,
+        user_icon_url,
+        message,
+        timestamp_ms,
+        is_owner,
+        is_moderator,
+        is_member,
+        event_kind: Some(MonetizationEventKind::SuperSticker),
+        amount_display: Some(amount_display),
+        amount_micros,
+        currency: String::new(),
+        tier_color: Some(tier_color),
+    })
+}
+
+fn parse_innertube_membership_renderer(renderer: &Value) -> Option<RawIncomingComment> {
+    let (id, user_id, user_name, user_icon_url, timestamp_ms, is_owner, is_moderator, _) =
+        extract_common_innertube_author(renderer)?;
+    let primary = extract_runs_text(&renderer["headerPrimaryText"]["runs"]);
+    let subtext = extract_runs_text(&renderer["headerSubtext"]["runs"]);
+    let body = extract_runs_text(&renderer["message"]["runs"]);
+    let is_milestone = !primary.is_empty();
+    let kind = if is_milestone {
+        MonetizationEventKind::MembershipMilestone
+    } else {
+        MonetizationEventKind::MembershipNew
+    };
+    let amount_display = if !primary.is_empty() {
+        primary
+    } else if !subtext.is_empty() {
+        subtext.clone()
+    } else {
+        "新規メンバー加入".to_string()
+    };
+    let message = if !body.is_empty() {
+        body
+    } else if !subtext.is_empty() {
+        subtext
+    } else {
+        "メンバーシップに加入しました！".to_string()
+    };
+
+    Some(RawIncomingComment {
+        id,
+        platform: PlatformKind::YouTube,
+        user_id,
+        user_name,
+        user_icon_url,
+        message,
+        timestamp_ms,
+        is_owner,
+        is_moderator,
+        is_member: true,
+        event_kind: Some(kind),
+        amount_display: Some(amount_display),
+        amount_micros: 0,
+        currency: String::new(),
+        tier_color: Some("#0F9D58".to_string()),
+    })
+}
+
+fn parse_innertube_gift_renderer(renderer: &Value) -> Option<RawIncomingComment> {
+    let id = renderer["id"].as_str()?.to_string();
+    let header = &renderer["header"]["liveChatSponsorshipsHeaderRenderer"];
+    let user_id = renderer["authorExternalChannelId"]
+        .as_str()
+        .unwrap_or("unknown")
+        .to_string();
+    let user_name = header["authorName"]["simpleText"]
+        .as_str()
+        .unwrap_or("メンバーシップギフト")
+        .to_string();
+    let user_icon_url = header["authorPhoto"]["thumbnails"]
+        .as_array()
+        .and_then(|arr| arr.last())
+        .and_then(|t| t["url"].as_str())
+        .unwrap_or("")
+        .to_string();
+    let timestamp_ms = renderer["timestampUsec"]
+        .as_str()
+        .and_then(|s| s.parse::<i64>().ok())
+        .map(|usec| usec / 1000)
+        .unwrap_or_else(|| Utc::now().timestamp_millis());
+    let primary = extract_runs_text(&header["primaryText"]["runs"]);
+    let message = if primary.is_empty() {
+        "メンバーシップギフトを贈りました！".to_string()
+    } else {
+        primary.clone()
+    };
+
+    Some(RawIncomingComment {
+        id,
+        platform: PlatformKind::YouTube,
+        user_id,
+        user_name,
+        user_icon_url,
+        message,
+        timestamp_ms,
+        is_owner: false,
+        is_moderator: false,
+        is_member: true,
+        event_kind: Some(MonetizationEventKind::MembershipGift),
+        amount_display: Some("メンバーシップギフト".to_string()),
+        amount_micros: 0,
+        currency: String::new(),
+        tier_color: Some("#0F9D58".to_string()),
     })
 }
 
@@ -555,11 +776,27 @@ fn extract_runs_text(runs: &Value) -> String {
     out
 }
 
+fn super_chat_tier_color(tier: u64) -> &'static str {
+    match tier {
+        1 => "#1E88E5",
+        2 => "#00E5FF",
+        3 => "#1DE9B6",
+        4 => "#FFCA28",
+        5 => "#F57C00",
+        6 => "#E91E63",
+        _ => "#E62117",
+    }
+}
+
 fn parse_data_api_message(item: &Value) -> Option<RawIncomingComment> {
     let id = item["id"].as_str()?.to_string();
     let snippet = &item["snippet"];
     let author = &item["authorDetails"];
-    let message = snippet["displayMessage"].as_str()?.to_string();
+    let msg_type = snippet["type"].as_str().unwrap_or("textMessageEvent");
+    let mut message = snippet["displayMessage"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
     let user_id = author["channelId"].as_str().unwrap_or("unknown").to_string();
     let user_name = author["displayName"]
         .as_str()
@@ -573,6 +810,96 @@ fn parse_data_api_message(item: &Value) -> Option<RawIncomingComment> {
         .map(|dt| dt.timestamp_millis())
         .unwrap_or_else(|| Utc::now().timestamp_millis());
 
+    let mut event_kind = None;
+    let mut amount_display = None;
+    let mut amount_micros = 0u64;
+    let mut currency = String::new();
+    let mut tier_color = None;
+
+    match msg_type {
+        "superChatEvent" => {
+            let d = &snippet["superChatDetails"];
+            event_kind = Some(MonetizationEventKind::SuperChat);
+            amount_display = d["amountDisplayString"]
+                .as_str()
+                .map(|s| s.to_string())
+                .or_else(|| Some("Super Chat".to_string()));
+            amount_micros = d["amountMicros"]
+                .as_str()
+                .and_then(|s| s.parse::<u64>().ok())
+                .or_else(|| d["amountMicros"].as_u64())
+                .unwrap_or(0);
+            currency = d["currency"].as_str().unwrap_or("").to_string();
+            tier_color = Some(super_chat_tier_color(d["tier"].as_u64().unwrap_or(4)).to_string());
+            if let Some(uc) = d["userComment"].as_str() {
+                if !uc.is_empty() {
+                    message = uc.to_string();
+                }
+            }
+        }
+        "superStickerEvent" => {
+            let d = &snippet["superStickerDetails"];
+            event_kind = Some(MonetizationEventKind::SuperSticker);
+            amount_display = d["amountDisplayString"]
+                .as_str()
+                .map(|s| s.to_string())
+                .or_else(|| Some("Super Sticker".to_string()));
+            amount_micros = d["amountMicros"]
+                .as_str()
+                .and_then(|s| s.parse::<u64>().ok())
+                .or_else(|| d["amountMicros"].as_u64())
+                .unwrap_or(0);
+            currency = d["currency"].as_str().unwrap_or("").to_string();
+            tier_color = Some(super_chat_tier_color(d["tier"].as_u64().unwrap_or(4)).to_string());
+            if message.is_empty() {
+                let alt = d["superStickerMetadata"]["altText"]
+                    .as_str()
+                    .unwrap_or("スーパーステッカー");
+                message = format!("ステッカー: {}", alt);
+            }
+        }
+        "newSponsorEvent" => {
+            event_kind = Some(MonetizationEventKind::MembershipNew);
+            let level = snippet["newSponsorDetails"]["memberLevelName"]
+                .as_str()
+                .unwrap_or("新規メンバー");
+            amount_display = Some(level.to_string());
+            tier_color = Some("#0F9D58".to_string());
+            if message.is_empty() {
+                message = format!("{} に加入しました！", level);
+            }
+        }
+        "memberMilestoneChatEvent" => {
+            event_kind = Some(MonetizationEventKind::MembershipMilestone);
+            let months = snippet["memberMilestoneChatDetails"]["memberMonth"]
+                .as_u64()
+                .unwrap_or(1);
+            amount_display = Some(format!("メンバー {}ヶ月継続", months));
+            tier_color = Some("#0F9D58".to_string());
+            if let Some(uc) = snippet["memberMilestoneChatDetails"]["userComment"].as_str() {
+                if !uc.is_empty() {
+                    message = uc.to_string();
+                }
+            }
+        }
+        "membershipGiftingEvent" => {
+            event_kind = Some(MonetizationEventKind::MembershipGift);
+            let cnt = snippet["membershipGiftingDetails"]["giftMembershipsCount"]
+                .as_u64()
+                .unwrap_or(1);
+            amount_display = Some(format!("メンバーシップギフト {}件", cnt));
+            tier_color = Some("#0F9D58".to_string());
+            if message.is_empty() {
+                message = format!("メンバーシップギフトを {} 件贈りました！", cnt);
+            }
+        }
+        _ => {
+            if message.is_empty() {
+                return None;
+            }
+        }
+    }
+
     Some(RawIncomingComment {
         id,
         platform: PlatformKind::YouTube,
@@ -583,6 +910,19 @@ fn parse_data_api_message(item: &Value) -> Option<RawIncomingComment> {
         timestamp_ms,
         is_owner: author["isChatOwner"].as_bool().unwrap_or(false),
         is_moderator: author["isChatModerator"].as_bool().unwrap_or(false),
-        is_member: author["isChatSponsor"].as_bool().unwrap_or(false),
+        is_member: author["isChatSponsor"].as_bool().unwrap_or(false)
+            || matches!(
+                event_kind,
+                Some(
+                    MonetizationEventKind::MembershipNew
+                        | MonetizationEventKind::MembershipMilestone
+                        | MonetizationEventKind::MembershipGift
+                )
+            ),
+        event_kind,
+        amount_display,
+        amount_micros,
+        currency,
+        tier_color,
     })
 }

@@ -84,7 +84,36 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LotteryResult dco_decode_box_autoadd_lottery_result(dynamic raw);
 
   @protected
+  MediaReactionConfig dco_decode_box_autoadd_media_reaction_config(dynamic raw);
+
+  @protected
+  MediaReactionRule dco_decode_box_autoadd_media_reaction_rule(dynamic raw);
+
+  @protected
+  MediaTriggerEvent dco_decode_box_autoadd_media_trigger_event(dynamic raw);
+
+  @protected
+  MonetizationEventKind dco_decode_box_autoadd_monetization_event_kind(
+    dynamic raw,
+  );
+
+  @protected
   OverlayConfig dco_decode_box_autoadd_overlay_config(dynamic raw);
+
+  @protected
+  PickedCommentState dco_decode_box_autoadd_picked_comment_state(dynamic raw);
+
+  @protected
+  PollConfig dco_decode_box_autoadd_poll_config(dynamic raw);
+
+  @protected
+  PollState dco_decode_box_autoadd_poll_state(dynamic raw);
+
+  @protected
+  QueueConfig dco_decode_box_autoadd_queue_config(dynamic raw);
+
+  @protected
+  QueueState dco_decode_box_autoadd_queue_state(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
@@ -141,6 +170,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_i_64(dynamic raw);
 
   @protected
+  ImportedMediaFile dco_decode_imported_media_file(dynamic raw);
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
@@ -162,7 +194,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<LotteryWinner> dco_decode_list_lottery_winner(dynamic raw);
 
   @protected
+  List<MediaReactionRule> dco_decode_list_media_reaction_rule(dynamic raw);
+
+  @protected
+  List<MonetizationItem> dco_decode_list_monetization_item(dynamic raw);
+
+  @protected
+  List<PollOption> dco_decode_list_poll_option(dynamic raw);
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<QueueEntry> dco_decode_list_queue_entry(dynamic raw);
 
   @protected
   List<UserRecord> dco_decode_list_user_record(dynamic raw);
@@ -181,6 +225,39 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MatchMode dco_decode_match_mode(dynamic raw);
+
+  @protected
+  MediaAnimationKind dco_decode_media_animation_kind(dynamic raw);
+
+  @protected
+  MediaEffectType dco_decode_media_effect_type(dynamic raw);
+
+  @protected
+  MediaKind dco_decode_media_kind(dynamic raw);
+
+  @protected
+  MediaPlaybackMode dco_decode_media_playback_mode(dynamic raw);
+
+  @protected
+  MediaPosition dco_decode_media_position(dynamic raw);
+
+  @protected
+  MediaReactionConfig dco_decode_media_reaction_config(dynamic raw);
+
+  @protected
+  MediaReactionRule dco_decode_media_reaction_rule(dynamic raw);
+
+  @protected
+  MediaTriggerEvent dco_decode_media_trigger_event(dynamic raw);
+
+  @protected
+  MediaTriggerType dco_decode_media_trigger_type(dynamic raw);
+
+  @protected
+  MonetizationEventKind dco_decode_monetization_event_kind(dynamic raw);
+
+  @protected
+  MonetizationItem dco_decode_monetization_item(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -213,6 +290,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LotteryResult? dco_decode_opt_box_autoadd_lottery_result(dynamic raw);
 
   @protected
+  MediaTriggerEvent? dco_decode_opt_box_autoadd_media_trigger_event(
+    dynamic raw,
+  );
+
+  @protected
+  MonetizationEventKind? dco_decode_opt_box_autoadd_monetization_event_kind(
+    dynamic raw,
+  );
+
+  @protected
+  PickedCommentState? dco_decode_opt_box_autoadd_picked_comment_state(
+    dynamic raw,
+  );
+
+  @protected
+  PollState? dco_decode_opt_box_autoadd_poll_state(dynamic raw);
+
+  @protected
+  QueueState? dco_decode_opt_box_autoadd_queue_state(dynamic raw);
+
+  @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
   @protected
@@ -222,13 +320,43 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<CommentItem>? dco_decode_opt_list_comment_item(dynamic raw);
 
   @protected
+  List<MonetizationItem>? dco_decode_opt_list_monetization_item(dynamic raw);
+
+  @protected
   List<WordCounterConfig>? dco_decode_opt_list_word_counter_config(dynamic raw);
 
   @protected
   OverlayConfig dco_decode_overlay_config(dynamic raw);
 
   @protected
+  PickedCommentState dco_decode_picked_comment_state(dynamic raw);
+
+  @protected
   PlatformKind dco_decode_platform_kind(dynamic raw);
+
+  @protected
+  PollConfig dco_decode_poll_config(dynamic raw);
+
+  @protected
+  PollOption dco_decode_poll_option(dynamic raw);
+
+  @protected
+  PollState dco_decode_poll_state(dynamic raw);
+
+  @protected
+  QueueConfig dco_decode_queue_config(dynamic raw);
+
+  @protected
+  QueueEntry dco_decode_queue_entry(dynamic raw);
+
+  @protected
+  QueueEntryStatus dco_decode_queue_entry_status(dynamic raw);
+
+  @protected
+  QueueSortMode dco_decode_queue_sort_mode(dynamic raw);
+
+  @protected
+  QueueState dco_decode_queue_state(dynamic raw);
 
   @protected
   ReleaseNotesInfo dco_decode_release_notes_info(dynamic raw);
@@ -342,9 +470,46 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  MediaReactionConfig sse_decode_box_autoadd_media_reaction_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MediaReactionRule sse_decode_box_autoadd_media_reaction_rule(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MediaTriggerEvent sse_decode_box_autoadd_media_trigger_event(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MonetizationEventKind sse_decode_box_autoadd_monetization_event_kind(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   OverlayConfig sse_decode_box_autoadd_overlay_config(
     SseDeserializer deserializer,
   );
+
+  @protected
+  PickedCommentState sse_decode_box_autoadd_picked_comment_state(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  PollConfig sse_decode_box_autoadd_poll_config(SseDeserializer deserializer);
+
+  @protected
+  PollState sse_decode_box_autoadd_poll_state(SseDeserializer deserializer);
+
+  @protected
+  QueueConfig sse_decode_box_autoadd_queue_config(SseDeserializer deserializer);
+
+  @protected
+  QueueState sse_decode_box_autoadd_queue_state(SseDeserializer deserializer);
 
   @protected
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
@@ -417,6 +582,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
   @protected
+  ImportedMediaFile sse_decode_imported_media_file(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
@@ -448,7 +618,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<MediaReactionRule> sse_decode_list_media_reaction_rule(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<MonetizationItem> sse_decode_list_monetization_item(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<PollOption> sse_decode_list_poll_option(SseDeserializer deserializer);
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  List<QueueEntry> sse_decode_list_queue_entry(SseDeserializer deserializer);
 
   @protected
   List<UserRecord> sse_decode_list_user_record(SseDeserializer deserializer);
@@ -471,6 +657,51 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MatchMode sse_decode_match_mode(SseDeserializer deserializer);
+
+  @protected
+  MediaAnimationKind sse_decode_media_animation_kind(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MediaEffectType sse_decode_media_effect_type(SseDeserializer deserializer);
+
+  @protected
+  MediaKind sse_decode_media_kind(SseDeserializer deserializer);
+
+  @protected
+  MediaPlaybackMode sse_decode_media_playback_mode(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MediaPosition sse_decode_media_position(SseDeserializer deserializer);
+
+  @protected
+  MediaReactionConfig sse_decode_media_reaction_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MediaReactionRule sse_decode_media_reaction_rule(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MediaTriggerEvent sse_decode_media_trigger_event(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MediaTriggerType sse_decode_media_trigger_type(SseDeserializer deserializer);
+
+  @protected
+  MonetizationEventKind sse_decode_monetization_event_kind(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MonetizationItem sse_decode_monetization_item(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
@@ -509,6 +740,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  MediaTriggerEvent? sse_decode_opt_box_autoadd_media_trigger_event(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MonetizationEventKind? sse_decode_opt_box_autoadd_monetization_event_kind(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  PickedCommentState? sse_decode_opt_box_autoadd_picked_comment_state(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  PollState? sse_decode_opt_box_autoadd_poll_state(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  QueueState? sse_decode_opt_box_autoadd_queue_state(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
@@ -516,6 +772,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<CommentItem>? sse_decode_opt_list_comment_item(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<MonetizationItem>? sse_decode_opt_list_monetization_item(
     SseDeserializer deserializer,
   );
 
@@ -528,7 +789,36 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   OverlayConfig sse_decode_overlay_config(SseDeserializer deserializer);
 
   @protected
+  PickedCommentState sse_decode_picked_comment_state(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   PlatformKind sse_decode_platform_kind(SseDeserializer deserializer);
+
+  @protected
+  PollConfig sse_decode_poll_config(SseDeserializer deserializer);
+
+  @protected
+  PollOption sse_decode_poll_option(SseDeserializer deserializer);
+
+  @protected
+  PollState sse_decode_poll_state(SseDeserializer deserializer);
+
+  @protected
+  QueueConfig sse_decode_queue_config(SseDeserializer deserializer);
+
+  @protected
+  QueueEntry sse_decode_queue_entry(SseDeserializer deserializer);
+
+  @protected
+  QueueEntryStatus sse_decode_queue_entry_status(SseDeserializer deserializer);
+
+  @protected
+  QueueSortMode sse_decode_queue_sort_mode(SseDeserializer deserializer);
+
+  @protected
+  QueueState sse_decode_queue_state(SseDeserializer deserializer);
 
   @protected
   ReleaseNotesInfo sse_decode_release_notes_info(SseDeserializer deserializer);
@@ -668,8 +958,62 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_media_reaction_config(
+    MediaReactionConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_media_reaction_rule(
+    MediaReactionRule self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_media_trigger_event(
+    MediaTriggerEvent self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_monetization_event_kind(
+    MonetizationEventKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_overlay_config(
     OverlayConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_picked_comment_state(
+    PickedCommentState self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_poll_config(
+    PollConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_poll_state(
+    PollState self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_queue_config(
+    QueueConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_queue_state(
+    QueueState self,
     SseSerializer serializer,
   );
 
@@ -758,6 +1102,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
 
   @protected
+  void sse_encode_imported_media_file(
+    ImportedMediaFile self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
@@ -797,8 +1147,32 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_media_reaction_rule(
+    List<MediaReactionRule> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_monetization_item(
+    List<MonetizationItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_poll_option(
+    List<PollOption> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_queue_entry(
+    List<QueueEntry> self,
     SseSerializer serializer,
   );
 
@@ -828,6 +1202,66 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_match_mode(MatchMode self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_media_animation_kind(
+    MediaAnimationKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_media_effect_type(
+    MediaEffectType self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_media_kind(MediaKind self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_media_playback_mode(
+    MediaPlaybackMode self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_media_position(MediaPosition self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_media_reaction_config(
+    MediaReactionConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_media_reaction_rule(
+    MediaReactionRule self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_media_trigger_event(
+    MediaTriggerEvent self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_media_trigger_type(
+    MediaTriggerType self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_monetization_event_kind(
+    MonetizationEventKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_monetization_item(
+    MonetizationItem self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
@@ -875,6 +1309,36 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_media_trigger_event(
+    MediaTriggerEvent? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_monetization_event_kind(
+    MonetizationEventKind? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_picked_comment_state(
+    PickedCommentState? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_poll_state(
+    PollState? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_queue_state(
+    QueueState? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
@@ -883,6 +1347,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_list_comment_item(
     List<CommentItem>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_list_monetization_item(
+    List<MonetizationItem>? self,
     SseSerializer serializer,
   );
 
@@ -896,7 +1366,40 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_overlay_config(OverlayConfig self, SseSerializer serializer);
 
   @protected
+  void sse_encode_picked_comment_state(
+    PickedCommentState self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_platform_kind(PlatformKind self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_poll_config(PollConfig self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_poll_option(PollOption self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_poll_state(PollState self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_queue_config(QueueConfig self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_queue_entry(QueueEntry self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_queue_entry_status(
+    QueueEntryStatus self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_queue_sort_mode(QueueSortMode self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_queue_state(QueueState self, SseSerializer serializer);
 
   @protected
   void sse_encode_release_notes_info(
