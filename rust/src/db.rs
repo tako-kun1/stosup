@@ -9,7 +9,7 @@ use crate::models::{
     LotteryWinner, MatchMode, MediaAnimationKind, MediaEffectType, MediaKind, MediaPosition,
     MediaReactionConfig, MediaReactionRule, MediaTriggerType, MonetizationEventKind,
     MonetizationItem, OverlayConfig, PlatformKind, PollConfig, QueueState, RawIncomingComment,
-    UserRecord, WordCounterConfig,
+    RemoteAccessConfig, UserRecord, WordCounterConfig,
 };
 
 /// コメント処理時に DB から取得するユーザーメタ情報
@@ -399,6 +399,26 @@ impl Database {
     pub fn set_media_reaction_config(&self, cfg: &MediaReactionConfig) -> Result<()> {
         let json = serde_json::to_string(cfg)?;
         self.set_setting("media_reaction_config", &json)
+    }
+
+    pub fn get_remote_access_config(&self) -> Result<RemoteAccessConfig> {
+        if let Some(json) = self.get_setting("remote_access_config")? {
+            if let Ok(cfg) = serde_json::from_str(&json) {
+                return Ok(cfg);
+            }
+        }
+        // 初回はランダム 6 桁 PIN を自動生成して保存（LAN 接続自体はデフォルト OFF で安全）
+        let cfg = RemoteAccessConfig {
+            pin_code: crate::remote::generate_pin_code(),
+            ..RemoteAccessConfig::default()
+        };
+        let _ = self.set_remote_access_config(&cfg);
+        Ok(cfg)
+    }
+
+    pub fn set_remote_access_config(&self, cfg: &RemoteAccessConfig) -> Result<()> {
+        let json = serde_json::to_string(cfg)?;
+        self.set_setting("remote_access_config", &json)
     }
 
     // ==================== 配信セッション ====================

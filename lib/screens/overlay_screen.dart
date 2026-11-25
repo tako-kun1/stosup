@@ -84,6 +84,7 @@ class _OverlayScreenState extends State<OverlayScreen>
   late String _pickupFont;
   late String _queueFont;
   late String _mediaFont;
+  late OverlayConfig _lastSyncedOverlayConfig;
 
   static const List<_PresetMeta> _richOverlayPresets = [
     _PresetMeta(
@@ -262,6 +263,7 @@ class _OverlayScreenState extends State<OverlayScreen>
     super.initState();
     _tabCtrl = TabController(length: 10, vsync: this);
     final cfg = widget.controller.overlayConfig;
+    _lastSyncedOverlayConfig = cfg;
     _portCtrl = TextEditingController(text: cfg.port.toString());
     _commentsCssCtrl = TextEditingController(text: cfg.commentsCustomCss);
     _lotteryCssCtrl = TextEditingController(text: cfg.lotteryCustomCss);
@@ -383,6 +385,19 @@ class _OverlayScreenState extends State<OverlayScreen>
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final latestCfg = widget.controller.overlayConfig;
+    if (latestCfg != _lastSyncedOverlayConfig) {
+      _lastSyncedOverlayConfig = latestCfg;
+      _mediaBgColor = latestCfg.mediaBgColor;
+      _commentsBgColor = latestCfg.commentsBgColor;
+      _lotteryBgColor = latestCfg.lotteryBgColor;
+      _counterBgColor = latestCfg.counterBgColor;
+      _firstTimeBgColor = latestCfg.firstTimeBgColor;
+      _superchatBgColor = latestCfg.superchatBgColor;
+      _pollBgColor = latestCfg.pollBgColor;
+      _pickupBgColor = latestCfg.pickupBgColor;
+      _queueBgColor = latestCfg.queueBgColor;
+    }
     final obsEnabled = widget.controller.featureFlags.obsOverlayEnabled;
 
     return Column(

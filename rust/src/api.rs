@@ -87,6 +87,7 @@ pub async fn get_recent_comments() -> Result<Vec<CommentItem>, String> {
 pub async fn clear_recent_comments() -> Result<(), String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;
     runtime.recent_comments.write().await.clear();
+    runtime.emit(AppEvent::comments_replaced(Vec::new()));
     Ok(())
 }
 
@@ -147,21 +148,20 @@ pub async fn list_highlight_rules() -> Result<Vec<HighlightRule>, String> {
     runtime.list_highlight_rules().await.map_err(|e| e.to_string())
 }
 
-pub async fn save_highlight_rule(mut rule: HighlightRule) -> Result<Vec<HighlightRule>, String> {
+pub async fn save_highlight_rule(rule: HighlightRule) -> Result<Vec<HighlightRule>, String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;
-    if rule.id.trim().is_empty() {
-        rule.id = uuid::Uuid::new_v4().to_string();
-    }
-    let db = runtime.db.lock().await;
-    db.upsert_highlight_rule(&rule).map_err(|e| e.to_string())?;
-    db.list_highlight_rules().map_err(|e| e.to_string())
+    runtime
+        .save_highlight_rule(rule)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn delete_highlight_rule(id: String) -> Result<Vec<HighlightRule>, String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;
-    let db = runtime.db.lock().await;
-    db.delete_highlight_rule(&id).map_err(|e| e.to_string())?;
-    db.list_highlight_rules().map_err(|e| e.to_string())
+    runtime
+        .delete_highlight_rule(&id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 // ==================== 特定ワードカウンター ====================
@@ -383,6 +383,7 @@ pub async fn get_user_lottery_won_ids() -> Result<Vec<String>, String> {
 pub async fn reset_user_lottery_winners() -> Result<(), String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;
     runtime.user_lottery_won_ids.lock().await.clear();
+    runtime.emit(AppEvent::user_lottery_winners_updated(Vec::new()));
     Ok(())
 }
 
@@ -860,4 +861,29 @@ pub async fn clear_overlay_media() -> Result<(), String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;
     runtime.clear_overlay_media();
     Ok(())
+}
+
+// ==================== ローカルネットワーク接続・Web リモコン ====================
+
+pub async fn get_remote_access_status() -> Result<RemoteAccessStatus, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.get_remote_access_status().await)
+}
+
+pub async fn save_remote_access_config(
+    config: RemoteAccessConfig,
+) -> Result<RemoteAccessStatus, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .save_remote_access_config(config)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn regenerate_remote_pin() -> Result<RemoteAccessStatus, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .regenerate_remote_pin()
+        .await
+        .map_err(|e| e.to_string())
 }

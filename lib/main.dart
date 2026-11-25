@@ -516,9 +516,14 @@ class _StosupShellState extends State<StosupShell> {
                             const SizedBox(width: 7),
                             Expanded(
                               child: Text(
-                                flags.obsOverlayEnabled
-                                    ? 'OBS :${ctrl.overlayConfig.port}'
-                                    : 'OBS 停止中',
+                                ctrl.remoteAccessStatus.serverRunning
+                                    ? (ctrl.remoteAccessStatus.config
+                                            .allowLanAccess
+                                        ? 'LAN :${ctrl.overlayConfig.port}'
+                                        : 'OBS :${ctrl.overlayConfig.port}')
+                                    : (flags.obsOverlayEnabled
+                                        ? 'OBS :${ctrl.overlayConfig.port}'
+                                        : 'OBS 停止中'),
                                 style: TextStyle(
                                   fontFamily: 'Consolas',
                                   fontSize: 11.5,

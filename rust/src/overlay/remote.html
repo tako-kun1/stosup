@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Stosup Web リモートコントロール</title>
+<link rel="icon" href="/favicon.ico" />
+<style>
+  :root {
+    --bg: #141417;
+    --card: #1f1f24;
+    --subtle: #2a2a32;
+    --border: #34343e;
+    --text: #f4f4f5;
+    --muted: #a1a1aa;
+    --accent: #3b82f6;
+    --success: #22c55e;
+    --warning: #eab308;
+    --danger: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Yu Gothic UI", "Hiragino Sans", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: rgba(24, 24, 28, 0.96);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand {
+    font-weight: 800;
+    font-size: 15.5px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+  }
+  .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--muted);
+    display: inline-block;
+  }
+  .dot.live { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .sync-pill {
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.16);
+    color: #86efac;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    flex-shrink: 0;
+  }
+  .sync-pill.off {
+    background: rgba(239, 68, 68, 0.16);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.35);
+  }
+  .stream-title {
+    font-size: 12px;
+    color: var(--muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #19191e;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 47px;
+    z-index: 25;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .tab-badge {
+    font-size: 10.5px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.35);
+    color: #fff;
+  }
+  main {
+    flex: 1;
+    padding: 12px;
+    max-width: 1020px;
+    width: 100%;
+    margin: 0 auto;
+    padding-bottom: 48px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 13px;
+    margin-bottom: 12px;
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+  button.btn {
+    border: 1px solid var(--border);
+    background: var(--subtle);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  button.btn:active { transform: scale(0.97); }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.btn.success { background: var(--success); border-color: var(--success); color: #052e16; }
+  button.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  button.btn.warning { background: var(--warning); border-color: var(--warning); color: #18181b; }
+  button.btn.sm { padding: 5px 9px; font-size: 12px; }
+  button.btn:disabled { opacity: 0.45; pointer-events: none; }
+
+  input, textarea, select {
+    width: 100%;
+    background: #141417;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13.5px;
+    outline: none;
+    font-family: inherit;
+  }
+  input[type="checkbox"], input[type="range"] {
+    width: auto;
+    padding: 0;
+  }
+  input[type="range"] { width: 100%; }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  label.field-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .form-row { margin-bottom: 10px; }
+
+  .item-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    background: #18181d;
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .item-row.picked { border-color: var(--accent); background: rgba(59, 130, 246, 0.14); }
+  .item-row.checked, .item-row.disabled-row { opacity: 0.56; }
+  .item-main { flex: 1; min-width: 0; }
+  .item-author { font-weight: 800; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .item-msg { font-size: 13.5px; line-height: 1.4; word-break: break-word; }
+  .pill {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--subtle);
+    color: var(--text);
+  }
+  .pill.accent { background: rgba(59,130,246,0.22); color: #93c5fd; }
+  .pill.success { background: rgba(34,197,94,0.22); color: #86efac; }
+  .pill.warning { background: rgba(234,179,8,0.24); color: #fde047; }
+  .pill.danger { background: rgba(239,68,68,0.22); color: #fca5a5; }
+
+  .bar-bg {
+    height: 10px;
+    border-radius: 5px;
+    background: var(--subtle);
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .bar-fill {
+    height: 100%;
+    transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+    gap: 8px;
+  }
+  .deck-btn {
+    padding: 13px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #18181d;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .deck-btn:active { background: var(--accent); border-color: var(--accent); }
+  .deck-btn.off { opacity: 0.5; }
+  .deck-name { font-weight: 800; font-size: 13.5px; }
+  .deck-sub { font-size: 11.5px; color: var(--muted); word-break: break-word; }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    z-index: 120;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-card {
+    width: 100%;
+    max-width: 640px;
+    max-height: 92dvh;
+    overflow-y: auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-header h2 { font-size: 16px; font-weight: 800; }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .upload-box {
+    background: #18181d;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .upload-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  #login-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 150;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .login-card {
+    width: 100%;
+    max-width: 360px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+  }
+  .login-card h1 { font-size: 20px; margin-bottom: 6px; }
+  .login-card p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .pin-input {
+    text-align: center;
+    font-size: 24px;
+    letter-spacing: 0.25em;
+    font-family: Consolas, monospace;
+    margin-bottom: 12px;
+  }
+  #toast {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #27272a;
+    border: 1px solid var(--border);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    z-index: 200;
+    display: none;
+    max-width: 92vw;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  }
+  .muted { color: var(--muted); font-size: 12.5px; }
+  .check-inline { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Stosup Web リモコン</h1>
+    <p>PC 側の Stosup 設定画面に表示されている<br/>アクセス PIN を入力してください</p>
+    <input id="pin-input" class="pin-input" type="password" inputmode="numeric" placeholder="••••••" autocomplete="off" />
+    <div id="login-err" style="color:#f87171;font-size:12.5px;min-height:18px;margin-bottom:8px;"></div>
+    <button class="btn primary" style="width:100%" onclick="submitPin()">接続する</button>
+  </div>
+</div>
+
+<!-- WordParty 演出追加・編集モーダル -->
+<div id="media-modal" class="modal-backdrop">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2 id="mm-title">WordParty 演出を追加</h2>
+      <button class="btn sm" onclick="closeMediaModal()">✕</button>
+    </div>
+    <input type="hidden" id="mm-id" />
+
+    <div class="form-grid">
+      <div>
+        <label class="field-label">演出タイプ</label>
+        <select id="mm-effect" onchange="syncMediaModalFields()">
+          <option value="Cracker">クラッカー（左右から発射）</option>
+          <option value="Drop">落下物（上から降る）</option>
+          <option value="Confetti">紙吹雪（ひらひら舞う）</option>
+          <option value="Throw">投てき（画面中央へ飛ぶ）</option>
+          <option value="Ambient">環境演出（雪/桜/雨/キラキラ/ハート/火の粉）</option>
+          <option value="Fixed">固定表示（画像/GIF/動画/テロップ）</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">発動トリガー</label>
+        <select id="mm-trigger" onchange="syncMediaModalFields()">
+          <option value="Keyword">キーワード一致</option>
+          <option value="AnyComment">すべてのコメント</option>
+          <option value="SuperChat">スーパーチャット</option>
+          <option value="Membership">メンバーシップ</option>
+          <option value="FirstTime">初見さん検知</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div>
+        <label class="field-label">演出名</label>
+        <input id="mm-name" placeholder="例: おめでとうクラッカー" />
+      </div>
+      <div>
+        <label class="field-label">優先度（大きいほど優先）</label>
+        <input id="mm-priority" type="number" value="10" />
+      </div>
+    </div>
+
+    <div id="mm-keyword-box" class="form-row">
+      <label class="field-label">反応ワード（1行1パターン / 空欄で全コメント）</label>
+      <textarea id="mm-pattern" rows="2" placeholder="おめでとう&#10;おめ&#10;888"></textarea>
+      <div class="form-grid" style="margin-top:8px;margin-bottom:0">
+        <div>
+          <label class="field-label">一致方式</label>
+          <select id="mm-match-mode">
+            <option value="Contains">部分一致</option>
+            <option value="Exact">完全一致</option>
+            <option value="Regex">正規表現</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:flex-end;padding-bottom:6px">
+          <label class="check-inline"><input type="checkbox" id="mm-case" /> 大文字・小文字を区別</label>
+        </div>
+      </div>
+    </div>
+
+    <div id="mm-sc-box" class="form-row" style="display:none">
+      <label class="field-label">最低スパチャ金額（0 = すべてのスパチャ）</label>
+      <input id="mm-min-sc" type="number" min="0" value="0" />
+    </div>
+
+    <div class="upload-box">
+      <div class="upload-row" style="margin-bottom:8px">
+        <div>
+          <div style="font-size:12.5px;font-weight:800">画像・動画素材（任意）</div>
+          <div id="mm-media-file-label" class="muted">未選択（絵文字 / 標準シェイプを使用）</div>
+        </div>
+        <div class="btn-row">
+          <input type="file" id="mm-media-input" accept="image/*,video/*,audio/*" style="display:none" onchange="uploadMediaFile('media', this)" />
+          <button type="button" class="btn sm primary" onclick="document.getElementById('mm-media-input').click()">ファイルを選択</button>
+          <button type="button" class="btn sm" id="mm-media-clear" style="display:none" onclick="clearModalMedia('media')">解除</button>
+        </div>
+      </div>
+      <div class="upload-row" style="padding-top:8px;border-top:1px solid var(--border)">
+        <div>
+          <div style="font-size:12.5px;font-weight:800">効果音 SE（任意）</div>
+          <div id="mm-sound-file-label" class="muted">効果音なし</div>
+        </div>
+        <div class="btn-row">
+          <input type="file" id="mm-sound-input" accept="audio/*" style="display:none" onchange="uploadMediaFile('sound', this)" />
+          <button type="button" class="btn sm" onclick="document.getElementById('mm-sound-input').click()">効果音を選択</button>
+          <button type="button" class="btn sm" id="mm-sound-clear" style="display:none" onclick="clearModalMedia('sound')">解除</button>
+        </div>
+      </div>
+      <div id="mm-sound-vol-row" style="display:none;margin-top:8px">
+        <label class="field-label">SE 音量: <span id="mm-sound-vol-val">85</span>%</label>
+        <input id="mm-sound-vol" type="range" min="0" max="100" step="5" value="85" oninput="document.getElementById('mm-sound-vol-val').textContent=this.value" />
+      </div>
+    </div>
+
+    <div id="mm-ambient-box" class="form-row" style="display:none">
+      <label class="field-label">環境演出プリセット</label>
+      <select id="mm-ambient">
+        <option value="snow">雪（ふわふわ降雪）</option>
+        <option value="sakura">桜吹雪（花びら）</option>
+        <option value="rain">雨（斜め雨筋）</option>
+        <option value="sparkle">キラキラ（光の星粒）</option>
+        <option value="hearts">ハート（下から上昇）</option>
+        <option value="embers">火の粉（熱い光粒）</option>
+      </select>
+    </div>
+
+    <div id="mm-particle-box">
+      <div id="mm-ptext-row" class="form-row">
+        <label class="field-label">飛ばす絵文字・文字（カンマ区切り / 画像未選択時）</label>
+        <input id="mm-ptext" placeholder="例: 🎉, 🎊, ✨ または 草, 🌿" />
+      </div>
+      <div class="form-grid">
+        <div>
+          <label class="field-label">個数 / 密度: <span id="mm-pcount-val">28</span></label>
+          <input id="mm-pcount" type="range" min="1" max="90" value="28" oninput="document.getElementById('mm-pcount-val').textContent=this.value" />
+        </div>
+        <div>
+          <label class="field-label">サイズ: <span id="mm-psize-val">60</span>px</label>
+          <input id="mm-psize" type="range" min="20" max="200" step="4" value="60" oninput="document.getElementById('mm-psize-val').textContent=this.value" />
+        </div>
+        <div>
+          <label class="field-label">速度: <span id="mm-pspeed-val">100</span>%</label>
+          <input id="mm-pspeed" type="range" min="30" max="220" step="10" value="100" oninput="document.getElementById('mm-pspeed-val').textContent=this.value" />
+        </div>
+        <div>
+          <label class="field-label">重力: <span id="mm-pgrav-val">100</span>%</label>
+          <input id="mm-pgrav" type="range" min="0" max="200" step="10" value="100" oninput="document.getElementById('mm-pgrav-val').textContent=this.value" />
+        </div>
+      </div>
+    </div>
+
+    <div id="mm-fixed-box" style="display:none">
+      <div class="form-grid">
+        <div>
+          <label class="field-label">登場アニメーション</label>
+          <select id="mm-anim">
+            <option value="PopIn">ポップイン</option>
+            <option value="Fade">フェード</option>
+            <option value="SlideUp">下からスライド</option>
+            <option value="SlideLeft">右からスライド</option>
+            <option value="Bounce">バウンス</option>
+            <option value="ZoomSpin">ズーム回転</option>
+            <option value="None">なし</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">表示位置</label>
+          <select id="mm-pos">
+            <option value="Center">画面中央</option>
+            <option value="TopLeft">左上</option>
+            <option value="TopRight">右上</option>
+            <option value="BottomLeft">左下</option>
+            <option value="BottomRight">右下</option>
+            <option value="FullScreen">全画面</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div>
+          <label class="field-label">表示幅: <span id="mm-width-val">45</span>%</label>
+          <input id="mm-width" type="range" min="15" max="100" step="5" value="45" oninput="document.getElementById('mm-width-val').textContent=this.value" />
+        </div>
+        <div>
+          <label class="field-label">動画・音声音量: <span id="mm-vol-val">80</span>%</label>
+          <input id="mm-vol" type="range" min="0" max="100" step="5" value="80" oninput="document.getElementById('mm-vol-val').textContent=this.value" />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div>
+        <label class="field-label">演出時間（秒 / 動画は0で最後まで）</label>
+        <input id="mm-dur" type="number" step="0.5" min="0" value="4" />
+      </div>
+      <div>
+        <label class="field-label">クールダウン（秒）</label>
+        <input id="mm-cd" type="number" min="0" value="3" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="field-label">同時表示テロップ（任意・{user}で視聴者名）</label>
+      <input id="mm-caption" placeholder="例: {user} さんありがとう！" />
+    </div>
+
+    <div class="btn-row">
+      <label class="check-inline"><input type="checkbox" id="mm-enabled" checked /> ルールを有効にする</label>
+      <label class="check-inline"><input type="checkbox" id="mm-excl-ban" checked /> BAN 済みユーザーは除外</label>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn" onclick="closeMediaModal()">キャンセル</button>
+      <button class="btn primary" id="mm-save-btn" onclick="saveMediaModal()">保存して全端末へ同期</button>
+    </div>
+  </div>
+</div>
+
+<!-- 投票設定編集モーダル -->
+<div id="poll-modal" class="modal-backdrop">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2>リアルタイム投票の設定を編集</h2>
+      <button class="btn sm" onclick="closePollModal()">✕</button>
+    </div>
+    <div class="form-row">
+      <label class="field-label">質問タイトル</label>
+      <input id="pm-question" placeholder="次の企画はどれがいい？" />
+    </div>
+    <div class="form-row">
+      <label class="field-label">選択肢（1行につき1選択肢。先頭に番号が自動割り当てされます）</label>
+      <textarea id="pm-options" rows="5" placeholder="雑談トーク&#10;参加型ゲーム&#10;歌枠"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closePollModal()">キャンセル</button>
+      <button class="btn primary" onclick="savePollModal()">保存して全端末へ同期</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="brand">
+    <span id="conn-dot" class="dot"></span>
+    <span>Stosup</span>
+  </div>
+  <span id="sync-badge" class="sync-pill off">接続中</span>
+  <div id="stream-title" class="stream-title">読み込み中...</div>
+  <button class="btn sm" onclick="refreshState()">再読込</button>
+</header>
+
+<nav class="tabs" id="tab-bar">
+  <button class="tab-btn active" data-tab="comments">コメント</button>
+  <button class="tab-btn" data-tab="superchat">スパチャ <span id="badge-sc" class="tab-badge" style="display:none">0</span></button>
+  <button class="tab-btn" data-tab="media">WordParty演出 <span id="badge-media" class="tab-badge" style="display:none">0</span></button>
+  <button class="tab-btn" data-tab="poll">投票</button>
+  <button class="tab-btn" data-tab="queue">参加型キュー</button>
+  <button class="tab-btn" data-tab="counters">カウント・抽選</button>
+  <button class="tab-btn" data-tab="flags">機能ON/OFF</button>
+</nav>
+
+<main id="content"></main>
+<div id="toast"></div>
+
+<script>
+  const urlParams = new URLSearchParams(location.search);
+  let pin = urlParams.get('pin') || localStorage.getItem('stosup_remote_pin') || '';
+  if (urlParams.get('pin')) {
+    localStorage.setItem('stosup_remote_pin', pin);
+    history.replaceState({}, '', location.pathname);
+  }
+
+  let currentTab = 'comments';
+  let appState = null;
+  let ws = null;
+  let usersRefreshTimer = null;
+
+  // モーダル内で保持するアップロード済みファイル情報
+  let modalMediaState = {
+    mediaKind: 'Image',
+    storedFileName: '',
+    originalFileName: '',
+    soundStoredFileName: '',
+    soundOriginalFileName: ''
+  };
+
+  document.getElementById('tab-bar').addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab-btn');
+    if (!btn) return;
+    currentTab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+    render();
+  });
+
+  document.getElementById('pin-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitPin();
+  });
+
+  function showToast(msg, isError) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderColor = isError ? '#ef4444' : '#3b82f6';
+    t.style.display = 'block';
+    clearTimeout(t._tid);
+    t._tid = setTimeout(() => { t.style.display = 'none'; }, 2400);
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function effectLabel(t) {
+    return ({
+      Fixed: '固定表示', Cracker: 'クラッカー', Drop: '落下物',
+      Confetti: '紙吹雪', Throw: '投てき', Ambient: '環境演出'
+    })[t] || t || '演出';
+  }
+
+  function triggerLabel(t, minAmt) {
+    if (t === 'AnyComment') return '全コメント';
+    if (t === 'SuperChat') return minAmt > 0 ? `スパチャ ¥${minAmt}〜` : 'スパチャ';
+    if (t === 'Membership') return 'メンバー';
+    if (t === 'FirstTime') return '初見さん';
+    return 'キーワード';
+  }
+
+  function showLogin(errMsg) {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('login-err').textContent = errMsg || '';
+    setTimeout(() => document.getElementById('pin-input').focus(), 50);
+  }
+
+  async function submitPin() {
+    const val = document.getElementById('pin-input').value.trim();
+    const res = await fetch('/api/remote/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: val })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.ok) {
+      pin = val;
+      localStorage.setItem('stosup_remote_pin', pin);
+      document.getElementById('login-screen').style.display = 'none';
+      await refreshState();
+      connectWs();
+    } else {
+      document.getElementById('login-err').textContent = data.error || '認証に失敗しました';
+    }
+  }
+
+  async function refreshState() {
+    const res = await fetch('/api/remote/state', {
+      headers: pin ? { 'X-Stosup-Pin': pin } : {}
+    });
+    if (res.status === 401) {
+      showLogin('アクセス PIN を入力してください');
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showToast(err.error || '状態取得に失敗しました', true);
+      return;
+    }
+    appState = await res.json();
+    updateHeader();
+    render();
+  }
+
+  async function sendAction(payload, opts) {
+    const res = await fetch('/api/remote/action', {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, pin ? { 'X-Stosup-Pin': pin } : {}),
+      body: JSON.stringify(payload)
+    });
+    if (res.status === 401) {
+      showLogin('認証の有効期限が切れました');
+      return null;
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      showToast(data.error || '操作に失敗しました', true);
+      return null;
+    }
+    if (data.data && data.data.message && !(opts && opts.silent)) {
+      showToast(data.data.message, false);
+    }
+    // レスポンスに含まれる最新データがあれば即反映（WS からも全端末へ即時届く）
+    if (appState && data.data) {
+      if (Array.isArray(data.data.media_rules)) appState.media_rules = data.data.media_rules;
+      if (data.data.media_config) appState.media_config = data.data.media_config;
+      if (data.data.overlay_config) appState.overlay_config = data.data.overlay_config;
+      if (data.data.poll) appState.poll = data.data.poll;
+      if (Array.isArray(data.data.counters)) appState.counters = data.data.counters;
+      if (Array.isArray(data.data.highlight_rules)) appState.highlight_rules = data.data.highlight_rules;
+      updateHeader();
+      render();
+    }
+    return data.data;
+  }
+
+  // ==================== リアルタイム WebSocket インプレース同期 ====================
+  function applyRealtimeEvent(ev) {
+    if (!appState || !ev || !ev.kind) return;
+    let shouldRender = false;
+    let shouldHeader = false;
+
+    switch (ev.kind) {
+      case 'CommentReceived':
+        if (ev.comment) {
+          appState.comments = appState.comments || [];
+          appState.comments.push(ev.comment);
+          if (appState.comments.length > 100) appState.comments.shift();
+          shouldRender = (currentTab === 'comments');
+        }
+        break;
+      case 'CommentsReplaced':
+        if (Array.isArray(ev.comments)) {
+          appState.comments = ev.comments;
+          shouldRender = (currentTab === 'comments');
+        }
+        break;
+      case 'ConnectionChanged':
+        if (ev.connection) {
+          appState.connection = ev.connection;
+          shouldHeader = true;
+          shouldRender = (currentTab === 'comments');
+        }
+        break;
+      case 'CountersUpdated':
+        if (Array.isArray(ev.counters)) {
+          appState.counters = ev.counters;
+          shouldRender = (currentTab === 'counters');
+        }
+        break;
+      case 'FirstTimeUpdated':
+        if (ev.first_time_state) {
+          appState.first_time = ev.first_time_state;
+          shouldRender = (currentTab === 'counters');
+        }
+        break;
+      case 'MonetizationUpdated':
+        if (Array.isArray(ev.monetization_items)) {
+          appState.monetization = ev.monetization_items;
+          shouldHeader = true;
+          shouldRender = (currentTab === 'superchat');
+        }
+        break;
+      case 'PollUpdated':
+        if (ev.poll_state) {
+          appState.poll = ev.poll_state;
+          shouldRender = (currentTab === 'poll');
+        }
+        break;
+      case 'PickedCommentUpdated':
+        if (ev.picked_comment) {
+          appState.picked = ev.picked_comment;
+          shouldRender = (currentTab === 'comments');
+        }
+        break;
+      case 'QueueUpdated':
+        if (ev.queue_state) {
+          appState.queue = ev.queue_state;
+          shouldRender = (currentTab === 'queue');
+        }
+        break;
+      case 'MediaRulesUpdated':
+        if (Array.isArray(ev.media_rules)) {
+          appState.media_rules = ev.media_rules;
+          shouldHeader = true;
+          shouldRender = (currentTab === 'media');
+        }
+        break;
+      case 'MediaConfigUpdated':
+        if (ev.media_config) {
+          appState.media_config = ev.media_config;
+          shouldRender = (currentTab === 'media');
+        }
+        break;
+      case 'OverlayConfigUpdated':
+        if (ev.overlay_config) {
+          appState.overlay_config = ev.overlay_config;
+          shouldRender = (currentTab === 'media');
+        }
+        break;
+      case 'HighlightRulesUpdated':
+        if (Array.isArray(ev.highlight_rules)) {
+          appState.highlight_rules = ev.highlight_rules;
+          shouldRender = (currentTab === 'flags');
+        }
+        break;
+      case 'FeatureFlagsUpdated':
+        if (ev.feature_flags) {
+          appState.feature_flags = ev.feature_flags;
+          shouldRender = (currentTab === 'flags');
+        }
+        break;
+      case 'CommentLotteryUpdated':
+        if (ev.comment_lottery) {
+          appState.comment_lottery = ev.comment_lottery;
+          shouldRender = (currentTab === 'counters');
+        }
+        break;
+      case 'UserLotteryWinnersUpdated':
+        if (Array.isArray(ev.user_lottery_won_ids)) {
+          appState.user_lottery_won_count = ev.user_lottery_won_ids.length;
+          shouldRender = (currentTab === 'counters');
+        }
+        break;
+      case 'UsersUpdated':
+        clearTimeout(usersRefreshTimer);
+        usersRefreshTimer = setTimeout(() => {
+          if (currentTab === 'counters') refreshState();
+        }, 1200);
+        break;
+      default:
+        break;
+    }
+
+    if (shouldHeader) updateHeader();
+    if (shouldRender) renderPreservingFocus();
+  }
+
+  // 入力フォーカス中のフォーム内容を壊さずに安全に再描画する
+  function renderPreservingFocus() {
+    const active = document.activeElement;
+    const activeId = active && active.id ? active.id : null;
+    const isEditingInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
+    const savedVal = isEditingInput && activeId ? active.value : null;
+    const selStart = isEditingInput && typeof active.selectionStart === 'number' ? active.selectionStart : null;
+    const selEnd = isEditingInput && typeof active.selectionEnd === 'number' ? active.selectionEnd : null;
+
+    // モーダル内の入力中はメイン領域のみ更新（モーダルには一切触らない）
+    const inModal = active && active.closest('.modal-backdrop');
+    render();
+    if (!inModal && isEditingInput && activeId) {
+      const nextEl = document.getElementById(activeId);
+      if (nextEl) {
+        if (savedVal !== null) nextEl.value = savedVal;
+        nextEl.focus();
+        if (selStart !== null && typeof nextEl.setSelectionRange === 'function') {
+          try { nextEl.setSelectionRange(selStart, selEnd); } catch (_) {}
+        }
+      }
+    }
+  }
+
+  function updateHeader() {
+    if (!appState) return;
+    const conn = appState.connection || {};
+    const dot = document.getElementById('conn-dot');
+    const isLive = conn.status === 'Connected';
+    dot.classList.toggle('live', isLive);
+    document.getElementById('stream-title').textContent = isLive
+      ? (conn.stream_title || '配信接続中')
+      : '未接続（PC 側で配信へ接続）';
+
+    const unread = (appState.monetization || []).filter(i => !i.is_checked).length;
+    const b = document.getElementById('badge-sc');
+    b.style.display = unread > 0 ? 'inline-block' : 'none';
+    b.textContent = String(unread);
+
+    const mCount = (appState.media_rules || []).length;
+    const bm = document.getElementById('badge-media');
+    bm.style.display = mCount > 0 ? 'inline-block' : 'none';
+    bm.textContent = String(mCount);
+  }
+
+  function render() {
+    const el = document.getElementById('content');
+    if (!appState) {
+      el.innerHTML = '<div class="card muted">読み込み中...</div>';
+      return;
+    }
+    if (currentTab === 'comments') renderComments(el);
+    else if (currentTab === 'superchat') renderSuperchat(el);
+    else if (currentTab === 'media') renderMedia(el);
+    else if (currentTab === 'poll') renderPoll(el);
+    else if (currentTab === 'queue') renderQueue(el);
+    else if (currentTab === 'counters') renderCounters(el);
+    else renderFlags(el);
+  }
+
+  // ==================== 各タブ描画 ====================
+  function renderComments(el) {
+    const picked = appState.picked && appState.picked.comment;
+    const comments = (appState.comments || []).slice().reverse();
+    const canPost = appState.connection && appState.connection.can_post_chat;
+
+    let html = '';
+    if (picked) {
+      html += `<div class="card" style="border-color:var(--accent)">
+        <div class="card-title">
+          <span>📌 OBS ピックアップ表示中</span>
+          <button class="btn sm danger" onclick="sendAction({action:'clear_picked_comment'})">解除</button>
+        </div>
+        <div class="item-author">${esc(picked.user_name)}</div>
+        <div class="item-msg">${esc(picked.message)}</div>
+      </div>`;
+    }
+
+    html += `<div class="card">
+      <div class="card-title"><span>配信チャット投稿</span><span class="muted">${canPost ? '投稿可能' : '未接続/OAuth未連携'}</span></div>
+      <div style="display:flex;gap:8px">
+        <input id="chat-post-input" placeholder="チャットへ送信するメッセージ..." ${canPost ? '' : 'disabled'} onkeydown="if(event.key==='Enter')postChatFromRemote()" />
+        <button class="btn primary" style="flex-shrink:0" ${canPost ? '' : 'disabled'} onclick="postChatFromRemote()">送信</button>
+      </div>
+    </div>`;
+
+    html += `<div class="card">
+      <div class="card-title"><span>コメント一覧 (${comments.length}件)</span><button class="btn sm" onclick="sendAction({action:'clear_comments'})">クリア</button></div>`;
+    if (comments.length === 0) {
+      html += '<div class="muted">まだコメントがありません</div>';
+    } else {
+      comments.forEach(c => {
+        const isPicked = picked && picked.id === c.id;
+        html += `<div class="item-row ${isPicked ? 'picked' : ''}">
+          <div class="item-main">
+            <div class="item-author">
+              <span>${esc(c.user_name)}</span>
+              ${c.amount_display ? `<span class="pill warning">${esc(c.amount_display)}</span>` : ''}
+              ${c.user_memo ? `<span class="pill accent">${esc(c.user_memo)}</span>` : ''}
+              ${c.is_first_time ? `<span class="pill success">初見</span>` : ''}
+            </div>
+            <div class="item-msg">${esc(c.message)}</div>
+          </div>
+          <button class="btn sm ${isPicked ? 'primary' : ''}" onclick="sendAction({action:'pick_comment',comment_id:'${esc(c.id)}'})">${isPicked ? '解除' : '📌表示'}</button>
+        </div>`;
+      });
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  function postChatFromRemote() {
+    const inp = document.getElementById('chat-post-input');
+    if (!inp || !inp.value.trim()) return;
+    const text = inp.value.trim();
+    inp.value = '';
+    sendAction({ action: 'post_chat', text });
+  }
+
+  function renderSuperchat(el) {
+    const items = appState.monetization || [];
+    const unread = items.filter(i => !i.is_checked).length;
+    let html = `<div class="card">
+      <div class="card-title">
+        <span>スパチャ・メンバー管理（未読 ${unread}件）</span>
+        <button class="btn sm primary" ${unread === 0 ? 'disabled' : ''} onclick="sendAction({action:'mark_all_monetization_checked'})">すべてお礼済み</button>
+      </div>`;
+    if (items.length === 0) {
+      html += '<div class="muted">まだスパチャ・メンバー履歴がありません</div>';
+    } else {
+      items.forEach(it => {
+        html += `<div class="item-row ${it.is_checked ? 'checked' : ''}" style="border-left:4px solid ${esc(it.tier_color || '#eab308')}">
+          <div class="item-main">
+            <div class="item-author">
+              <span>${esc(it.user_name)}</span>
+              <span class="pill warning">${esc(it.amount_display)}</span>
+              ${it.is_checked ? '<span class="pill success">お礼済み</span>' : ''}
+            </div>
+            <div class="item-msg">${esc(it.message)}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button class="btn sm ${it.is_checked ? '' : 'success'}" onclick="sendAction({action:'set_monetization_checked',id:'${esc(it.id)}',checked:${!it.is_checked}})">${it.is_checked ? '未読に戻す' : '✓ お礼済'}</button>
+            <button class="btn sm" onclick="sendAction({action:'pick_monetization',id:'${esc(it.id)}'})">📌表示</button>
+          </div>
+        </div>`;
+      });
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  function renderMedia(el) {
+    const rules = appState.media_rules || [];
+    const cfg = appState.media_config || {
+      playback_mode: 'Overlay',
+      master_volume: 80,
+      max_concurrent: 8,
+      allow_multiple_match: true
+    };
+
+    let html = `<div class="card">
+      <div class="card-title">
+        <span>WordParty 演出ワンタップ発動</span>
+        <div class="btn-row">
+          <button class="btn sm danger" onclick="sendAction({action:'clear_overlay_media'})">全停止</button>
+          <button class="btn sm primary" onclick="openMediaModal(null)">＋ 演出を追加</button>
+        </div>
+      </div>`;
+    if (rules.length === 0) {
+      html += '<div class="muted">演出ルールがまだありません。「＋ 演出を追加」または下の定番テンプレートから追加すると、PC 側・他端末へリアルタイム反映されます。</div>';
+    } else {
+      html += '<div class="grid-2">';
+      rules.forEach(r => {
+        html += `<button class="deck-btn ${r.enabled ? '' : 'off'}" onclick="sendAction({action:'test_media_rule',id:'${esc(r.id)}'})">
+          <div class="deck-name">▶ ${esc(r.name)}</div>
+          <div class="deck-sub">${esc(effectLabel(r.effect_type))} / ${esc(r.original_file_name || r.particle_text || r.ambient_preset || '演出')}</div>
+        </button>`;
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    // 定番テンプレートワンタップ追加
+    html += `<div class="card">
+      <div class="card-title"><span>定番テンプレート追加（PC ＆ 全クライアントへ即時同期）</span></div>
+      <div class="btn-row">
+        <button class="btn sm" onclick="sendAction({action:'add_media_preset',preset:'cracker'})">🎉 おめでとうクラッカー</button>
+        <button class="btn sm" onclick="sendAction({action:'add_media_preset',preset:'kusa'})">🌿 草シャワー落下</button>
+        <button class="btn sm" onclick="sendAction({action:'add_media_preset',preset:'confetti'})">✨ 888 紙吹雪</button>
+        <button class="btn sm" onclick="sendAction({action:'add_media_preset',preset:'throw'})">🎯 ナイス投てき</button>
+        <button class="btn sm" onclick="sendAction({action:'add_media_preset',preset:'snow'})">❄️ 雪の環境演出</button>
+        <button class="btn sm" onclick="sendAction({action:'add_media_preset',preset:'superchat_sakura'})">🌸 スパチャ桜吹雪</button>
+      </div>
+    </div>`;
+
+    const curBg = (appState.overlay_config && appState.overlay_config.media_bg_color) || 'transparent';
+    const pickerHex = /^#[0-9a-fA-F]{6}/.test(curBg) ? curBg.slice(0, 7) : '#18181b';
+    const bgPresets = [
+      ['透過', 'transparent'],
+      ['緑バック', '#00FF00'],
+      ['青バック', '#0000FF'],
+      ['ダーク', '#18181B'],
+      ['白', '#FFFFFF']
+    ];
+
+    // WordParty 全体設定（リアルタイム同期）
+    html += `<div class="card">
+      <div class="card-title">
+        <span>WordParty 全体設定 ＆ 背景色</span>
+        <button class="btn sm primary" onclick="saveMediaConfigFromRemote()">全体設定を保存</button>
+      </div>
+      <div class="form-grid">
+        <div>
+          <label class="field-label">固定表示の再生方式</label>
+          <select id="mc-mode">
+            <option value="Queue" ${cfg.playback_mode === 'Queue' ? 'selected' : ''}>順番待ち（1つずつ）</option>
+            <option value="Overlay" ${cfg.playback_mode === 'Overlay' ? 'selected' : ''}>重ね表示（同時再生）</option>
+            <option value="Replace" ${cfg.playback_mode === 'Replace' ? 'selected' : ''}>上書き（最新のみ）</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">マスター音量: <span id="mc-vol-val">${cfg.master_volume ?? 80}</span>%</label>
+          <input id="mc-vol" type="range" min="0" max="100" step="5" value="${cfg.master_volume ?? 80}" oninput="document.getElementById('mc-vol-val').textContent=this.value" />
+        </div>
+        <div>
+          <label class="field-label">固定同時上限</label>
+          <input id="mc-max" type="number" min="1" max="12" value="${cfg.max_concurrent ?? 8}" />
+        </div>
+        <div style="display:flex;align-items:flex-end;padding-bottom:6px">
+          <label class="check-inline"><input type="checkbox" id="mc-multi" ${cfg.allow_multiple_match !== false ? 'checked' : ''} /> 1コメントで複数同時発動</label>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
+        <label class="field-label">WordParty オーバーレイ背景色（現在: ${esc(curBg)} / クリックで即時反映）</label>
+        <div class="btn-row" style="margin-bottom:8px">
+          ${bgPresets.map(([lbl, val]) => `<button class="btn sm ${curBg.toLowerCase() === val.toLowerCase() ? 'primary' : ''}" onclick="setMediaBgFromRemote('${val}')">${lbl}</button>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input id="mc-bg-color" type="color" value="${esc(pickerHex)}" style="width:44px;height:36px;padding:2px;cursor:pointer" onchange="document.getElementById('mc-bg-hex').value=this.value.toUpperCase();setMediaBgFromRemote(this.value.toUpperCase())" />
+          <input id="mc-bg-hex" value="${esc(curBg)}" placeholder="transparent または #18181B" style="flex:1;min-width:140px;font-family:Consolas,monospace" onkeydown="if(event.key==='Enter')setMediaBgFromRemote(this.value)" />
+          <button class="btn sm primary" onclick="setMediaBgFromRemote(document.getElementById('mc-bg-hex').value)">背景色を適用</button>
+        </div>
+      </div>
+    </div>`;
+
+    // ルール管理一覧（ON/OFF・編集・削除）
+    html += `<div class="card">
+      <div class="card-title"><span>登録済み演出ルール管理 (${rules.length}件)</span></div>`;
+    if (rules.length === 0) {
+      html += '<div class="muted">登録済みのルールはありません</div>';
+    } else {
+      rules.forEach(r => {
+        const pat = (r.pattern || '').split('\n').map(s => s.trim()).filter(Boolean).join(' / ');
+        html += `<div class="item-row ${r.enabled ? '' : 'disabled-row'}">
+          <div class="item-main">
+            <div class="item-author">
+              <span>${esc(r.name)}</span>
+              <span class="pill accent">${esc(effectLabel(r.effect_type))}</span>
+              <span class="pill success">${esc(triggerLabel(r.trigger_type, r.min_superchat_amount || 0))}</span>
+              ${pat ? `<span class="pill warning">${esc(pat)}</span>` : ''}
+            </div>
+            <div class="muted">
+              ${r.original_file_name ? `素材: ${esc(r.original_file_name)} | ` : ''}
+              ${r.sound_original_file_name ? `SE: ${esc(r.sound_original_file_name)} | ` : ''}
+              時間: ${r.duration_ms === 0 ? '動画終了まで' : (r.duration_ms / 1000).toFixed(1) + '秒'} | CD: ${r.cooldown_sec}秒
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn sm ${r.enabled ? 'success' : ''}" onclick="sendAction({action:'toggle_media_rule',id:'${esc(r.id)}',enabled:${!r.enabled}})">${r.enabled ? 'ON' : 'OFF'}</button>
+            <button class="btn sm" onclick="openMediaModalById('${esc(r.id)}')">編集</button>
+            <button class="btn sm danger" onclick="deleteMediaRuleConfirm('${esc(r.id)}','${esc(r.name)}')">削除</button>
+          </div>
+        </div>`;
+      });
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  function setMediaBgFromRemote(bgColor) {
+    sendAction({ action: 'set_media_bg_color', bg_color: (bgColor || 'transparent').trim() });
+  }
+
+  function saveMediaConfigFromRemote() {
+    sendAction({
+      action: 'save_media_config',
+      config: {
+        playback_mode: document.getElementById('mc-mode').value,
+        master_volume: Number(document.getElementById('mc-vol').value || 80),
+        max_concurrent: Math.max(1, Math.min(12, Number(document.getElementById('mc-max').value || 8))),
+        allow_multiple_match: document.getElementById('mc-multi').checked
+      }
+    });
+  }
+
+  function deleteMediaRuleConfirm(id, name) {
+    if (!confirm(`演出「${name}」を削除しますか？（PC 側にも即時反映されます）`)) return;
+    sendAction({ action: 'delete_media_rule', id });
+  }
+
+  function openMediaModalById(id) {
+    const r = (appState && appState.media_rules || []).find(x => x.id === id);
+    openMediaModal(r || null);
+  }
+
+  function openMediaModal(rule) {
+    const r = rule || {};
+    document.getElementById('mm-title').textContent = rule ? 'WordParty 演出を編集' : 'WordParty 演出を追加';
+    document.getElementById('mm-id').value = r.id || '';
+    document.getElementById('mm-effect').value = r.effect_type || 'Cracker';
+    document.getElementById('mm-trigger').value = r.trigger_type || 'Keyword';
+    document.getElementById('mm-name').value = r.name || '';
+    document.getElementById('mm-priority').value = r.priority ?? 10;
+    document.getElementById('mm-pattern').value = r.pattern || '';
+    document.getElementById('mm-match-mode').value = r.match_mode || 'Contains';
+    document.getElementById('mm-case').checked = !!r.case_sensitive;
+    document.getElementById('mm-min-sc').value = r.min_superchat_amount ?? 0;
+
+    modalMediaState = {
+      mediaKind: r.media_kind || 'Image',
+      storedFileName: r.stored_file_name || '',
+      originalFileName: r.original_file_name || '',
+      soundStoredFileName: r.sound_stored_file_name || '',
+      soundOriginalFileName: r.sound_original_file_name || ''
+    };
+    refreshModalFileLabels();
+
+    const sv = r.sound_volume ?? 85;
+    document.getElementById('mm-sound-vol').value = sv;
+    document.getElementById('mm-sound-vol-val').textContent = sv;
+    document.getElementById('mm-ambient').value = r.ambient_preset || 'snow';
+    document.getElementById('mm-ptext').value = r.particle_text || '';
+    const pc = Math.min(90, r.particle_count ?? 28);
+    const ps = Math.min(200, r.particle_size ?? 60);
+    const psp = r.particle_speed ?? 100;
+    const pg = r.gravity ?? 100;
+    document.getElementById('mm-pcount').value = pc;
+    document.getElementById('mm-pcount-val').textContent = pc;
+    document.getElementById('mm-psize').value = ps;
+    document.getElementById('mm-psize-val').textContent = ps;
+    document.getElementById('mm-pspeed').value = psp;
+    document.getElementById('mm-pspeed-val').textContent = psp;
+    document.getElementById('mm-pgrav').value = pg;
+    document.getElementById('mm-pgrav-val').textContent = pg;
+
+    document.getElementById('mm-anim').value = r.animation || 'PopIn';
+    document.getElementById('mm-pos').value = r.position || 'Center';
+    const w = r.width_percent ?? 45;
+    const vol = r.volume ?? 80;
+    document.getElementById('mm-width').value = w;
+    document.getElementById('mm-width-val').textContent = w;
+    document.getElementById('mm-vol').value = vol;
+    document.getElementById('mm-vol-val').textContent = vol;
+
+    document.getElementById('mm-dur').value = rule ? (r.duration_ms === 0 ? 0 : (r.duration_ms / 1000)) : 4;
+    document.getElementById('mm-cd').value = r.cooldown_sec ?? 3;
+    document.getElementById('mm-caption').value = r.caption_template || '';
+    document.getElementById('mm-enabled').checked = r.enabled !== false;
+    document.getElementById('mm-excl-ban').checked = r.exclude_banned !== false;
+
+    syncMediaModalFields();
+    document.getElementById('media-modal').classList.add('open');
+  }
+
+  function closeMediaModal() {
+    document.getElementById('media-modal').classList.remove('open');
+  }
+
+  function syncMediaModalFields() {
+    const eff = document.getElementById('mm-effect').value;
+    const trg = document.getElementById('mm-trigger').value;
+    document.getElementById('mm-keyword-box').style.display = trg === 'Keyword' ? 'block' : 'none';
+    document.getElementById('mm-sc-box').style.display = trg === 'SuperChat' ? 'block' : 'none';
+    document.getElementById('mm-fixed-box').style.display = eff === 'Fixed' ? 'block' : 'none';
+    document.getElementById('mm-particle-box').style.display = eff === 'Fixed' ? 'none' : 'block';
+    document.getElementById('mm-ambient-box').style.display = eff === 'Ambient' ? 'block' : 'none';
+    document.getElementById('mm-ptext-row').style.display = eff === 'Ambient' ? 'none' : 'block';
+  }
+
+  function refreshModalFileLabels() {
+    const ml = document.getElementById('mm-media-file-label');
+    const mc = document.getElementById('mm-media-clear');
+    if (modalMediaState.storedFileName) {
+      ml.textContent = `${modalMediaState.originalFileName || modalMediaState.storedFileName} (${modalMediaState.mediaKind})`;
+      mc.style.display = 'inline-flex';
+    } else {
+      ml.textContent = '未選択（絵文字 / 標準シェイプを使用）';
+      mc.style.display = 'none';
+    }
+
+    const sl = document.getElementById('mm-sound-file-label');
+    const sc = document.getElementById('mm-sound-clear');
+    const sv = document.getElementById('mm-sound-vol-row');
+    if (modalMediaState.soundStoredFileName) {
+      sl.textContent = modalMediaState.soundOriginalFileName || modalMediaState.soundStoredFileName;
+      sc.style.display = 'inline-flex';
+      sv.style.display = 'block';
+    } else {
+      sl.textContent = '効果音なし';
+      sc.style.display = 'none';
+      sv.style.display = 'none';
+    }
+  }
+
+  function clearModalMedia(kind) {
+    if (kind === 'media') {
+      modalMediaState.storedFileName = '';
+      modalMediaState.originalFileName = '';
+      modalMediaState.mediaKind = 'Image';
+    } else {
+      modalMediaState.soundStoredFileName = '';
+      modalMediaState.soundOriginalFileName = '';
+    }
+    refreshModalFileLabels();
+  }
+
+  async function uploadMediaFile(targetKind, inputEl) {
+    const file = inputEl.files && inputEl.files[0];
+    inputEl.value = '';
+    if (!file) return;
+    if (file.size > 64 * 1024 * 1024) {
+      showToast('ファイルサイズは 64MB 以下にしてください', true);
+      return;
+    }
+    showToast(`アップロード中: ${file.name}...`, false);
+    try {
+      const headers = {
+        'X-File-Name': encodeURIComponent(file.name)
+      };
+      if (pin) headers['X-Stosup-Pin'] = pin;
+      const res = await fetch('/api/remote/upload_media', {
+        method: 'POST',
+        headers,
+        body: file
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok || !data.file) {
+        showToast(data.error || 'アップロードに失敗しました', true);
+        return;
+      }
+      const f = data.file;
+      if (targetKind === 'media') {
+        modalMediaState.storedFileName = f.stored_file_name;
+        modalMediaState.originalFileName = f.original_file_name;
+        modalMediaState.mediaKind = f.media_kind;
+        if (!document.getElementById('mm-name').value.trim()) {
+          document.getElementById('mm-name').value = f.original_file_name;
+        }
+        if (f.media_kind === 'Video') {
+          document.getElementById('mm-effect').value = 'Fixed';
+          document.getElementById('mm-dur').value = '0';
+          syncMediaModalFields();
+        }
+      } else {
+        modalMediaState.soundStoredFileName = f.stored_file_name;
+        modalMediaState.soundOriginalFileName = f.original_file_name;
+      }
+      refreshModalFileLabels();
+      showToast(`素材を取り込みました: ${f.original_file_name}`, false);
+    } catch (e) {
+      showToast('アップロード通信エラー', true);
+    }
+  }
+
+  async function saveMediaModal() {
+    const durSec = parseFloat(document.getElementById('mm-dur').value);
+    const durMs = isNaN(durSec) ? 4000 : (durSec <= 0 ? 0 : Math.round(durSec * 1000));
+    const rule = {
+      id: document.getElementById('mm-id').value,
+      name: document.getElementById('mm-name').value.trim(),
+      pattern: document.getElementById('mm-pattern').value.trim(),
+      match_mode: document.getElementById('mm-match-mode').value,
+      case_sensitive: document.getElementById('mm-case').checked,
+      effect_type: document.getElementById('mm-effect').value,
+      trigger_type: document.getElementById('mm-trigger').value,
+      min_superchat_amount: Math.max(0, Number(document.getElementById('mm-min-sc').value || 0)),
+      priority: Number(document.getElementById('mm-priority').value || 10),
+      media_kind: modalMediaState.mediaKind,
+      stored_file_name: modalMediaState.storedFileName,
+      original_file_name: modalMediaState.originalFileName,
+      sound_stored_file_name: modalMediaState.soundStoredFileName,
+      sound_original_file_name: modalMediaState.soundOriginalFileName,
+      sound_volume: Number(document.getElementById('mm-sound-vol').value || 85),
+      animation: document.getElementById('mm-anim').value,
+      position: document.getElementById('mm-pos').value,
+      duration_ms: durMs,
+      width_percent: Number(document.getElementById('mm-width').value || 45),
+      volume: Number(document.getElementById('mm-vol').value || 80),
+      particle_count: Number(document.getElementById('mm-pcount').value || 28),
+      particle_size: Number(document.getElementById('mm-psize').value || 60),
+      particle_speed: Number(document.getElementById('mm-pspeed').value || 100),
+      gravity: Number(document.getElementById('mm-pgrav').value || 100),
+      particle_text: document.getElementById('mm-ptext').value.trim(),
+      ambient_preset: document.getElementById('mm-ambient').value,
+      cooldown_sec: Math.max(0, Number(document.getElementById('mm-cd').value || 3)),
+      exclude_banned: document.getElementById('mm-excl-ban').checked,
+      caption_template: document.getElementById('mm-caption').value.trim(),
+      enabled: document.getElementById('mm-enabled').checked
+    };
+    const res = await sendAction({ action: 'save_media_rule', rule });
+    if (res) closeMediaModal();
+  }
+
+  function renderPoll(el) {
+    const poll = appState.poll || {};
+    const cfg = poll.config || { question: '', options: [] };
+    const total = poll.total_votes || 0;
+    let html = `<div class="card">
+      <div class="card-title">
+        <span>${esc(cfg.question || 'アンケート')}</span>
+        <div class="btn-row">
+          <span class="pill ${poll.is_active ? 'success' : ''}">${poll.is_active ? '受付中' : '停止中'} / 計${total}票</span>
+          <button class="btn sm" onclick="openPollModal()">設定を編集</button>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-bottom:14px">
+        <button class="btn primary" onclick="sendAction({action:'start_poll'})">${poll.is_active ? '再開始' : '投票を開始'}</button>
+        ${poll.is_active ? `<button class="btn danger" onclick="sendAction({action:'stop_poll'})">締め切る</button>` : ''}
+        <button class="btn" onclick="sendAction({action:'reset_poll'})">票リセット</button>
+        <button class="btn" onclick="sendAction({action:'clear_overlay_poll'})">OBS非表示</button>
+      </div>`;
+    (cfg.options || []).forEach((o, i) => {
+      const v = o.vote_count || 0;
+      const pct = total > 0 ? Math.round((v / total) * 100) : 0;
+      html += `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;font-weight:700">
+          <span>${i + 1}. ${esc(o.label)}</span>
+          <span>${pct}% (${v}票)</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${esc(o.color || '#3b82f6')}"></div></div>
+      </div>`;
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  function openPollModal() {
+    const cfg = (appState && appState.poll && appState.poll.config) || { question: '', options: [] };
+    document.getElementById('pm-question').value = cfg.question || '';
+    document.getElementById('pm-options').value = (cfg.options || []).map(o => o.label).join('\n');
+    document.getElementById('poll-modal').classList.add('open');
+  }
+
+  function closePollModal() {
+    document.getElementById('poll-modal').classList.remove('open');
+  }
+
+  async function savePollModal() {
+    const question = document.getElementById('pm-question').value.trim();
+    const lines = document.getElementById('pm-options').value.split('\n').map(s => s.trim()).filter(Boolean);
+    if (lines.length < 2) {
+      showToast('選択肢は2つ以上入力してください', true);
+      return;
+    }
+    const existing = (appState && appState.poll && appState.poll.config && appState.poll.config.options) || [];
+    const options = lines.map((label, i) => ({
+      id: (existing[i] && existing[i].id) || `opt-${i + 1}`,
+      label,
+      keywords: [String(i + 1), label],
+      color: (existing[i] && existing[i].color) || '',
+      vote_count: 0
+    }));
+    const res = await sendAction({ action: 'save_poll_config', config: { question, options } });
+    if (res) closePollModal();
+  }
+
+  function renderQueue(el) {
+    const q = appState.queue || { config: {}, entries: [] };
+    const active = (q.entries || []).filter(e => e.status === 'Active');
+    const waiting = (q.entries || []).filter(e => e.status === 'Waiting');
+    const acc = !!(q.config && q.config.is_accepting);
+
+    let html = `<div class="card">
+      <div class="card-title">
+        <span>参加型キュー操作</span>
+        <span class="pill ${acc ? 'success' : ''}">${acc ? '自動受付中' : '受付停止'}</span>
+      </div>
+      <div class="btn-row" style="margin-bottom:10px">
+        <button class="btn ${acc ? 'danger' : 'success'}" onclick="sendAction({action:'queue_toggle_accepting',accepting:${!acc}})">${acc ? '自動受付を停止' : '自動受付を開始'}</button>
+        <button class="btn primary" onclick="sendAction({action:'queue_promote_next'})">空き枠へ繰り上げ</button>
+        <button class="btn warning" onclick="sendAction({action:'queue_rotate_active'})">参加者を総入れ替え</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input id="q-manual-name" placeholder="手動追加する参加者名..." onkeydown="if(event.key==='Enter')addQueueManual()" />
+        <button class="btn" style="flex-shrink:0" onclick="addQueueManual()">追加</button>
+      </div>
+    </div>`;
+
+    html += `<div class="card"><div class="card-title"><span>参加中 (${active.length}/${(q.config && q.config.max_active_slots) || 3})</span></div>`;
+    if (active.length === 0) html += '<div class="muted">参加中メンバーなし</div>';
+    active.forEach(e => {
+      html += `<div class="item-row">
+        <div class="item-main"><div class="item-author">${esc(e.user_name)} <span class="pill accent">${e.play_count}回</span></div></div>
+        <button class="btn sm success" onclick="sendAction({action:'queue_set_status',user_id:'${esc(e.user_id)}',status:'Completed'})">完了</button>
+        <button class="btn sm" onclick="sendAction({action:'queue_set_status',user_id:'${esc(e.user_id)}',status:'Waiting'})">戻す</button>
+      </div>`;
+    });
+    html += '</div>';
+
+    html += `<div class="card"><div class="card-title"><span>順番待ち (${waiting.length}人)</span></div>`;
+    if (waiting.length === 0) html += '<div class="muted">待機中ユーザーなし</div>';
+    waiting.forEach((e, i) => {
+      html += `<div class="item-row">
+        <div class="item-main"><div class="item-author">${i + 1}. ${esc(e.user_name)} ${e.is_first_time ? '<span class="pill success">初見</span>' : ''} <span class="pill">${e.play_count}回</span></div></div>
+        <button class="btn sm primary" onclick="sendAction({action:'queue_set_status',user_id:'${esc(e.user_id)}',status:'Active'})">参加へ</button>
+        <button class="btn sm" onclick="sendAction({action:'queue_move_entry',user_id:'${esc(e.user_id)}',delta:-1})">↑</button>
+        <button class="btn sm" onclick="sendAction({action:'queue_move_entry',user_id:'${esc(e.user_id)}',delta:1})">↓</button>
+        <button class="btn sm danger" onclick="sendAction({action:'queue_remove_entry',user_id:'${esc(e.user_id)}'})">×</button>
+      </div>`;
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  function addQueueManual() {
+    const inp = document.getElementById('q-manual-name');
+    if (!inp || !inp.value.trim()) return;
+    const name = inp.value.trim();
+    inp.value = '';
+    sendAction({ action: 'queue_add_manual', user_name: name, note: '' });
+  }
+
+  function renderCounters(el) {
+    const ft = appState.first_time || { count: 0, total_detected_all_time: 0 };
+    const counters = appState.counters || [];
+    const cl = appState.comment_lottery || { is_accepting: false, entries: [] };
+
+    let html = `<div class="card">
+      <div class="card-title"><span>初見カウンター</span><span class="pill success">累計 ${ft.total_detected_all_time || 0}人</span></div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:32px;font-weight:900;color:var(--success)">${ft.count || 0}</div>
+        <button class="btn" onclick="sendAction({action:'adjust_first_time',delta:1})">+1</button>
+        <button class="btn" onclick="sendAction({action:'adjust_first_time',delta:-1})">-1</button>
+        <button class="btn warning" onclick="sendAction({action:'reset_first_time_session'})">本日のカウントを 0 リセット</button>
+      </div>
+    </div>`;
+
+    html += `<div class="card">
+      <div class="card-title"><span>ワードカウンター</span></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <input id="wc-add-name" style="flex:1;min-width:130px" placeholder="カウンター名（例: 草カウント）" />
+        <input id="wc-add-kw" style="flex:1;min-width:150px" placeholder="対象ワード（カンマ区切り）" />
+        <button class="btn primary sm" onclick="addWordCounterFromRemote()">＋ 追加</button>
+      </div>`;
+    if (counters.length === 0) html += '<div class="muted">登録されたワードカウンターがありません</div>';
+    counters.forEach(c => {
+      html += `<div class="item-row">
+        <div class="item-main">
+          <div class="item-author">${esc(c.name)} <span class="muted">${esc((c.keywords || []).join(', '))}</span></div>
+          <div style="font-size:22px;font-weight:900;color:${esc(c.accent_color || '#3b82f6')}">${c.total_count}</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn sm" onclick="sendAction({action:'adjust_word_counter',id:'${esc(c.id)}',delta:1})">+1</button>
+          <button class="btn sm" onclick="sendAction({action:'adjust_word_counter',id:'${esc(c.id)}',delta:-1})">-1</button>
+          <button class="btn sm warning" onclick="sendAction({action:'reset_word_counter',id:'${esc(c.id)}'})">0</button>
+          <button class="btn sm danger" onclick="sendAction({action:'delete_word_counter',id:'${esc(c.id)}'})">削除</button>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+
+    html += `<div class="card">
+      <div class="card-title"><span>抽選システム操作</span><span class="muted">登録ユーザー ${appState.users_count || 0}人</span></div>
+      <div class="btn-row" style="margin-bottom:10px">
+        <button class="btn primary" onclick="sendAction({action:'draw_user_lottery',current_session_only:true,winner_count:1,repeat_mode:'OnceOnly'})">今回参加者から1名抽選</button>
+        <button class="btn" onclick="sendAction({action:'reset_user_lottery_winners'})">既当選リセット</button>
+        <button class="btn" onclick="sendAction({action:'clear_overlay_lottery'})">OBS抽選表示クリア</button>
+      </div>
+      <div class="btn-row">
+        ${cl.is_accepting
+          ? `<button class="btn danger" onclick="sendAction({action:'stop_comment_lottery'})">コメント抽選 受付終了 (${(cl.entries||[]).length}件)</button>`
+          : `<button class="btn success" onclick="sendAction({action:'start_comment_lottery'})">コメント抽選 受付開始</button>`}
+        <button class="btn warning" onclick="sendAction({action:'draw_comment_lottery'})">コメント抽選を実行</button>
+      </div>
+    </div>`;
+    el.innerHTML = html;
+  }
+
+  function addWordCounterFromRemote() {
+    const nameEl = document.getElementById('wc-add-name');
+    const kwEl = document.getElementById('wc-add-kw');
+    const name = (nameEl.value || '').trim();
+    const keywords = (kwEl.value || '').split(/[,、]/).map(s => s.trim()).filter(Boolean);
+    if (!name || keywords.length === 0) {
+      showToast('カウンター名と対象ワードを入力してください', true);
+      return;
+    }
+    nameEl.value = '';
+    kwEl.value = '';
+    sendAction({ action: 'save_word_counter', counter: { name, keywords } });
+  }
+
+  function renderFlags(el) {
+    const f = appState.feature_flags || {};
+    const defs = [
+      ['comment_display', 'コメント表示', f.comment_display_enabled],
+      ['superchat', 'スパチャ・メンバー管理', f.superchat_enabled],
+      ['pickup', 'コメントピックアップ', f.pickup_enabled],
+      ['poll', 'リアルタイム投票', f.poll_enabled],
+      ['queue', '参加型キュー', f.queue_enabled],
+      ['media_reaction', 'WordParty 演出・動画', f.media_reaction_enabled],
+      ['word_highlight', 'ワード色反応', f.word_highlight_enabled],
+      ['word_counter', 'ワードカウント', f.word_counter_enabled],
+      ['first_time_counter', '初見カウンター', f.first_time_counter_enabled],
+      ['user_memo_display', '名前メモ表示', f.user_memo_display_enabled],
+    ];
+    let html = '<div class="card"><div class="card-title"><span>各機能の ON / OFF 切り替え（全端末即時同期）</span></div>';
+    defs.forEach(([key, label, val]) => {
+      html += `<div class="toggle-row">
+        <span style="font-weight:700">${esc(label)}</span>
+        <button class="btn sm ${val ? 'success' : ''}" onclick="sendAction({action:'set_feature_flag',flag:'${key}',enabled:${!val}})">${val ? 'ON' : 'OFF'}</button>
+      </div>`;
+    });
+    html += '</div>';
+
+    const base = `${location.protocol}//${location.host}`;
+    html += `<div class="card">
+      <div class="card-title"><span>この端末からアクセス中のオーバーレイ URL（2PC 配信用）</span></div>
+      <div class="muted" style="line-height:1.8;font-family:Consolas,monospace;word-break:break-all">
+        ${esc(base)}/overlay/comments<br/>
+        ${esc(base)}/overlay/superchat<br/>
+        ${esc(base)}/overlay/pickup<br/>
+        ${esc(base)}/overlay/poll<br/>
+        ${esc(base)}/overlay/queue<br/>
+        ${esc(base)}/overlay/media<br/>
+        ${esc(base)}/overlay/lottery<br/>
+        ${esc(base)}/overlay/counter<br/>
+        ${esc(base)}/overlay/first_time
+      </div>
+    </div>`;
+    el.innerHTML = html;
+  }
+
+  function setSyncBadge(connected) {
+    const b = document.getElementById('sync-badge');
+    b.className = connected ? 'sync-pill' : 'sync-pill off';
+    b.textContent = connected ? '● リアルタイム同期' : '再接続中';
+  }
+
+  function connectWs() {
+    if (ws) { try { ws.close(); } catch (_) {} }
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const q = pin ? `?pin=${encodeURIComponent(pin)}` : '';
+    ws = new WebSocket(`${proto}//${location.host}/ws/remote${q}`);
+    ws.onopen = () => setSyncBadge(true);
+    ws.onmessage = (e) => {
+      try {
+        const ev = JSON.parse(e.data);
+        applyRealtimeEvent(ev);
+      } catch (_) {}
+    };
+    ws.onclose = () => {
+      setSyncBadge(false);
+      setTimeout(() => {
+        if (document.getElementById('login-screen').style.display !== 'flex') {
+          refreshState().then(() => connectWs());
+        }
+      }, 2500);
+    };
+  }
+
+  async function boot() {
+    const infoRes = await fetch('/api/remote/auth_info');
+    const info = await infoRes.json().catch(() => ({}));
+    if (info.require_pin && !pin) {
+      showLogin('');
+      return;
+    }
+    await refreshState();
+    if (appState) connectWs();
+  }
+  boot();
+</script>
+</body>
+</html>

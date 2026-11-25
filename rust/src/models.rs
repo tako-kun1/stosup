@@ -919,6 +919,65 @@ impl Default for CommentLotteryState {
     }
 }
 
+/// ローカルネットワーク（LAN）接続・Web リモコン設定
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RemoteAccessConfig {
+    /// ローカルネットワーク内の他端末からの接続を許可するか（デフォルト: OFF）
+    #[serde(default)]
+    pub allow_lan_access: bool,
+    /// Web リモコン操作画面 (/remote および操作 API) を有効にするか（デフォルト: ON）
+    #[serde(default = "default_true")]
+    pub remote_control_enabled: bool,
+    /// Web リモコン操作時に PIN コード認証を必須にするか（デフォルト: ON）
+    #[serde(default = "default_true")]
+    pub require_pin: bool,
+    /// 6桁等のアクセス PIN コード
+    #[serde(default = "default_remote_pin")]
+    pub pin_code: String,
+    /// QR コードに PIN を埋め込んでワンタップログインできるようにするか
+    #[serde(default = "default_true")]
+    pub embed_pin_in_qr: bool,
+}
+
+fn default_remote_pin() -> String {
+    "123456".to_string()
+}
+
+impl Default for RemoteAccessConfig {
+    fn default() -> Self {
+        Self {
+            allow_lan_access: false,
+            remote_control_enabled: true,
+            require_pin: true,
+            pin_code: default_remote_pin(),
+            embed_pin_in_qr: true,
+        }
+    }
+}
+
+/// QR コード描画用の 2D モジュール情報
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QrCodeMatrix {
+    pub size: u32,
+    /// 行優先の size * size 個の真偽値（true = 黒ドット）
+    pub modules: Vec<bool>,
+}
+
+/// ローカルネットワーク接続・Web リモコンの現在稼働状態
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoteAccessStatus {
+    pub config: RemoteAccessConfig,
+    pub server_running: bool,
+    pub port: u16,
+    pub bound_address: String,
+    pub local_ips: Vec<String>,
+    pub local_url: String,
+    pub lan_urls: Vec<String>,
+    pub primary_remote_url: String,
+    pub qr_target_url: String,
+    pub qr_code: Option<QrCodeMatrix>,
+}
+
 /// アプリ外観テーマ（ライト / ダーク / システム設定）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AppThemeMode {
@@ -1291,11 +1350,16 @@ pub enum AppEventKind {
     PickedCommentUpdated,
     QueueUpdated,
     MediaTriggered,
+    MediaRulesUpdated,
+    MediaConfigUpdated,
+    HighlightRulesUpdated,
+    OverlayConfigUpdated,
+    UserLotteryWinnersUpdated,
     FeatureFlagsUpdated,
     SystemNotice,
 }
 
-/// Rust から Flutter UI へ送信するリアルタイムイベント
+/// Rust から Flutter UI・Web リモコンへ送信するリアルタイムイベント
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppEvent {
     pub kind: AppEventKind,
@@ -1311,6 +1375,11 @@ pub struct AppEvent {
     pub picked_comment: Option<PickedCommentState>,
     pub queue_state: Option<QueueState>,
     pub media_trigger: Option<MediaTriggerEvent>,
+    pub media_rules: Option<Vec<MediaReactionRule>>,
+    pub media_config: Option<MediaReactionConfig>,
+    pub highlight_rules: Option<Vec<HighlightRule>>,
+    pub overlay_config: Option<OverlayConfig>,
+    pub user_lottery_won_ids: Option<Vec<String>>,
     pub feature_flags: Option<FeatureFlags>,
     pub notice_level: Option<String>,
     pub notice_message: Option<String>,
@@ -1332,6 +1401,11 @@ impl AppEvent {
             picked_comment: None,
             queue_state: None,
             media_trigger: None,
+            media_rules: None,
+            media_config: None,
+            highlight_rules: None,
+            overlay_config: None,
+            user_lottery_won_ids: None,
             feature_flags: None,
             notice_level: None,
             notice_message: None,
@@ -1411,6 +1485,36 @@ impl AppEvent {
     pub fn media_triggered(trigger: MediaTriggerEvent) -> Self {
         let mut e = Self::empty(AppEventKind::MediaTriggered);
         e.media_trigger = Some(trigger);
+        e
+    }
+
+    pub fn media_rules_updated(rules: Vec<MediaReactionRule>) -> Self {
+        let mut e = Self::empty(AppEventKind::MediaRulesUpdated);
+        e.media_rules = Some(rules);
+        e
+    }
+
+    pub fn media_config_updated(config: MediaReactionConfig) -> Self {
+        let mut e = Self::empty(AppEventKind::MediaConfigUpdated);
+        e.media_config = Some(config);
+        e
+    }
+
+    pub fn highlight_rules_updated(rules: Vec<HighlightRule>) -> Self {
+        let mut e = Self::empty(AppEventKind::HighlightRulesUpdated);
+        e.highlight_rules = Some(rules);
+        e
+    }
+
+    pub fn overlay_config_updated(config: OverlayConfig) -> Self {
+        let mut e = Self::empty(AppEventKind::OverlayConfigUpdated);
+        e.overlay_config = Some(config);
+        e
+    }
+
+    pub fn user_lottery_winners_updated(ids: Vec<String>) -> Self {
+        let mut e = Self::empty(AppEventKind::UserLotteryWinnersUpdated);
+        e.user_lottery_won_ids = Some(ids);
         e
     }
 

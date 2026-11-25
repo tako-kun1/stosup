@@ -52,16 +52,26 @@ class _PollScreenState extends State<PollScreen> {
   late bool _excludeBanned;
   late bool _showPercentage;
   late bool _showVoteCount;
+  String _lastSyncedConfigSig = '';
 
-  @override
-  void initState() {
-    super.initState();
-    final cfg = widget.controller.pollState.config;
-    _questionCtrl = TextEditingController(text: cfg.question);
+  String _configSignature(PollConfig cfg) {
+    final opts = cfg.options
+        .map((o) => '${o.id}|${o.label}|${o.keywords.join(",")}|${o.color}')
+        .join(';');
+    return '${cfg.question}|${cfg.allowVoteChange}|${cfg.excludeBanned}|${cfg.showPercentage}|${cfg.showVoteCount}|$opts';
+  }
+
+  void _syncFromConfig(PollConfig cfg) {
+    _lastSyncedConfigSig = _configSignature(cfg);
+    _questionCtrl.text = cfg.question;
     _allowVoteChange = cfg.allowVoteChange;
     _excludeBanned = cfg.excludeBanned;
     _showPercentage = cfg.showPercentage;
     _showVoteCount = cfg.showVoteCount;
+    for (final o in _options) {
+      o.dispose();
+    }
+    _options.clear();
     for (final opt in cfg.options) {
       _options.add(_EditablePollOption(
         id: opt.id,
@@ -71,9 +81,23 @@ class _PollScreenState extends State<PollScreen> {
       ));
     }
     if (_options.length < 2) {
-      _addOption();
-      _addOption();
+      while (_options.length < 2) {
+        final idx = _options.length + 1;
+        _options.add(_EditablePollOption(
+          id: 'opt-init-$idx',
+          label: '選択肢 $idx',
+          keywordsText: '$idx',
+          color: _palette[(idx - 1) % _palette.length],
+        ));
+      }
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _questionCtrl = TextEditingController();
+    _syncFromConfig(widget.controller.pollState.config);
   }
 
   @override
@@ -152,8 +176,12 @@ class _PollScreenState extends State<PollScreen> {
   Widget build(BuildContext context) {
     final p = context.palette;
     final ctrl = widget.controller;
-    final enabled = ctrl.featureFlags.pollEnabled;
     final poll = ctrl.pollState;
+    final sig = _configSignature(poll.config);
+    if (sig != _lastSyncedConfigSig) {
+      _syncFromConfig(poll.config);
+    }
+    final enabled = ctrl.featureFlags.pollEnabled;
     final total = poll.totalVotes.toInt();
     final maxVotes = poll.config.options.fold<int>(
       0,

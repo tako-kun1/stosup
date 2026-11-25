@@ -153,6 +153,24 @@ class StosupController extends ChangeNotifier {
 
   MediaTriggerEvent? lastMediaTrigger;
 
+  RemoteAccessStatus remoteAccessStatus = const RemoteAccessStatus(
+    config: RemoteAccessConfig(
+      allowLanAccess: false,
+      remoteControlEnabled: true,
+      requirePin: true,
+      pinCode: '123456',
+      embedPinInQr: true,
+    ),
+    serverRunning: false,
+    port: 18765,
+    boundAddress: '127.0.0.1:18765',
+    localIps: [],
+    localUrl: 'http://127.0.0.1:18765/remote',
+    lanUrls: [],
+    primaryRemoteUrl: 'http://127.0.0.1:18765/remote',
+    qrTargetUrl: 'http://127.0.0.1:18765/remote',
+  );
+
   int get unreadMonetizationCount =>
       monetizationItems.where((e) => !e.isChecked).length;
 
@@ -256,6 +274,7 @@ class StosupController extends ChangeNotifier {
       api.getQueueState(),
       api.listMediaReactionRules(),
       api.getMediaReactionConfig(),
+      api.getRemoteAccessStatus(),
     ]);
 
     connectionState = results[0] as ConnectionStateDto;
@@ -278,6 +297,7 @@ class StosupController extends ChangeNotifier {
     queueState = results[17] as QueueState;
     mediaReactionRules = results[18] as List<MediaReactionRule>;
     mediaReactionConfig = results[19] as MediaReactionConfig;
+    remoteAccessStatus = results[20] as RemoteAccessStatus;
     notifyListeners();
   }
 
@@ -351,6 +371,31 @@ class StosupController extends ChangeNotifier {
       case AppEventKind.mediaTriggered:
         if (ev.mediaTrigger != null) {
           lastMediaTrigger = ev.mediaTrigger!;
+          notifyListeners();
+        }
+      case AppEventKind.mediaRulesUpdated:
+        if (ev.mediaRules != null) {
+          mediaReactionRules = List<MediaReactionRule>.from(ev.mediaRules!);
+          notifyListeners();
+        }
+      case AppEventKind.mediaConfigUpdated:
+        if (ev.mediaConfig != null) {
+          mediaReactionConfig = ev.mediaConfig!;
+          notifyListeners();
+        }
+      case AppEventKind.highlightRulesUpdated:
+        if (ev.highlightRules != null) {
+          highlightRules = List<HighlightRule>.from(ev.highlightRules!);
+          notifyListeners();
+        }
+      case AppEventKind.overlayConfigUpdated:
+        if (ev.overlayConfig != null) {
+          overlayConfig = ev.overlayConfig!;
+          notifyListeners();
+        }
+      case AppEventKind.userLotteryWinnersUpdated:
+        if (ev.userLotteryWonIds != null) {
+          userLotteryWonIds = List<String>.from(ev.userLotteryWonIds!);
           notifyListeners();
         }
       case AppEventKind.featureFlagsUpdated:
@@ -704,6 +749,7 @@ class StosupController extends ChangeNotifier {
       featureFlags = await api.saveFeatureFlags(flags: next);
       // OBSサーバー再起動時にポートが変わる可能性があるため同期
       overlayConfig = await api.getOverlayConfig();
+      remoteAccessStatus = await api.getRemoteAccessStatus();
       notifyListeners();
       if (noticeMessage != null) {
         onNotice?.call('info', noticeMessage);
@@ -1098,6 +1144,68 @@ class StosupController extends ChangeNotifier {
     }
   }
 
+  /// WordParty オーバーレイ (/overlay/media) の背景色のみを即時更新・全端末へ同期する
+  Future<void> setMediaOverlayBgColor(String bgColor) async {
+    final c = overlayConfig;
+    final next = OverlayConfig(
+      port: c.port,
+      commentFontSize: c.commentFontSize,
+      commentMaxItems: c.commentMaxItems,
+      showIcons: c.showIcons,
+      showTimestamps: c.showTimestamps,
+      defaultBubbleBg: c.defaultBubbleBg,
+      defaultTextColor: c.defaultTextColor,
+      commentsTheme: c.commentsTheme,
+      lotteryTheme: c.lotteryTheme,
+      counterTheme: c.counterTheme,
+      firstTimeTheme: c.firstTimeTheme,
+      superchatTheme: c.superchatTheme,
+      pollTheme: c.pollTheme,
+      pickupTheme: c.pickupTheme,
+      queueTheme: c.queueTheme,
+      mediaTheme: c.mediaTheme,
+      commentsBgColor: c.commentsBgColor,
+      lotteryBgColor: c.lotteryBgColor,
+      counterBgColor: c.counterBgColor,
+      firstTimeBgColor: c.firstTimeBgColor,
+      superchatBgColor: c.superchatBgColor,
+      pollBgColor: c.pollBgColor,
+      pickupBgColor: c.pickupBgColor,
+      queueBgColor: c.queueBgColor,
+      mediaBgColor: bgColor,
+      commentsFontFamily: c.commentsFontFamily,
+      lotteryFontFamily: c.lotteryFontFamily,
+      counterFontFamily: c.counterFontFamily,
+      firstTimeFontFamily: c.firstTimeFontFamily,
+      superchatFontFamily: c.superchatFontFamily,
+      pollFontFamily: c.pollFontFamily,
+      pickupFontFamily: c.pickupFontFamily,
+      queueFontFamily: c.queueFontFamily,
+      mediaFontFamily: c.mediaFontFamily,
+      commentsCustomCss: c.commentsCustomCss,
+      lotteryCustomCss: c.lotteryCustomCss,
+      counterCustomCss: c.counterCustomCss,
+      firstTimeCustomCss: c.firstTimeCustomCss,
+      superchatCustomCss: c.superchatCustomCss,
+      pollCustomCss: c.pollCustomCss,
+      pickupCustomCss: c.pickupCustomCss,
+      queueCustomCss: c.queueCustomCss,
+      mediaCustomCss: c.mediaCustomCss,
+    );
+    try {
+      overlayConfig = await api.saveOverlayConfig(config: next);
+      notifyListeners();
+      onNotice?.call(
+        'success',
+        bgColor == 'transparent'
+            ? 'WordParty の背景色を透過に戻しました'
+            : 'WordParty の背景色を $bgColor に変更しました',
+      );
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
   // ==================== 初見カウンター ====================
 
   Future<void> saveFirstTimeConfig(FirstTimeCounterConfig config) async {
@@ -1157,8 +1265,53 @@ class StosupController extends ChangeNotifier {
   Future<void> saveOverlayConfig(OverlayConfig config) async {
     try {
       overlayConfig = await api.saveOverlayConfig(config: config);
+      remoteAccessStatus = await api.getRemoteAccessStatus();
       notifyListeners();
       onNotice?.call('success', 'OBS オーバーレイ設定を保存しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== ローカルネットワーク接続・Web リモコン ====================
+
+  Future<void> refreshRemoteAccessStatus() async {
+    try {
+      remoteAccessStatus = await api.getRemoteAccessStatus();
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> saveRemoteAccessConfig(
+    RemoteAccessConfig config, {
+    String? notice,
+  }) async {
+    try {
+      remoteAccessStatus = await api.saveRemoteAccessConfig(config: config);
+      overlayConfig = await api.getOverlayConfig();
+      notifyListeners();
+      onNotice?.call(
+        'success',
+        notice ??
+            (config.allowLanAccess
+                ? 'ローカルネットワークからの接続を許可しました（${remoteAccessStatus.boundAddress}）'
+                : 'ローカルネットワークからの接続を無効にしました（同一 PC のみ許可）'),
+      );
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> regenerateRemotePin() async {
+    try {
+      remoteAccessStatus = await api.regenerateRemotePin();
+      notifyListeners();
+      onNotice?.call(
+        'info',
+        'アクセス PIN を再生成しました（新しい PIN: ${remoteAccessStatus.config.pinCode}）',
+      );
     } catch (e) {
       onNotice?.call('error', e.toString());
     }

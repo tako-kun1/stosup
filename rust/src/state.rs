@@ -21,11 +21,12 @@ use crate::models::{
     FirstTimeCounterState, FirstTimeUser, HighlightRule, ImportedMediaFile, LotteryResult,
     MatchMode, MediaReactionConfig, MediaReactionRule, MonetizationEventKind, MonetizationItem,
     OverlayConfig, PickedCommentState, PlatformKind, PollConfig, PollState, QueueConfig,
-    QueueEntryStatus, QueueState, RawIncomingComment, ReleaseNotesInfo, UserLotteryRequest,
-    UserRecord, WordCounterConfig,
+    QueueEntryStatus, QueueState, RawIncomingComment, ReleaseNotesInfo, RemoteAccessConfig,
+    RemoteAccessStatus, UserLotteryRequest, UserRecord, WordCounterConfig,
 };
 use crate::overlay::{start_overlay_server, OverlayServerHandle, OverlaySharedState};
 use crate::platform::{demo, extract_youtube_video_id, youtube, ProviderConnection};
+use crate::remote;
 use crate::updater;
 
 static RUNTIME: OnceCell<Arc<AppRuntime>> = OnceCell::new();
@@ -35,6 +36,7 @@ pub struct AppRuntime {
     pub media_dir: PathBuf,
     pub overlay_state: Arc<OverlaySharedState>,
     pub overlay_server: Mutex<Option<OverlayServerHandle>>,
+    pub remote_config: RwLock<RemoteAccessConfig>,
     pub feature_flags: RwLock<FeatureFlags>,
     pub connection_state: RwLock<ConnectionStateDto>,
     pub active_provider: Mutex<Option<ProviderConnection>>,
@@ -47,6 +49,8 @@ pub struct AppRuntime {
     pub queue_runtime: Mutex<QueueRuntime>,
     pub media_config: Mutex<MediaReactionConfig>,
     pub media_cooldown: Mutex<MediaCooldownTracker>,
+    pub cached_highlight_rules: RwLock<Vec<HighlightRule>>,
+    pub cached_media_rules: RwLock<Vec<MediaReactionRule>>,
     pub last_session_id: Mutex<String>,
     pub event_tx: broadcast::Sender<AppEvent>,
     pub comment_tx: mpsc::UnboundedSender<RawIncomingComment>,
@@ -82,6 +86,7 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
     let _ = std::fs::create_dir_all(&media_dir);
     let db = Database::open(&db_path)?;
     let overlay_config = db.get_overlay_config()?;
+    let remote_config = db.get_remote_access_config()?;
     let feature_flags = db.get_feature_flags()?;
     let first_time_config = db.get_first_time_config()?;
     let total_first_timers = db.count_all_time_first_timers()?;
@@ -103,10 +108,13 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
     let queue_state = db.get_queue_state()?;
     let queue_rt = QueueRuntime::from_state(queue_state.clone());
     let media_config = db.get_media_reaction_config()?;
+    let initial_highlight_rules = db.list_highlight_rules()?;
+    let initial_media_rules = db.list_media_reaction_rules()?;
 
     let db_arc = Arc::new(Mutex::new(db));
     let overlay_state = Arc::new(OverlaySharedState::new(
         media_dir.clone(),
+        remote_config.clone(),
         overlay_config.clone(),
         counters,
         first_time_state.clone(),
@@ -124,13 +132,24 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
     let (event_tx, _) = broadcast::channel::<AppEvent>(512);
     let (comment_tx, comment_rx) = mpsc::unbounded_channel::<RawIncomingComment>();
 
-    // OBS オーバーレイ機能が有効な場合のみローカルサーバーを起動
-    let server_handle = if feature_flags.obs_overlay_enabled {
-        match start_overlay_server(overlay_config.port, Arc::clone(&overlay_state)).await {
+    // OBS オーバーレイまたは LAN アクセス機能が有効な場合にローカルサーバーを起動
+    let should_start_server = feature_flags.obs_overlay_enabled || remote_config.allow_lan_access;
+    let server_handle = if should_start_server {
+        match start_overlay_server(
+            overlay_config.port,
+            remote_config.allow_lan_access,
+            Arc::clone(&overlay_state),
+        )
+        .await
+        {
             Ok(h) => Some(h),
-            Err(_) => start_overlay_server(0, Arc::clone(&overlay_state))
-                .await
-                .ok(),
+            Err(_) => start_overlay_server(
+                0,
+                remote_config.allow_lan_access,
+                Arc::clone(&overlay_state),
+            )
+            .await
+            .ok(),
         }
     } else {
         None
@@ -151,6 +170,7 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
         media_dir,
         overlay_state,
         overlay_server: Mutex::new(server_handle),
+        remote_config: RwLock::new(remote_config),
         feature_flags: RwLock::new(feature_flags),
         connection_state: RwLock::new(ConnectionStateDto::default()),
         active_provider: Mutex::new(None),
@@ -163,6 +183,8 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
         queue_runtime: Mutex::new(queue_rt),
         media_config: Mutex::new(media_config),
         media_cooldown: Mutex::new(MediaCooldownTracker::default()),
+        cached_highlight_rules: RwLock::new(initial_highlight_rules),
+        cached_media_rules: RwLock::new(initial_media_rules),
         last_session_id: Mutex::new(String::new()),
         event_tx,
         comment_tx,
@@ -206,10 +228,19 @@ impl AppRuntime {
         let flags = self.feature_flags.read().await.clone();
         let ft_config = self.first_time_state.lock().await.config.clone();
 
+        let rules = if flags.word_highlight_enabled {
+            self.cached_highlight_rules.read().await.clone()
+        } else {
+            Vec::new()
+        };
+        let media_rules = if flags.media_reaction_enabled {
+            self.cached_media_rules.read().await.clone()
+        } else {
+            Vec::new()
+        };
+
         let (
             user_meta,
-            rules,
-            media_rules,
             counters_changed,
             updated_counters,
             first_time_trigger,
@@ -221,16 +252,6 @@ impl AppRuntime {
                 db.record_user_comment(&session_id, &raw)?
             } else {
                 db.get_user_comment_meta(&raw.user_id, raw.platform)?
-            };
-            let rules = if flags.word_highlight_enabled {
-                db.list_highlight_rules()?
-            } else {
-                Vec::new()
-            };
-            let media_rules = if flags.media_reaction_enabled {
-                db.list_media_reaction_rules()?
-            } else {
-                Vec::new()
             };
             let counters_changed = if flags.word_counter_enabled {
                 counter::process_counters_for_comment(&db, &raw.user_id, meta.is_banned, &raw.message)?
@@ -304,8 +325,6 @@ impl AppRuntime {
 
             (
                 meta,
-                rules,
-                media_rules,
                 counters_changed,
                 updated_counters,
                 trigger_reason,
@@ -693,14 +712,23 @@ impl AppRuntime {
         }
         *self.feature_flags.write().await = new_flags.clone();
 
-        // OBS オーバーレイサーバーの起動 / 停止を即時反映
-        if new_flags.obs_overlay_enabled {
+        // OBS オーバーレイ / LAN サーバーの起動 / 停止を即時反映
+        let allow_lan = self.remote_config.read().await.allow_lan_access;
+        if new_flags.obs_overlay_enabled || allow_lan {
             let mut srv_guard = self.overlay_server.lock().await;
             if srv_guard.is_none() {
                 let mut cfg = self.overlay_state.config.read().await.clone();
-                let handle = match start_overlay_server(cfg.port, Arc::clone(&self.overlay_state)).await {
+                let handle = match start_overlay_server(
+                    cfg.port,
+                    allow_lan,
+                    Arc::clone(&self.overlay_state),
+                )
+                .await
+                {
                     Ok(h) => h,
-                    Err(_) => start_overlay_server(0, Arc::clone(&self.overlay_state)).await?,
+                    Err(_) => {
+                        start_overlay_server(0, allow_lan, Arc::clone(&self.overlay_state)).await?
+                    }
                 };
                 if handle.port != cfg.port {
                     cfg.port = handle.port;
@@ -981,6 +1009,7 @@ impl AppRuntime {
 
     pub async fn save_overlay_config_and_restart(&self, cfg: OverlayConfig) -> Result<OverlayConfig> {
         let obs_enabled = self.feature_flags.read().await.obs_overlay_enabled;
+        let allow_lan = self.remote_config.read().await.allow_lan_access;
         let current_port = self
             .overlay_server
             .lock()
@@ -990,20 +1019,116 @@ impl AppRuntime {
             .unwrap_or(0);
 
         let mut final_cfg = cfg.clone();
-        if obs_enabled && cfg.port != current_port {
+        if (obs_enabled || allow_lan) && cfg.port != current_port {
             let mut srv_guard = self.overlay_server.lock().await;
             if let Some(ref mut old) = *srv_guard {
                 old.stop();
             }
-            let new_handle = start_overlay_server(cfg.port, Arc::clone(&self.overlay_state)).await?;
+            let new_handle =
+                start_overlay_server(cfg.port, allow_lan, Arc::clone(&self.overlay_state)).await?;
             final_cfg.port = new_handle.port;
             *srv_guard = Some(new_handle);
         }
 
         self.overlay_state.update_config(final_cfg.clone()).await;
-        let db = self.db.lock().await;
-        db.set_overlay_config(&final_cfg)?;
+        {
+            let db = self.db.lock().await;
+            db.set_overlay_config(&final_cfg)?;
+        }
+        self.emit(AppEvent::overlay_config_updated(final_cfg.clone()));
         Ok(final_cfg)
+    }
+
+    // ==================== ローカルネットワーク接続・Web リモコン ====================
+
+    pub async fn get_remote_access_status(&self) -> RemoteAccessStatus {
+        let cfg = self.remote_config.read().await.clone();
+        let (running, port) = {
+            let srv = self.overlay_server.lock().await;
+            match srv.as_ref() {
+                Some(h) => (true, h.port),
+                None => (false, self.overlay_state.config.read().await.port),
+            }
+        };
+        remote::build_remote_access_status(cfg, running, port)
+    }
+
+    pub async fn save_remote_access_config(
+        &self,
+        mut cfg: RemoteAccessConfig,
+    ) -> Result<RemoteAccessStatus> {
+        if cfg.pin_code.trim().is_empty() {
+            cfg.pin_code = remote::generate_pin_code();
+        } else {
+            cfg.pin_code = cfg.pin_code.trim().to_string();
+        }
+
+        {
+            let db = self.db.lock().await;
+            db.set_remote_access_config(&cfg)?;
+        }
+        *self.remote_config.write().await = cfg.clone();
+        *self.overlay_state.remote_config.write().await = cfg.clone();
+
+        // バインド先 (127.0.0.1 <-> 0.0.0.0) または起動状態の切り替えを即時反映
+        let obs_enabled = self.feature_flags.read().await.obs_overlay_enabled;
+        let need_server = obs_enabled || cfg.allow_lan_access;
+        let desired_port = self.overlay_state.config.read().await.port;
+
+        let mut srv_guard = self.overlay_server.lock().await;
+        if !need_server {
+            if let Some(ref mut old) = *srv_guard {
+                old.stop();
+            }
+            *srv_guard = None;
+        } else {
+            let need_restart = match srv_guard.as_ref() {
+                None => true,
+                Some(h) => h.allow_lan_access != cfg.allow_lan_access,
+            };
+            if need_restart {
+                if let Some(ref mut old) = *srv_guard {
+                    old.stop();
+                }
+                *srv_guard = None;
+                // 旧ソケットの解放をわずかに待つ
+                tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+                let new_handle = match start_overlay_server(
+                    desired_port,
+                    cfg.allow_lan_access,
+                    Arc::clone(&self.overlay_state),
+                )
+                .await
+                {
+                    Ok(h) => h,
+                    Err(_) => {
+                        start_overlay_server(
+                            0,
+                            cfg.allow_lan_access,
+                            Arc::clone(&self.overlay_state),
+                        )
+                        .await?
+                    }
+                };
+                if new_handle.port != desired_port {
+                    let mut oc = self.overlay_state.config.read().await.clone();
+                    oc.port = new_handle.port;
+                    self.overlay_state.update_config(oc.clone()).await;
+                    let db = self.db.lock().await;
+                    let _ = db.set_overlay_config(&oc);
+                }
+                *srv_guard = Some(new_handle);
+            }
+        }
+        drop(srv_guard);
+
+        Ok(self.get_remote_access_status().await)
+    }
+
+    pub async fn regenerate_remote_pin(&self) -> Result<RemoteAccessStatus> {
+        let mut cfg = self.remote_config.read().await.clone();
+        cfg.pin_code = remote::generate_pin_code();
+        self.save_remote_access_config(cfg).await
     }
 
     pub async fn get_startup_release_notes(&self) -> Result<ReleaseNotesInfo> {
@@ -1028,8 +1153,32 @@ impl AppRuntime {
     }
 
     pub async fn list_highlight_rules(&self) -> Result<Vec<HighlightRule>> {
-        let db = self.db.lock().await;
-        db.list_highlight_rules()
+        Ok(self.cached_highlight_rules.read().await.clone())
+    }
+
+    pub async fn save_highlight_rule(&self, mut rule: HighlightRule) -> Result<Vec<HighlightRule>> {
+        if rule.id.trim().is_empty() {
+            rule.id = uuid::Uuid::new_v4().to_string();
+        }
+        let list = {
+            let db = self.db.lock().await;
+            db.upsert_highlight_rule(&rule)?;
+            db.list_highlight_rules()?
+        };
+        *self.cached_highlight_rules.write().await = list.clone();
+        self.emit(AppEvent::highlight_rules_updated(list.clone()));
+        Ok(list)
+    }
+
+    pub async fn delete_highlight_rule(&self, id: &str) -> Result<Vec<HighlightRule>> {
+        let list = {
+            let db = self.db.lock().await;
+            db.delete_highlight_rule(id)?;
+            db.list_highlight_rules()?
+        };
+        *self.cached_highlight_rules.write().await = list.clone();
+        self.emit(AppEvent::highlight_rules_updated(list.clone()));
+        Ok(list)
     }
 
     pub async fn list_word_counters(&self) -> Result<Vec<WordCounterConfig>> {
@@ -1549,8 +1698,7 @@ impl AppRuntime {
     }
 
     pub async fn list_media_reaction_rules(&self) -> Result<Vec<MediaReactionRule>> {
-        let db = self.db.lock().await;
-        db.list_media_reaction_rules()
+        Ok(self.cached_media_rules.read().await.clone())
     }
 
     pub async fn save_media_reaction_rule(
@@ -1560,9 +1708,14 @@ impl AppRuntime {
         if rule.id.trim().is_empty() {
             rule.id = uuid::Uuid::new_v4().to_string();
         }
-        let db = self.db.lock().await;
-        db.upsert_media_reaction_rule(&rule)?;
-        db.list_media_reaction_rules()
+        let list = {
+            let db = self.db.lock().await;
+            db.upsert_media_reaction_rule(&rule)?;
+            db.list_media_reaction_rules()?
+        };
+        *self.cached_media_rules.write().await = list.clone();
+        self.emit(AppEvent::media_rules_updated(list.clone()));
+        Ok(list)
     }
 
     pub async fn delete_media_reaction_rule(&self, id: &str) -> Result<Vec<MediaReactionRule>> {
@@ -1574,6 +1727,8 @@ impl AppRuntime {
         for fname in unused_files {
             media::remove_stored_media_file(&self.media_dir, &fname);
         }
+        *self.cached_media_rules.write().await = list.clone();
+        self.emit(AppEvent::media_rules_updated(list.clone()));
         Ok(list)
     }
 
@@ -1594,15 +1749,18 @@ impl AppRuntime {
         self.overlay_state
             .update_media_config(config.clone(), enabled)
             .await;
+        self.emit(AppEvent::media_config_updated(config.clone()));
         Ok(config)
     }
 
     pub async fn test_media_reaction_rule(&self, id: &str) -> Result<()> {
         let rule = {
-            let db = self.db.lock().await;
-            db.list_media_reaction_rules()?
-                .into_iter()
+            self.cached_media_rules
+                .read()
+                .await
+                .iter()
                 .find(|r| r.id == id)
+                .cloned()
                 .ok_or_else(|| anyhow!("指定された演出ルールが見つかりません"))?
         };
         if !rule_has_playable_content(&rule) {

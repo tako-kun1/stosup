@@ -7,5 +7,6 @@ pub mod media;
 pub mod models;
 pub mod overlay;
 pub mod platform;
+pub mod remote;
 pub mod state;
 pub mod updater;

@@ -108,6 +108,51 @@ pub fn import_media_file(media_dir: &Path, source_path: &str) -> Result<Imported
     })
 }
 
+/// Web リモコン等からアップロードされたバイト列を Stosup のメディアフォルダへ保存する
+pub fn import_media_bytes(
+    media_dir: &Path,
+    original_file_name: &str,
+    bytes: &[u8],
+) -> Result<ImportedMediaFile> {
+    if bytes.is_empty() {
+        return Err(anyhow!("アップロードされたファイルが空です"));
+    }
+    let clean_name = Path::new(original_file_name.trim())
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_string();
+    if clean_name.is_empty() {
+        return Err(anyhow!("ファイル名が不正です"));
+    }
+    let ext = Path::new(&clean_name)
+        .extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_default();
+    let media_kind = detect_media_kind_from_ext(&ext).ok_or_else(|| {
+        anyhow!(
+            "対応していないファイル形式です（.{}）。画像（PNG/JPG/GIF/WebP/SVG）、動画（MP4/WebM/MOV）、または音声（MP3/WAV/OGG）を選択してください。",
+            ext
+        )
+    })?;
+
+    std::fs::create_dir_all(media_dir)
+        .context("メディア保存ディレクトリの作成に失敗しました")?;
+
+    let stored_file_name = format!("{}.{}", uuid::Uuid::new_v4(), ext);
+    let dest = media_dir.join(&stored_file_name);
+    std::fs::write(&dest, bytes)
+        .with_context(|| format!("メディアファイルの保存に失敗しました: {}", clean_name))?;
+
+    Ok(ImportedMediaFile {
+        stored_file_name,
+        original_file_name: clean_name,
+        media_kind,
+        file_size_bytes: bytes.len() as u64,
+    })
+}
+
 /// 保存済みメディアファイルを安全に削除する
 pub fn remove_stored_media_file(media_dir: &Path, stored_file_name: &str) {
     if !is_safe_stored_file_name(stored_file_name) {
@@ -255,5 +300,11 @@ mod tests {
 
         remove_stored_media_file(&media_dir, &imported.stored_file_name);
         assert!(!media_dir.join(&imported.stored_file_name).exists());
+
+        let uploaded = import_media_bytes(&media_dir, "クラッカー.png", b"\x89PNGtest").unwrap();
+        assert_eq!(uploaded.media_kind, MediaKind::Image);
+        assert_eq!(uploaded.original_file_name, "クラッカー.png");
+        assert!(media_dir.join(&uploaded.stored_file_name).is_file());
+        remove_stored_media_file(&media_dir, &uploaded.stored_file_name);
     }
 }

@@ -378,3 +378,13 @@ Future<void> testMediaReactionRule({required String id}) =>
 
 Future<void> clearOverlayMedia() =>
     RustLib.instance.api.crateApiClearOverlayMedia();
+
+Future<RemoteAccessStatus> getRemoteAccessStatus() =>
+    RustLib.instance.api.crateApiGetRemoteAccessStatus();
+
+Future<RemoteAccessStatus> saveRemoteAccessConfig({
+  required RemoteAccessConfig config,
+}) => RustLib.instance.api.crateApiSaveRemoteAccessConfig(config: config);
+
+Future<RemoteAccessStatus> regenerateRemotePin() =>
+    RustLib.instance.api.crateApiRegenerateRemotePin();

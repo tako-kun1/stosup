@@ -1,8 +1,10 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
+import '../widgets/qr_code_view.dart';
 import '../widgets/release_notes_dialog.dart';
 import '../widgets/update_dialog.dart';
 
@@ -19,6 +21,8 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _clientIdCtrl;
   final _clientSecretCtrl = TextEditingController();
+  late TextEditingController _pinCtrl;
+  String _lastSyncedPin = '';
   bool _obscureSecret = true;
 
   @override
@@ -26,13 +30,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     _clientIdCtrl =
         TextEditingController(text: widget.controller.oauthStatus.clientId);
+    _lastSyncedPin = widget.controller.remoteAccessStatus.config.pinCode;
+    _pinCtrl = TextEditingController(text: _lastSyncedPin);
   }
 
   @override
   void dispose() {
     _clientIdCtrl.dispose();
     _clientSecretCtrl.dispose();
+    _pinCtrl.dispose();
     super.dispose();
+  }
+
+  void _copyText(String text, String label) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$label をコピーしました')),
+    );
+  }
+
+  Future<void> _updateRemoteConfig(
+    RemoteAccessConfig next, {
+    String? notice,
+  }) async {
+    await widget.controller.saveRemoteAccessConfig(next, notice: notice);
+    if (mounted) {
+      _pinCtrl.text = widget.controller.remoteAccessStatus.config.pinCode;
+    }
   }
 
   Future<void> _showCurrentReleaseNotes() async {
@@ -128,6 +152,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 14),
+
+          // ローカルネットワーク (LAN) 接続 ＆ Web リモコン設定カード
+          _buildRemoteAccessCard(context, ctrl, p),
           const SizedBox(height: 14),
 
           // 各機能の ON/OFF 一括管理カード
@@ -593,6 +621,361 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRemoteAccessCard(
+    BuildContext context,
+    StosupController ctrl,
+    StosupPalette p,
+  ) {
+    final status = ctrl.remoteAccessStatus;
+    final cfg = status.config;
+    if (cfg.pinCode != _lastSyncedPin) {
+      _lastSyncedPin = cfg.pinCode;
+      _pinCtrl.text = cfg.pinCode;
+    }
+    final firewallCmd =
+        'New-NetFirewallRule -DisplayName "Stosup LAN Remote" -Direction Inbound -Protocol TCP -LocalPort ${status.port} -Action Allow';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.devices_outlined, color: p.accent, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'ローカルネットワーク (LAN) 接続 ＆ Web リモコン',
+                    style:
+                        TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: (cfg.allowLanAccess && status.serverRunning
+                            ? p.success
+                            : p.textMuted)
+                        .withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    !status.serverRunning
+                        ? 'サーバー停止中'
+                        : (cfg.allowLanAccess
+                            ? 'LAN 公開中 (${status.boundAddress})'
+                            : '同一 PC のみ (${status.boundAddress})'),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: cfg.allowLanAccess && status.serverRunning
+                          ? p.success
+                          : p.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '同じ Wi-Fi / ローカルネットワーク内のスマホ・タブレット・サブ PC のブラウザから、コメントピックアップ・スパチャ確認・投票・参加型キュー・WordParty 演出・抽選などをリアルタイム操作できます（外部インターネット IP からの接続は常にブロックされます）。',
+              style: TextStyle(fontSize: 12.5, color: p.textSecondary),
+            ),
+            const SizedBox(height: 10),
+            const Divider(height: 1),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.wifi, size: 20),
+              title: const Text('ローカルネットワーク内の他端末からの接続を許可する'),
+              subtitle: const Text(
+                'ON にすると LAN 内のスマホ・タブレットや 2 PC 配信の別 PC からアクセスできます（初期設定: OFF）',
+              ),
+              value: cfg.allowLanAccess,
+              onChanged: (v) => _updateRemoteConfig(
+                RemoteAccessConfig(
+                  allowLanAccess: v,
+                  remoteControlEnabled: cfg.remoteControlEnabled,
+                  requirePin: cfg.requirePin,
+                  pinCode: cfg.pinCode,
+                  embedPinInQr: cfg.embedPinInQr,
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.touch_app_outlined, size: 20),
+              title: const Text('Web リモコン操作画面 (/remote) を有効にする'),
+              subtitle: const Text(
+                'OFF にすると Web 操作を遮断し、OBS オーバーレイの表示のみを許可します',
+              ),
+              value: cfg.remoteControlEnabled,
+              onChanged: (v) => _updateRemoteConfig(
+                RemoteAccessConfig(
+                  allowLanAccess: cfg.allowLanAccess,
+                  remoteControlEnabled: v,
+                  requirePin: cfg.requirePin,
+                  pinCode: cfg.pinCode,
+                  embedPinInQr: cfg.embedPinInQr,
+                ),
+                notice: v
+                    ? 'Web リモコン操作画面を有効にしました'
+                    : 'Web リモコン操作画面を無効にしました',
+              ),
+            ),
+            const Divider(height: 1),
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              secondary: const Icon(Icons.lock_outline, size: 20),
+              title: const Text('アクセス PIN コード認証を必須にする（推奨）'),
+              subtitle: const Text(
+                '同じ LAN 内の意図しない端末から誤操作されるのを防ぎます',
+              ),
+              value: cfg.requirePin,
+              onChanged: (v) => _updateRemoteConfig(
+                RemoteAccessConfig(
+                  allowLanAccess: cfg.allowLanAccess,
+                  remoteControlEnabled: cfg.remoteControlEnabled,
+                  requirePin: v,
+                  pinCode: cfg.pinCode,
+                  embedPinInQr: cfg.embedPinInQr,
+                ),
+                notice: v ? 'アクセス PIN 認証を有効にしました' : 'アクセス PIN 認証を無効にしました',
+              ),
+            ),
+            if (cfg.requirePin) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 210,
+                    child: TextField(
+                      controller: _pinCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'アクセス PIN コード',
+                        hintText: '6桁の数字など',
+                      ),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _updateRemoteConfig(
+                      RemoteAccessConfig(
+                        allowLanAccess: cfg.allowLanAccess,
+                        remoteControlEnabled: cfg.remoteControlEnabled,
+                        requirePin: cfg.requirePin,
+                        pinCode: _pinCtrl.text.trim(),
+                        embedPinInQr: cfg.embedPinInQr,
+                      ),
+                      notice: 'アクセス PIN を更新しました',
+                    ),
+                    icon: const Icon(Icons.save_outlined, size: 16),
+                    label: const Text('PIN を保存'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await ctrl.regenerateRemotePin();
+                      if (mounted) {
+                        _lastSyncedPin =
+                            ctrl.remoteAccessStatus.config.pinCode;
+                        _pinCtrl.text = _lastSyncedPin;
+                      }
+                    },
+                    icon: const Icon(Icons.casino_outlined, size: 16),
+                    label: const Text('PIN 再生成'),
+                  ),
+                  SizedBox(
+                    width: 340,
+                    child: CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      value: cfg.embedPinInQr,
+                      onChanged: (v) => _updateRemoteConfig(
+                        RemoteAccessConfig(
+                          allowLanAccess: cfg.allowLanAccess,
+                          remoteControlEnabled: cfg.remoteControlEnabled,
+                          requirePin: cfg.requirePin,
+                          pinCode: cfg.pinCode,
+                          embedPinInQr: v ?? true,
+                        ),
+                        notice: 'QR コード設定を更新しました',
+                      ),
+                      title: const Text(
+                        'QR コードに PIN を含める（スキャンで即ログイン）',
+                        style: TextStyle(fontSize: 12.5),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 14),
+
+            // 接続 URL ＆ QR コード表示パネル
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: p.subtleBg.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: p.border),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (status.qrCode != null) ...[
+                    Column(
+                      children: [
+                        QrCodeView(matrix: status.qrCode!, size: 146),
+                        const SizedBox(height: 6),
+                        Text(
+                          cfg.allowLanAccess ? 'スマホで読み取り' : '同一 PC 用 QR',
+                          style:
+                              TextStyle(fontSize: 11, color: p.textSecondary),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Web リモコン接続 URL',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 13.5),
+                            ),
+                            const Spacer(),
+                            TextButton.icon(
+                              onPressed: ctrl.refreshRemoteAccessStatus,
+                              icon: const Icon(Icons.refresh, size: 15),
+                              label: const Text('IP を再検出'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        if (cfg.allowLanAccess && status.lanUrls.isNotEmpty) ...[
+                          ...status.lanUrls.map(
+                            (url) => Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: SelectableText(
+                                      url,
+                                      style: TextStyle(
+                                        fontFamily: 'Consolas',
+                                        color: p.accent,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    onPressed: () =>
+                                        _copyText(url, 'LAN リモコン URL'),
+                                    icon: const Icon(Icons.copy, size: 14),
+                                    label: const Text('コピー'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ] else if (cfg.allowLanAccess) ...[
+                          Text(
+                            'LAN IPv4 アドレスを検出できませんでした（Wi-Fi / LAN 接続を確認して「IP を再検出」を押してください）。',
+                            style:
+                                TextStyle(fontSize: 12, color: p.warning),
+                          ),
+                        ] else ...[
+                          Text(
+                            '現在 LAN 接続は OFF です。同一 PC 内での確認には以下のローカル URL を使用できます。',
+                            style: TextStyle(
+                                fontSize: 12, color: p.textSecondary),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SelectableText(
+                                status.localUrl,
+                                style: TextStyle(
+                                  fontFamily: 'Consolas',
+                                  color: p.textSecondary,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              onPressed: status.serverRunning &&
+                                      cfg.remoteControlEnabled
+                                  ? () => ctrl.openUrl(status.qrTargetUrl)
+                                  : null,
+                              icon: const Icon(Icons.open_in_new, size: 14),
+                              label: const Text('ブラウザで開く'),
+                            ),
+                          ],
+                        ),
+                        if (cfg.allowLanAccess) ...[
+                          const Divider(height: 18),
+                          Row(
+                            children: [
+                              Icon(Icons.security_outlined,
+                                  size: 15, color: p.textSecondary),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'スマホ等から接続できない場合は Windows ファイアウォールで TCP ${status.port} 番ポートを許可してください。',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: p.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              TextButton.icon(
+                                onPressed: () => _copyText(
+                                  firewallCmd,
+                                  'ファイアウォール許可 PowerShell コマンド',
+                                ),
+                                icon: const Icon(Icons.terminal, size: 14),
+                                label: const Text('許可コマンドをコピー'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

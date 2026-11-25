@@ -11,6 +11,7 @@
     width: 100%;
     height: 100%;
     background: var(--page-bg, transparent) !important;
+    transition: background-color 0.2s ease;
     overflow: hidden;
     font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
   }
@@ -21,6 +22,7 @@
     height: 100vh;
     pointer-events: none;
     z-index: 10;
+    will-change: transform;
   }
   #stage {
     position: fixed;
@@ -30,6 +32,7 @@
     overflow: hidden;
     pointer-events: none;
     z-index: 20;
+    contain: layout style size;
   }
   .media-slot {
     position: absolute;
@@ -38,10 +41,12 @@
     align-items: center;
     gap: 10px;
     pointer-events: none;
-    transition: opacity 0.35s ease, transform 0.35s ease;
+    will-change: opacity, transform;
+    contain: layout style;
+    transition: opacity 0.3s ease, transform 0.3s ease;
   }
   .media-slot.pos-center {
-    left: 50%; top: 50%; transform: translate(-50%, -50%);
+    left: 50%; top: 50%; transform: translate3d(-50%, -50%, 0);
   }
   .media-slot.pos-top_left { left: 28px; top: 28px; align-items: flex-start; }
   .media-slot.pos-top_right { right: 28px; top: 28px; align-items: flex-end; }
@@ -62,6 +67,7 @@
     gap: 8px;
     max-width: 100%;
     max-height: 100%;
+    will-change: opacity, transform;
   }
   .media-el {
     display: block;
@@ -69,7 +75,7 @@
     max-height: 82vh;
     object-fit: contain;
     border-radius: 10px;
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
   }
   .media-slot.pos-full_screen .media-el {
     width: 100%;
@@ -92,27 +98,27 @@
     white-space: pre-wrap;
   }
 
-  /* 登場アニメーション */
-  .anim-fade .media-frame { animation: animFade 0.35s ease forwards; }
-  .anim-pop_in .media-frame { animation: animPopIn 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-  .anim-slide_up .media-frame { animation: animSlideUp 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-  .anim-slide_left .media-frame { animation: animSlideLeft 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-  .anim-bounce .media-frame { animation: animBounce 0.65s ease forwards; }
-  .anim-zoom_spin .media-frame { animation: animZoomSpin 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+  /* 登場アニメーション（GPU コンポジットプロパティのみ使用） */
+  .anim-fade .media-frame { animation: animFade 0.32s ease forwards; }
+  .anim-pop_in .media-frame { animation: animPopIn 0.36s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  .anim-slide_up .media-frame { animation: animSlideUp 0.36s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+  .anim-slide_left .media-frame { animation: animSlideLeft 0.36s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+  .anim-bounce .media-frame { animation: animBounce 0.62s ease forwards; }
+  .anim-zoom_spin .media-frame { animation: animZoomSpin 0.46s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 
   @keyframes animFade { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes animPopIn { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
-  @keyframes animSlideUp { from { opacity: 0; transform: translateY(70px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes animSlideLeft { from { opacity: 0; transform: translateX(90px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes animPopIn { from { opacity: 0; transform: scale3d(0.4, 0.4, 1); } to { opacity: 1; transform: scale3d(1, 1, 1); } }
+  @keyframes animSlideUp { from { opacity: 0; transform: translate3d(0, 70px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+  @keyframes animSlideLeft { from { opacity: 0; transform: translate3d(90px, 0, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
   @keyframes animBounce {
-    0% { opacity: 0; transform: translateY(-60px) scale(0.8); }
-    45% { opacity: 1; transform: translateY(14px) scale(1.04); }
-    72% { transform: translateY(-8px) scale(0.98); }
-    100% { opacity: 1; transform: translateY(0) scale(1); }
+    0% { opacity: 0; transform: translate3d(0, -60px, 0) scale3d(0.8, 0.8, 1); }
+    45% { opacity: 1; transform: translate3d(0, 14px, 0) scale3d(1.04, 1.04, 1); }
+    72% { transform: translate3d(0, -8px, 0) scale3d(0.98, 0.98, 1); }
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
   }
   @keyframes animZoomSpin {
-    from { opacity: 0; transform: scale(0.2) rotate(-25deg); }
-    to   { opacity: 1; transform: scale(1) rotate(0deg); }
+    from { opacity: 0; transform: scale3d(0.2, 0.2, 1) rotate(-25deg); }
+    to   { opacity: 1; transform: scale3d(1, 1, 1) rotate(0deg); }
   }
 
   /* プリセット */
@@ -136,18 +142,18 @@
   }
   body[data-theme="neon"] .media-el {
     border: 2px solid #22d3ee;
-    box-shadow: 0 0 26px rgba(34, 211, 238, 0.55);
+    box-shadow: 0 0 22px rgba(34, 211, 238, 0.5);
   }
   body[data-theme="neon"] .media-caption {
     background: rgba(9, 11, 20, 0.92);
     color: #ecfeff;
     border: 2px solid #22d3ee;
-    box-shadow: 0 0 18px rgba(34, 211, 238, 0.4);
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.38);
   }
   body[data-theme="pastel"] .media-el {
     border: 3px solid #f472b6;
     border-radius: 22px;
-    box-shadow: 0 8px 22px rgba(244, 114, 182, 0.3);
+    box-shadow: 0 8px 20px rgba(244, 114, 182, 0.28);
   }
   body[data-theme="pastel"] .media-caption {
     background: rgba(255, 251, 245, 0.96);
@@ -168,7 +174,7 @@
   <div id="stage"></div>
 <script>
   const canvas = document.getElementById('fx-canvas');
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: true });
   const stage = document.getElementById('stage');
   const customStyleEl = document.getElementById('stosup-custom-css');
   const params = new URLSearchParams(location.search);
@@ -185,16 +191,19 @@
     media_custom_css: ''
   };
 
-  // ==================== Canvas リサイズ ====================
+  // ==================== Canvas リサイズ（1x 等倍で軽量・高 FPS 維持） ====================
   let vw = window.innerWidth;
   let vh = window.innerHeight;
+  let canvasScale = 1;
   function resizeCanvas() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    vw = window.innerWidth;
-    vh = window.innerHeight;
-    canvas.width = Math.floor(vw * dpr);
-    canvas.height = Math.floor(vh * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    vw = Math.max(1, window.innerWidth);
+    vh = Math.max(1, window.innerHeight);
+    // 4K 画面でも内部解像度を抑えてフィルレート負荷を大幅に削減
+    const maxDim = Math.max(vw, vh);
+    canvasScale = maxDim > 1920 ? (1920 / maxDim) : 1;
+    canvas.width = Math.max(1, Math.floor(vw * canvasScale));
+    canvas.height = Math.max(1, Math.floor(vh * canvasScale));
+    ctx.setTransform(canvasScale, 0, 0, canvasScale, 0, 0);
   }
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
@@ -225,45 +234,280 @@
     customStyleEl.textContent = config.media_custom_css || '';
   }
 
-  // ==================== 画像キャッシュ & 音声再生 ====================
-  const imageCache = new Map();
-  function loadSpriteImage(url) {
-    if (!url) return Promise.resolve(null);
-    if (imageCache.has(url)) {
-      const cached = imageCache.get(url);
-      if (cached.complete && cached.naturalWidth > 0) return Promise.resolve(cached);
+  // ==================== オフスクリーン・スプライトキャッシュ ====================
+  // テキスト・絵文字・発光シェイプ・大解像度画像を 1 回だけオフスクリーン Canvas へ
+  // 事前レンダリングしてキャッシュし、毎フレームは GPU テクスチャ転送 (drawImage) のみにする。
+  const MAX_SPRITE_CACHE = 96;
+  const textSpriteCache = new Map();
+  const shapeSpriteCache = new Map();
+  const imageSpriteCache = new Map();
+  const imageLoadingPromises = new Map();
+
+  function getTextSprite(text) {
+    const key = String(text || '');
+    if (!key) return null;
+    const cached = textSpriteCache.get(key);
+    if (cached) return cached;
+
+    if (textSpriteCache.size >= MAX_SPRITE_CACHE) {
+      const firstKey = textSpriteCache.keys().next().value;
+      textSpriteCache.delete(firstKey);
     }
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => { imageCache.set(url, img); resolve(img); };
-      img.onerror = () => resolve(null);
-      img.src = url;
-    });
+
+    const fontPx = 88;
+    const measureC = document.createElement('canvas');
+    const mCtx = measureC.getContext('2d');
+    const fontStr = `bold ${fontPx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Yu Gothic UI", sans-serif`;
+    mCtx.font = fontStr;
+    const metrics = mCtx.measureText(key);
+    const pad = 22;
+    const w = Math.min(480, Math.max(fontPx + pad * 2, Math.ceil(metrics.width) + pad * 2));
+    const h = fontPx + pad * 2;
+
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const sc = c.getContext('2d');
+    sc.font = fontStr;
+    sc.textAlign = 'center';
+    sc.textBaseline = 'middle';
+    sc.lineJoin = 'round';
+    sc.fillStyle = '#ffffff';
+    sc.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+    sc.lineWidth = 7;
+    sc.strokeText(key, w / 2, h / 2 + 2);
+    sc.fillText(key, w / 2, h / 2 + 2);
+
+    const sprite = { canvas: c, aspect: w / h, baseH: fontPx };
+    textSpriteCache.set(key, sprite);
+    return sprite;
   }
 
-  const activeAudios = new Set();
-  function playAudioFile(url, ruleVol) {
-    if (!url) return null;
-    const vol = Math.max(0, Math.min(1, ((ruleVol ?? 80) / 100) * ((mediaConfig.master_volume ?? 80) / 100)));
-    if (vol <= 0) return null;
+  function getShapeSprite(kind, color) {
+    const key = `${kind}|${color}`;
+    const cached = shapeSpriteCache.get(key);
+    if (cached) return cached;
+
+    const size = 64;
+    const half = size / 2;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const sc = c.getContext('2d');
+
+    if (kind === 'snow') {
+      const g = sc.createRadialGradient(half, half, 2, half, half, half);
+      g.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      g.addColorStop(0.5, 'rgba(255, 255, 255, 0.85)');
+      g.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      sc.fillStyle = g;
+      sc.fillRect(0, 0, size, size);
+    } else if (kind === 'glow') {
+      const g = sc.createRadialGradient(half, half, 2, half, half, half);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.32, color);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      sc.fillStyle = g;
+      sc.fillRect(0, 0, size, size);
+    } else if (kind === 'star') {
+      // shadowBlur を使わず放射状ハロー + 星形で軽量＆美しく発光
+      const g = sc.createRadialGradient(half, half, 2, half, half, half);
+      g.addColorStop(0, color);
+      g.addColorStop(0.5, 'rgba(255, 255, 220, 0.25)');
+      g.addColorStop(1, 'rgba(255, 255, 220, 0)');
+      sc.fillStyle = g;
+      sc.fillRect(0, 0, size, size);
+      sc.save();
+      sc.translate(half, half);
+      sc.fillStyle = color;
+      sc.beginPath();
+      const r = half * 0.72;
+      for (let i = 0; i < 8; i++) {
+        const rad = i % 2 === 0 ? r : r * 0.3;
+        const a = (i * Math.PI) / 4;
+        if (i === 0) sc.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
+        else sc.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
+      }
+      sc.closePath();
+      sc.fill();
+      sc.restore();
+    } else if (kind === 'petal') {
+      sc.fillStyle = color;
+      sc.beginPath();
+      sc.ellipse(half, half, half * 0.85, half * 0.5, 0, 0, Math.PI * 2);
+      sc.fill();
+    } else if (kind === 'confetti') {
+      sc.fillStyle = color;
+      sc.fillRect(4, 14, size - 8, size - 28);
+    }
+
+    const sprite = { canvas: c, aspect: 1 };
+    shapeSpriteCache.set(key, sprite);
+    return sprite;
+  }
+
+  function loadSpriteImage(url) {
+    if (!url) return Promise.resolve(null);
+    if (imageSpriteCache.has(url)) {
+      return Promise.resolve(imageSpriteCache.get(url));
+    }
+    if (imageLoadingPromises.has(url)) {
+      return imageLoadingPromises.get(url);
+    }
+    const p = new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        // 大解像度画像をパーティクル用の軽量サイズ（最大 256px）へ縮小キャッシュ
+        const nw = Math.max(1, img.naturalWidth);
+        const nh = Math.max(1, img.naturalHeight);
+        const maxEdge = 256;
+        let tw = nw;
+        let th = nh;
+        if (nw > maxEdge || nh > maxEdge) {
+          const scale = maxEdge / Math.max(nw, nh);
+          tw = Math.max(1, Math.round(nw * scale));
+          th = Math.max(1, Math.round(nh * scale));
+        }
+        const c = document.createElement('canvas');
+        c.width = tw;
+        c.height = th;
+        const sc = c.getContext('2d');
+        sc.imageSmoothingEnabled = true;
+        sc.imageSmoothingQuality = 'high';
+        sc.drawImage(img, 0, 0, tw, th);
+
+        if (imageSpriteCache.size >= 48) {
+          const firstKey = imageSpriteCache.keys().next().value;
+          imageSpriteCache.delete(firstKey);
+        }
+        const sprite = { canvas: c, aspect: nw / nh };
+        imageSpriteCache.set(url, sprite);
+        imageLoadingPromises.delete(url);
+        resolve(sprite);
+      };
+      img.onerror = () => {
+        imageLoadingPromises.delete(url);
+        resolve(null);
+      };
+      img.src = url;
+    });
+    imageLoadingPromises.set(url, p);
+    return p;
+  }
+
+  // ==================== Web Audio API 効果音キャッシュ（ゼロ遅延＆軽量） ====================
+  let audioCtx = null;
+  const audioBufferCache = new Map();
+  const audioBufferLoading = new Map();
+  const lastSoundPlayedAt = new Map();
+  const activeAudioNodes = new Set();
+  const activeFallbackAudios = new Set();
+  const MAX_CONCURRENT_SOUNDS = 6;
+
+  function getAudioContext() {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) {
+        try { audioCtx = new Ctx(); } catch (_) {}
+      }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+    return audioCtx;
+  }
+
+  async function loadAudioBuffer(url) {
+    if (audioBufferCache.has(url)) return audioBufferCache.get(url);
+    if (audioBufferLoading.has(url)) return audioBufferLoading.get(url);
+    const ac = getAudioContext();
+    if (!ac) return null;
+    const p = fetch(url)
+      .then((res) => (res.ok ? res.arrayBuffer() : null))
+      .then((buf) => (buf ? ac.decodeAudioData(buf) : null))
+      .then((decoded) => {
+        if (decoded) {
+          if (audioBufferCache.size >= 24) {
+            const k = audioBufferCache.keys().next().value;
+            audioBufferCache.delete(k);
+          }
+          audioBufferCache.set(url, decoded);
+        }
+        audioBufferLoading.delete(url);
+        return decoded;
+      })
+      .catch(() => {
+        audioBufferLoading.delete(url);
+        return null;
+      });
+    audioBufferLoading.set(url, p);
+    return p;
+  }
+
+  function playFallbackAudio(url, vol) {
+    if (activeFallbackAudios.size >= MAX_CONCURRENT_SOUNDS) return;
     const audio = new Audio(url);
     audio.volume = vol;
-    activeAudios.add(audio);
-    const cleanup = () => activeAudios.delete(audio);
+    activeFallbackAudios.add(audio);
+    const cleanup = () => activeFallbackAudios.delete(audio);
     audio.onended = cleanup;
     audio.onerror = cleanup;
     const p = audio.play();
-    if (p && typeof p.catch === 'function') {
-      p.catch(() => cleanup());
-    }
-    return audio;
+    if (p && typeof p.catch === 'function') p.catch(cleanup);
   }
 
-  // ==================== 60fps 物理パーティクルエンジン ====================
+  function playAudioFile(url, ruleVol) {
+    if (!url) return;
+    const vol = Math.max(0, Math.min(1, ((ruleVol ?? 80) / 100) * ((mediaConfig.master_volume ?? 80) / 100)));
+    if (vol <= 0) return;
+
+    // 同一 SE の超高速連打によるデコード飽和を防止
+    const now = performance.now();
+    const last = lastSoundPlayedAt.get(url) || 0;
+    if (now - last < 65) return;
+    lastSoundPlayedAt.set(url, now);
+
+    const ac = getAudioContext();
+    if (!ac) {
+      playFallbackAudio(url, vol);
+      return;
+    }
+
+    loadAudioBuffer(url).then((buffer) => {
+      if (!buffer) {
+        playFallbackAudio(url, vol);
+        return;
+      }
+      if (activeAudioNodes.size >= MAX_CONCURRENT_SOUNDS) {
+        const oldest = activeAudioNodes.values().next().value;
+        try { oldest.stop(); } catch (_) {}
+        activeAudioNodes.delete(oldest);
+      }
+      try {
+        const src = ac.createBufferSource();
+        const gain = ac.createGain();
+        src.buffer = buffer;
+        gain.gain.value = vol;
+        src.connect(gain);
+        gain.connect(ac.destination);
+        activeAudioNodes.add(src);
+        src.onended = () => activeAudioNodes.delete(src);
+        src.start(0);
+      } catch (_) {
+        playFallbackAudio(url, vol);
+      }
+    });
+  }
+
+  // ==================== 60fps 軽量物理パーティクルエンジン ====================
   const CONFETTI_COLORS = ['#f43f5e', '#f59e0b', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7', '#ec4899'];
   const SAKURA_COLORS = ['#fbcfe8', '#f9a8d4', '#f472b6', '#fce7f3'];
   const EMBER_COLORS = ['#fef08a', '#fb923c', '#f97316', '#ef4444'];
+  const STAR_COLORS = ['#fef08a', '#fde047', '#ffffff', '#bae6fd'];
+
+  const MAX_PARTICLES = 220;
+  const MAX_AMBIENT_EMITTERS = 4;
 
   let particles = [];
   let rings = [];
@@ -279,6 +523,15 @@
     return tokens.length > 0 ? tokens : fallback;
   }
 
+  function pushParticle(p) {
+    if (particles.length >= MAX_PARTICLES) {
+      // 上限超過時は最古のパーティクルを上書きして GC と描画負荷を防止
+      particles[Math.floor(Math.random() * Math.min(24, particles.length))] = p;
+      return;
+    }
+    particles.push(p);
+  }
+
   function ensureLoop() {
     if (rafRunning) return;
     rafRunning = true;
@@ -286,13 +539,13 @@
     requestAnimationFrame(tick);
   }
 
-  function spawnCracker(trigger, img) {
-    const count = Math.max(4, Math.min(120, trigger.particle_count || 28));
+  function spawnCracker(trigger, imgSprite) {
+    const count = Math.max(4, Math.min(80, trigger.particle_count || 28));
     const speedScale = (trigger.particle_speed || 100) / 100;
     const gravScale = (trigger.gravity ?? 100) / 100;
     const baseSize = Math.max(20, Math.min(220, trigger.particle_size || 58));
     const tokens = parseTokens(trigger.particle_text, ['🎉', '🎊', '✨', '⭐']);
-    const lifeSec = Math.max(2.0, (trigger.duration_ms || 3800) / 1000);
+    const lifeSec = Math.max(1.8, (trigger.duration_ms || 3800) / 1000);
 
     for (let i = 0; i < count; i++) {
       const fromLeft = i % 2 === 0;
@@ -300,23 +553,33 @@
       const oy = vh * rand(0.68, 0.94);
       const angle = fromLeft ? rand(-1.28, -0.35) : rand(-2.79, -1.86);
       const spd = rand(520, 1080) * speedScale;
-      const useRibbon = !img && !trigger.particle_text && i % 3 !== 0;
+      const useRibbon = !imgSprite && !trigger.particle_text && i % 3 !== 0;
 
-      particles.push({
-        kind: img ? 'image' : (useRibbon ? 'confetti' : 'text'),
-        img,
-        text: pick(tokens),
-        color: pick(CONFETTI_COLORS),
+      let sprite;
+      let size = baseSize * rand(0.7, 1.25);
+      if (imgSprite) {
+        sprite = imgSprite;
+      } else if (useRibbon) {
+        sprite = getShapeSprite('confetti', pick(CONFETTI_COLORS));
+        size = rand(18, 28);
+      } else {
+        sprite = getTextSprite(pick(tokens));
+      }
+
+      pushParticle({
+        kind: useRibbon ? 'confetti' : 'sprite',
+        sprite,
+        color: '#ffffff',
         x: ox, y: oy,
         vx: Math.cos(angle) * spd,
         vy: Math.sin(angle) * spd,
         g: 760 * gravScale,
-        drag: 0.986,
-        size: baseSize * rand(0.7, 1.25),
+        dragRate: 0.84,
+        size,
         rot: rand(0, Math.PI * 2),
         vrot: rand(-7, 7),
         flip: rand(0, Math.PI * 2),
-        vflip: rand(4, 10),
+        vflip: useRibbon ? rand(5, 10) : 0,
         swayAmp: rand(10, 35),
         swayFreq: rand(2, 5),
         phase: rand(0, Math.PI * 2),
@@ -329,33 +592,33 @@
     ensureLoop();
   }
 
-  function spawnDrop(trigger, img) {
-    const count = Math.max(3, Math.min(120, trigger.particle_count || 22));
+  function spawnDrop(trigger, imgSprite) {
+    const count = Math.max(3, Math.min(80, trigger.particle_count || 22));
     const speedScale = (trigger.particle_speed || 100) / 100;
     const gravScale = (trigger.gravity ?? 100) / 100;
     const baseSize = Math.max(20, Math.min(220, trigger.particle_size || 64));
     const tokens = parseTokens(trigger.particle_text, ['✨', '⭐', '🌟']);
-    const lifeSec = Math.max(2.5, (trigger.duration_ms || 4500) / 1000);
+    const lifeSec = Math.max(2.2, (trigger.duration_ms || 4500) / 1000);
 
     for (let i = 0; i < count; i++) {
       const delay = rand(0, Math.min(1.4, lifeSec * 0.35));
-      particles.push({
-        kind: img ? 'image' : 'text',
-        img,
-        text: pick(tokens),
-        color: pick(CONFETTI_COLORS),
+      const sprite = imgSprite || getTextSprite(pick(tokens));
+      pushParticle({
+        kind: 'sprite',
+        sprite,
+        color: '#ffffff',
         x: rand(baseSize, Math.max(baseSize + 10, vw - baseSize)),
-        y: -baseSize * rand(1.0, 2.5),
+        y: -baseSize * rand(1.0, 2.2),
         vx: rand(-35, 35) * speedScale,
-        vy: rand(120, 280) * speedScale,
+        vy: rand(130, 280) * speedScale,
         g: 240 * gravScale,
-        drag: 0.996,
+        dragRate: 0.24,
         size: baseSize * rand(0.75, 1.25),
         rot: rand(-0.6, 0.6),
         vrot: rand(-2.5, 2.5),
         flip: 0,
         vflip: 0,
-        swayAmp: rand(25, 75),
+        swayAmp: rand(25, 70),
         swayFreq: rand(1.8, 4.0),
         phase: rand(0, Math.PI * 2),
         age: -delay,
@@ -367,35 +630,48 @@
     ensureLoop();
   }
 
-  function spawnConfetti(trigger, img) {
-    const count = Math.max(10, Math.min(120, trigger.particle_count || 65));
+  function spawnConfetti(trigger, imgSprite) {
+    const count = Math.max(10, Math.min(90, trigger.particle_count || 65));
     const speedScale = (trigger.particle_speed || 100) / 100;
     const gravScale = (trigger.gravity ?? 100) / 100;
     const baseSize = Math.max(14, Math.min(180, trigger.particle_size || 28));
     const tokens = parseTokens(trigger.particle_text, []);
-    const lifeSec = Math.max(3.0, (trigger.duration_ms || 5000) / 1000);
+    const lifeSec = Math.max(2.6, (trigger.duration_ms || 5000) / 1000);
 
     for (let i = 0; i < count; i++) {
       const delay = rand(0, 1.2);
-      const kind = img ? 'image' : (tokens.length > 0 && i % 2 === 0 ? 'text' : 'confetti');
-      particles.push({
-        kind,
-        img,
-        text: tokens.length > 0 ? pick(tokens) : '',
-        color: pick(CONFETTI_COLORS),
+      let sprite;
+      let size;
+      let isConfetti = false;
+      if (imgSprite) {
+        sprite = imgSprite;
+        size = baseSize * rand(0.75, 1.15);
+      } else if (tokens.length > 0 && i % 2 === 0) {
+        sprite = getTextSprite(pick(tokens));
+        size = baseSize * rand(0.75, 1.15);
+      } else {
+        sprite = getShapeSprite('confetti', pick(CONFETTI_COLORS));
+        size = rand(18, 28);
+        isConfetti = true;
+      }
+
+      pushParticle({
+        kind: isConfetti ? 'confetti' : 'sprite',
+        sprite,
+        color: '#ffffff',
         x: rand(0, vw),
-        y: rand(-120, -20),
+        y: rand(-100, -16),
         vx: rand(-90, 90) * speedScale,
-        vy: rand(80, 220) * speedScale,
+        vy: rand(90, 220) * speedScale,
         g: 160 * gravScale,
-        drag: 0.99,
-        size: kind === 'confetti' ? rand(14, 24) : baseSize * rand(0.75, 1.15),
+        dragRate: 0.6,
+        size,
         rot: rand(0, Math.PI * 2),
         vrot: rand(-5, 5),
         flip: rand(0, Math.PI * 2),
-        vflip: rand(5, 11),
-        swayAmp: rand(40, 100),
-        swayFreq: rand(2.2, 4.6),
+        vflip: rand(5, 10),
+        swayAmp: rand(40, 95),
+        swayFreq: rand(2.2, 4.4),
         phase: rand(0, Math.PI * 2),
         age: -delay,
         maxAge: lifeSec * rand(0.85, 1.15),
@@ -406,8 +682,8 @@
     ensureLoop();
   }
 
-  function spawnThrow(trigger, img) {
-    const count = Math.max(1, Math.min(30, trigger.particle_count || 5));
+  function spawnThrow(trigger, imgSprite) {
+    const count = Math.max(1, Math.min(24, trigger.particle_count || 5));
     const speedScale = (trigger.particle_speed || 100) / 100;
     const gravScale = (trigger.gravity ?? 100) / 100;
     const baseSize = Math.max(36, Math.min(240, trigger.particle_size || 96));
@@ -426,15 +702,14 @@
       const vy = (ty - sy - 0.5 * g * flight * flight) / flight;
       const delay = i * 0.14;
 
-      particles.push({
-        kind: img ? 'image' : 'text',
-        img,
-        text: pick(tokens),
-        color: pick(CONFETTI_COLORS),
+      pushParticle({
+        kind: 'sprite',
+        sprite: imgSprite || getTextSprite(pick(tokens)),
+        color: '#ffffff',
         x: sx, y: sy,
         vx, vy,
         g,
-        drag: 0.998,
+        dragRate: 0.12,
         size: baseSize * rand(0.85, 1.15),
         rot: 0,
         vrot: (fromLeft ? 1 : -1) * rand(8, 15),
@@ -452,17 +727,31 @@
     ensureLoop();
   }
 
-  function spawnAmbient(trigger, img) {
-    const durationMs = Math.max(2000, trigger.duration_ms || 6500);
+  function spawnAmbient(trigger, imgSprite) {
+    const durationSec = Math.max(2.0, (trigger.duration_ms || 6500) / 1000);
+    const preset = (trigger.ambient_preset || 'snow').toLowerCase();
+    const imgKey = trigger.media_url || '';
+
+    // 同じ環境演出の重複発火はエミッターを増殖させず残り時間を延長
+    const existing = ambientEmitters.find(e => e.preset === preset && e.imgKey === imgKey);
+    if (existing) {
+      existing.remainingSec = Math.max(existing.remainingSec, durationSec);
+      ensureLoop();
+      return;
+    }
+    if (ambientEmitters.length >= MAX_AMBIENT_EMITTERS) {
+      ambientEmitters.shift();
+    }
+
     ambientEmitters.push({
-      preset: (trigger.ambient_preset || 'snow').toLowerCase(),
-      img,
-      tokens: parseTokens(trigger.particle_text, []),
+      preset,
+      imgKey,
+      sprite: imgSprite,
       size: Math.max(14, Math.min(160, trigger.particle_size || 32)),
       speedScale: (trigger.particle_speed || 100) / 100,
-      rate: Math.max(4, Math.min(50, Math.round((trigger.particle_count || 36) / 2))),
+      rate: Math.max(4, Math.min(30, Math.round((trigger.particle_count || 32) / 2.2))),
       accum: 0,
-      remainingSec: durationMs / 1000
+      remainingSec: durationSec
     });
     ensureLoop();
   }
@@ -470,96 +759,92 @@
   function emitOneAmbientParticle(em) {
     const p = em.preset;
     const s = em.speedScale;
-    if (em.img) {
-      particles.push({
-        kind: 'image', img: em.img, text: '', color: '#ffffff',
+    if (em.sprite) {
+      pushParticle({
+        kind: 'sprite', sprite: em.sprite, color: '#ffffff',
         x: rand(0, vw), y: p === 'embers' || p === 'hearts' ? vh + 40 : -40,
         vx: rand(-30, 30) * s, vy: (p === 'embers' || p === 'hearts' ? rand(-160, -70) : rand(60, 150)) * s,
-        g: 0, drag: 1, size: em.size * rand(0.65, 1.15),
+        g: 0, dragRate: 0, size: em.size * rand(0.65, 1.15),
         rot: rand(0, Math.PI * 2), vrot: rand(-2, 2),
         flip: 0, vflip: 0, swayAmp: rand(20, 50), swayFreq: rand(1.5, 3.2), phase: rand(0, 6.28),
-        age: 0, maxAge: rand(3.5, 6.0), bounceY: null, bouncesLeft: 0
+        age: 0, maxAge: rand(3.5, 5.5), bounceY: null, bouncesLeft: 0
       });
       return;
     }
     if (p === 'sakura') {
-      particles.push({
-        kind: 'petal', img: null, text: '', color: pick(SAKURA_COLORS),
-        x: rand(-80, vw + 80), y: -24,
+      pushParticle({
+        kind: 'confetti', sprite: getShapeSprite('petal', pick(SAKURA_COLORS)), color: '#ffffff',
+        x: rand(-60, vw + 60), y: -24,
         vx: rand(55, 130) * s, vy: rand(70, 145) * s,
-        g: 0, drag: 1, size: rand(12, 24),
+        g: 0, dragRate: 0, size: rand(16, 28),
         rot: rand(0, 6.28), vrot: rand(-3, 3),
-        flip: rand(0, 6.28), vflip: rand(3, 7),
-        swayAmp: rand(35, 85), swayFreq: rand(1.8, 3.4), phase: rand(0, 6.28),
-        age: 0, maxAge: rand(4.5, 7.0), bounceY: null, bouncesLeft: 0
+        flip: rand(0, 6.28), vflip: rand(3, 6),
+        swayAmp: rand(35, 80), swayFreq: rand(1.8, 3.2), phase: rand(0, 6.28),
+        age: 0, maxAge: rand(4.2, 6.5), bounceY: null, bouncesLeft: 0
       });
     } else if (p === 'rain') {
-      particles.push({
-        kind: 'rain', img: null, text: '', color: 'rgba(147, 197, 253, 0.78)',
+      pushParticle({
+        kind: 'rain', sprite: null, color: 'rgba(147, 197, 253, 0.78)',
         x: rand(-60, vw + 120), y: -40,
         vx: -140 * s, vy: rand(880, 1250) * s,
-        g: 0, drag: 1, size: rand(24, 46),
+        g: 0, dragRate: 0, size: rand(24, 46),
         rot: 0, vrot: 0, flip: 0, vflip: 0, swayAmp: 0, swayFreq: 0, phase: 0,
-        age: 0, maxAge: 1.4, bounceY: null, bouncesLeft: 0
+        age: 0, maxAge: 1.3, bounceY: null, bouncesLeft: 0
       });
     } else if (p === 'sparkle') {
-      particles.push({
-        kind: 'star', img: null, text: '', color: pick(['#fef08a', '#fde047', '#ffffff', '#bae6fd']),
+      pushParticle({
+        kind: 'star', sprite: getShapeSprite('star', pick(STAR_COLORS)), color: '#ffffff',
         x: rand(20, vw - 20), y: rand(20, vh - 20),
         vx: rand(-15, 15) * s, vy: rand(-45, -15) * s,
-        g: 0, drag: 0.99, size: rand(14, 30),
+        g: 0, dragRate: 0.4, size: rand(22, 42),
         rot: 0, vrot: rand(-1.5, 1.5), flip: 0, vflip: 0, swayAmp: 0, swayFreq: 0, phase: rand(0, 6.28),
-        age: 0, maxAge: rand(1.4, 2.6), bounceY: null, bouncesLeft: 0
+        age: 0, maxAge: rand(1.4, 2.5), bounceY: null, bouncesLeft: 0
       });
     } else if (p === 'hearts') {
-      particles.push({
-        kind: 'text', img: null, text: pick(['💖', '💗', '❤️', '💕']), color: '#f472b6',
+      pushParticle({
+        kind: 'sprite', sprite: getTextSprite(pick(['💖', '💗', '❤️', '💕'])), color: '#ffffff',
         x: rand(30, vw - 30), y: vh + 30,
         vx: rand(-25, 25) * s, vy: rand(-180, -90) * s,
-        g: 0, drag: 1, size: rand(24, 46),
+        g: 0, dragRate: 0, size: rand(26, 48),
         rot: rand(-0.2, 0.2), vrot: rand(-0.8, 0.8), flip: 0, vflip: 0,
-        swayAmp: rand(25, 65), swayFreq: rand(1.8, 3.5), phase: rand(0, 6.28),
-        age: 0, maxAge: rand(3.5, 5.5), bounceY: null, bouncesLeft: 0
+        swayAmp: rand(25, 60), swayFreq: rand(1.8, 3.4), phase: rand(0, 6.28),
+        age: 0, maxAge: rand(3.5, 5.2), bounceY: null, bouncesLeft: 0
       });
     } else if (p === 'embers') {
-      particles.push({
-        kind: 'glow', img: null, text: '', color: pick(EMBER_COLORS),
+      pushParticle({
+        kind: 'sprite', sprite: getShapeSprite('glow', pick(EMBER_COLORS)), color: '#ffffff',
         x: rand(0, vw), y: vh + 20,
         vx: rand(-40, 40) * s, vy: rand(-220, -95) * s,
-        g: 0, drag: 0.995, size: rand(5, 13),
+        g: 0, dragRate: 0.3, size: rand(14, 28),
         rot: 0, vrot: 0, flip: 0, vflip: 0,
-        swayAmp: rand(30, 80), swayFreq: rand(2.5, 5.0), phase: rand(0, 6.28),
-        age: 0, maxAge: rand(2.5, 4.6), bounceY: null, bouncesLeft: 0
+        swayAmp: rand(30, 75), swayFreq: rand(2.5, 4.8), phase: rand(0, 6.28),
+        age: 0, maxAge: rand(2.5, 4.2), bounceY: null, bouncesLeft: 0
       });
     } else {
-      // snow
-      particles.push({
-        kind: 'snow', img: null, text: '', color: 'rgba(255, 255, 255, 0.9)',
+      pushParticle({
+        kind: 'sprite', sprite: getShapeSprite('snow', '#ffffff'), color: '#ffffff',
         x: rand(-20, vw + 20), y: -20,
         vx: rand(-22, 22) * s, vy: rand(55, 135) * s,
-        g: 0, drag: 1, size: rand(5, 14),
+        g: 0, dragRate: 0, size: rand(12, 26),
         rot: 0, vrot: 0, flip: 0, vflip: 0,
-        swayAmp: rand(20, 60), swayFreq: rand(1.2, 2.6), phase: rand(0, 6.28),
-        age: 0, maxAge: rand(5.0, 8.0), bounceY: null, bouncesLeft: 0
+        swayAmp: rand(20, 55), swayFreq: rand(1.2, 2.5), phase: rand(0, 6.28),
+        age: 0, maxAge: rand(4.8, 7.2), bounceY: null, bouncesLeft: 0
       });
     }
   }
 
-  function drawStar(c, r) {
-    c.beginPath();
-    for (let i = 0; i < 8; i++) {
-      const rad = i % 2 === 0 ? r : r * 0.32;
-      const a = (i * Math.PI) / 4;
-      if (i === 0) c.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
-      else c.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
-    }
-    c.closePath();
-    c.fill();
+  function swapRemove(arr, i) {
+    const last = arr.length - 1;
+    if (i !== last) arr[i] = arr[last];
+    arr.pop();
   }
 
   function tick(now) {
     const dt = Math.min(0.05, Math.max(0.001, (now - lastFrameTs) / 1000));
     lastFrameTs = now;
+
+    ctx.setTransform(canvasScale, 0, 0, canvasScale, 0, 0);
+    ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, vw, vh);
 
     // 環境エミッター更新
@@ -567,53 +852,69 @@
       const em = ambientEmitters[i];
       em.remainingSec -= dt;
       if (em.remainingSec <= 0) {
-        ambientEmitters.splice(i, 1);
+        swapRemove(ambientEmitters, i);
         continue;
       }
       em.accum += em.rate * dt;
-      while (em.accum >= 1 && particles.length < 450) {
+      while (em.accum >= 1 && particles.length < MAX_PARTICLES) {
         em.accum -= 1;
         emitOneAmbientParticle(em);
       }
     }
 
     // 衝撃リング更新
-    for (let i = rings.length - 1; i >= 0; i--) {
-      const rg = rings[i];
-      rg.age += dt;
-      if (rg.age >= rg.maxAge) { rings.splice(i, 1); continue; }
-      const t = rg.age / rg.maxAge;
-      ctx.save();
-      ctx.globalAlpha = 1 - t;
-      ctx.strokeStyle = rg.color;
-      ctx.lineWidth = Math.max(1, 5 * (1 - t));
-      ctx.beginPath();
-      ctx.arc(rg.x, rg.y, rg.maxR * t, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
+    if (rings.length > 0) {
+      for (let i = rings.length - 1; i >= 0; i--) {
+        const rg = rings[i];
+        rg.age += dt;
+        if (rg.age >= rg.maxAge) { swapRemove(rings, i); continue; }
+        const t = rg.age / rg.maxAge;
+        ctx.globalAlpha = 1 - t;
+        ctx.strokeStyle = rg.color;
+        ctx.lineWidth = Math.max(1, 5 * (1 - t));
+        ctx.beginPath();
+        ctx.arc(rg.x, rg.y, rg.maxR * t, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
 
-    // パーティクル物理・描画
+    // パーティクル物理・高速スプライト描画（ctx.save/restore なし・shadowBlur なし）
+    let rainBatchStarted = false;
+    const sc = canvasScale;
+
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       p.age += dt;
       if (p.age < 0) continue;
-      if (p.age >= p.maxAge) { particles.splice(i, 1); continue; }
+      if (p.age >= p.maxAge) { swapRemove(particles, i); continue; }
 
-      p.vx *= Math.pow(p.drag, dt * 60);
-      p.vy = p.vy * Math.pow(p.drag, dt * 60) + p.g * dt;
+      if (p.dragRate > 0) {
+        const damp = Math.max(0.5, 1 - p.dragRate * dt);
+        p.vx *= damp;
+        p.vy = p.vy * damp + p.g * dt;
+      } else if (p.g !== 0) {
+        p.vy += p.g * dt;
+      }
+
       const swayVx = p.swayAmp ? Math.cos(p.age * p.swayFreq + p.phase) * p.swayAmp : 0;
       p.x += (p.vx + swayVx) * dt;
       p.y += p.vy * dt;
       p.rot += p.vrot * dt;
-      p.flip += p.vflip * dt;
+      if (p.vflip) p.flip += p.vflip * dt;
 
       if (p.bounceY !== null && p.bouncesLeft > 0 && p.y >= p.bounceY && p.vy > 0) {
         p.y = p.bounceY;
         p.vy = -p.vy * 0.56;
         p.vx *= 0.72;
         p.bouncesLeft--;
-        rings.push({ x: p.x, y: p.y, maxR: p.size * 0.9, color: '#ffffff', age: 0, maxAge: 0.38 });
+        rings.push({ x: p.x, y: p.y, maxR: p.size * 0.9, color: '#ffffff', age: 0, maxAge: 0.36 });
+      }
+
+      // 画面外へ完全に抜けた落下／上昇パーティクルを早期破棄
+      const margin = p.size * 2.5 + 80;
+      if ((p.vy > 0 && p.y > vh + margin) || (p.vy < 0 && p.g === 0 && p.y < -margin)) {
+        swapRemove(particles, i);
+        continue;
       }
 
       const lifeRatio = p.age / p.maxAge;
@@ -621,70 +922,53 @@
       if (p.kind === 'star') {
         alpha = Math.sin(lifeRatio * Math.PI);
       } else if (lifeRatio > 0.75) {
-        alpha = Math.max(0, 1 - (lifeRatio - 0.75) / 0.25);
+        alpha = Math.max(0, 1 - (lifeRatio - 0.75) * 4);
       } else if (lifeRatio < 0.08) {
-        alpha = lifeRatio / 0.08;
+        alpha = lifeRatio * 12.5;
+      }
+      if (alpha <= 0.01) continue;
+
+      if (p.kind === 'rain') {
+        if (!rainBatchStarted) {
+          ctx.setTransform(sc, 0, 0, sc, 0, 0);
+          ctx.globalAlpha = 0.78;
+          ctx.strokeStyle = 'rgba(147, 197, 253, 0.85)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          rainBatchStarted = true;
+        }
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x - p.size * 0.16, p.y + p.size);
+        continue;
       }
 
-      ctx.save();
+      const sp = p.sprite;
+      if (!sp) continue;
+
+      const aspect = sp.aspect || 1;
+      const w = aspect >= 1 ? p.size : p.size * aspect;
+      const h = aspect >= 1 ? p.size / aspect : p.size;
+      const fy = p.vflip ? Math.cos(p.flip) : 1;
+
+      if (p.rot === 0 && fy === 1) {
+        ctx.setTransform(sc, 0, 0, sc, p.x * sc, p.y * sc);
+      } else {
+        const cos = Math.cos(p.rot) * sc;
+        const sin = Math.sin(p.rot) * sc;
+        ctx.setTransform(cos, sin, -sin * fy, cos * fy, p.x * sc, p.y * sc);
+      }
+
       ctx.globalAlpha = alpha;
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rot);
-
-      if (p.kind === 'image' && p.img) {
-        const aspect = p.img.naturalWidth / Math.max(1, p.img.naturalHeight);
-        const w = aspect >= 1 ? p.size : p.size * aspect;
-        const h = aspect >= 1 ? p.size / aspect : p.size;
-        if (p.vflip) ctx.scale(1, Math.cos(p.flip));
-        ctx.drawImage(p.img, -w / 2, -h / 2, w, h);
-      } else if (p.kind === 'text') {
-        ctx.font = `bold ${Math.round(p.size)}px "Segoe UI Emoji", "Yu Gothic UI", sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = 'rgba(0,0,0,0.65)';
-        ctx.lineWidth = Math.max(2, p.size * 0.08);
-        ctx.strokeText(p.text, 0, 0);
-        ctx.fillText(p.text, 0, 0);
-      } else if (p.kind === 'confetti') {
-        ctx.scale(1, Math.cos(p.flip));
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-p.size * 0.65, -p.size * 0.35, p.size * 1.3, p.size * 0.7);
-      } else if (p.kind === 'petal') {
-        ctx.scale(1, 0.55 + 0.45 * Math.cos(p.flip));
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, p.size * 0.55, p.size * 0.32, 0, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (p.kind === 'snow') {
-        ctx.fillStyle = p.color;
-        ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.arc(0, 0, p.size * 0.5, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (p.kind === 'rain') {
-        ctx.strokeStyle = p.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(-p.size * 0.16, p.size);
-        ctx.stroke();
-      } else if (p.kind === 'star') {
-        ctx.fillStyle = p.color;
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 14;
-        drawStar(ctx, p.size * 0.5);
-      } else if (p.kind === 'glow') {
-        ctx.fillStyle = p.color;
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.arc(0, 0, p.size * 0.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
+      ctx.drawImage(sp.canvas, -w * 0.5, -h * 0.5, w, h);
     }
+
+    if (rainBatchStarted) {
+      ctx.setTransform(sc, 0, 0, sc, 0, 0);
+      ctx.stroke();
+    }
+
+    ctx.setTransform(sc, 0, 0, sc, 0, 0);
+    ctx.globalAlpha = 1;
 
     if (particles.length > 0 || rings.length > 0 || ambientEmitters.length > 0) {
       requestAnimationFrame(tick);
@@ -730,9 +1014,12 @@
     particles = [];
     rings = [];
     ambientEmitters = [];
+    ctx.setTransform(canvasScale, 0, 0, canvasScale, 0, 0);
     ctx.clearRect(0, 0, vw, vh);
-    activeAudios.forEach((a) => { try { a.pause(); } catch (_) {} });
-    activeAudios.clear();
+    activeAudioNodes.forEach((n) => { try { n.stop(); } catch (_) {} });
+    activeAudioNodes.clear();
+    activeFallbackAudios.forEach((a) => { try { a.pause(); } catch (_) {} });
+    activeFallbackAudios.clear();
   }
 
   function showCaptionBanner(trigger) {
@@ -757,7 +1044,7 @@
         activeSlots = activeSlots.filter((s) => s !== h);
       };
       if (immediate) rm();
-      else { slot.classList.add('leaving'); setTimeout(rm, 340); }
+      else { slot.classList.add('leaving'); setTimeout(rm, 310); }
     };
     const h = { stopNow: () => stop(true) };
     activeSlots.push(h);
@@ -792,7 +1079,7 @@
         if (onDone) onDone();
       };
       if (immediate) removeDom();
-      else { slot.classList.add('leaving'); setTimeout(removeDom, 340); }
+      else { slot.classList.add('leaving'); setTimeout(removeDom, 310); }
     };
 
     const handle = { stopNow: () => finish(true) };
@@ -807,6 +1094,7 @@
       videoEl = v;
       v.className = 'media-el';
       v.src = trigger.media_url;
+      v.preload = 'auto';
       v.playsInline = true;
       v.autoplay = true;
       const vol = Math.max(0, Math.min(1, ((trigger.volume ?? 80) / 100) * ((mediaConfig.master_volume ?? 80) / 100)));
@@ -832,6 +1120,7 @@
     } else if (trigger.media_url) {
       const img = document.createElement('img');
       img.className = 'media-el';
+      img.decoding = 'async';
       img.src = trigger.media_url;
       img.onerror = () => finish(true);
       frame.appendChild(img);
@@ -857,16 +1146,16 @@
     if (trigger.sound_url) {
       playAudioFile(trigger.sound_url, trigger.sound_volume);
     }
-    const img = trigger.media_url && trigger.media_kind === 'Image'
+    const imgSprite = trigger.media_url && trigger.media_kind === 'Image'
       ? await loadSpriteImage(trigger.media_url)
       : null;
 
     switch (trigger.effect_type) {
-      case 'Cracker': spawnCracker(trigger, img); break;
-      case 'Drop': spawnDrop(trigger, img); break;
-      case 'Confetti': spawnConfetti(trigger, img); break;
-      case 'Throw': spawnThrow(trigger, img); break;
-      case 'Ambient': spawnAmbient(trigger, img); break;
+      case 'Cracker': spawnCracker(trigger, imgSprite); break;
+      case 'Drop': spawnDrop(trigger, imgSprite); break;
+      case 'Confetti': spawnConfetti(trigger, imgSprite); break;
+      case 'Throw': spawnThrow(trigger, imgSprite); break;
+      case 'Ambient': spawnAmbient(trigger, imgSprite); break;
       default: break;
     }
     showCaptionBanner(trigger);
@@ -895,7 +1184,6 @@
     }
 
     if (!isFixed) {
-      // WordParty パーティクル系はコメント連打でも爽快に同時発火
       playParticleEffect(trigger);
       return;
     }

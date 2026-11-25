@@ -7,7 +7,7 @@ import 'frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-/// Rust から Flutter UI へ送信するリアルタイムイベント
+/// Rust から Flutter UI・Web リモコンへ送信するリアルタイムイベント
 class AppEvent {
   final AppEventKind kind;
   final CommentItem? comment;
@@ -22,6 +22,11 @@ class AppEvent {
   final PickedCommentState? pickedComment;
   final QueueState? queueState;
   final MediaTriggerEvent? mediaTrigger;
+  final List<MediaReactionRule>? mediaRules;
+  final MediaReactionConfig? mediaConfig;
+  final List<HighlightRule>? highlightRules;
+  final OverlayConfig? overlayConfig;
+  final List<String>? userLotteryWonIds;
   final FeatureFlags? featureFlags;
   final String? noticeLevel;
   final String? noticeMessage;
@@ -40,6 +45,11 @@ class AppEvent {
     this.pickedComment,
     this.queueState,
     this.mediaTrigger,
+    this.mediaRules,
+    this.mediaConfig,
+    this.highlightRules,
+    this.overlayConfig,
+    this.userLotteryWonIds,
     this.featureFlags,
     this.noticeLevel,
     this.noticeMessage,
@@ -60,6 +70,11 @@ class AppEvent {
       pickedComment.hashCode ^
       queueState.hashCode ^
       mediaTrigger.hashCode ^
+      mediaRules.hashCode ^
+      mediaConfig.hashCode ^
+      highlightRules.hashCode ^
+      overlayConfig.hashCode ^
+      userLotteryWonIds.hashCode ^
       featureFlags.hashCode ^
       noticeLevel.hashCode ^
       noticeMessage.hashCode;
@@ -82,6 +97,11 @@ class AppEvent {
           pickedComment == other.pickedComment &&
           queueState == other.queueState &&
           mediaTrigger == other.mediaTrigger &&
+          mediaRules == other.mediaRules &&
+          mediaConfig == other.mediaConfig &&
+          highlightRules == other.highlightRules &&
+          overlayConfig == other.overlayConfig &&
+          userLotteryWonIds == other.userLotteryWonIds &&
           featureFlags == other.featureFlags &&
           noticeLevel == other.noticeLevel &&
           noticeMessage == other.noticeMessage;
@@ -102,6 +122,11 @@ enum AppEventKind {
   pickedCommentUpdated,
   queueUpdated,
   mediaTriggered,
+  mediaRulesUpdated,
+  mediaConfigUpdated,
+  highlightRulesUpdated,
+  overlayConfigUpdated,
+  userLotteryWinnersUpdated,
   featureFlagsUpdated,
   systemNotice,
 }
@@ -1667,6 +1692,27 @@ class PollState {
           totalVotes == other.totalVotes;
 }
 
+/// QR コード描画用の 2D モジュール情報
+class QrCodeMatrix {
+  final int size;
+
+  /// 行優先の size * size 個の真偽値（true = 黒ドット）
+  final List<bool> modules;
+
+  const QrCodeMatrix({required this.size, required this.modules});
+
+  @override
+  int get hashCode => size.hashCode ^ modules.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is QrCodeMatrix &&
+          runtimeType == other.runtimeType &&
+          size == other.size &&
+          modules == other.modules;
+}
+
 /// 参加型キューの設定
 class QueueConfig {
   final bool isAccepting;
@@ -1831,6 +1877,107 @@ class ReleaseNotesInfo {
           title == other.title &&
           markdownBody == other.markdownBody &&
           previousVersion == other.previousVersion;
+}
+
+/// ローカルネットワーク（LAN）接続・Web リモコン設定
+class RemoteAccessConfig {
+  /// ローカルネットワーク内の他端末からの接続を許可するか（デフォルト: OFF）
+  final bool allowLanAccess;
+
+  /// Web リモコン操作画面 (/remote および操作 API) を有効にするか（デフォルト: ON）
+  final bool remoteControlEnabled;
+
+  /// Web リモコン操作時に PIN コード認証を必須にするか（デフォルト: ON）
+  final bool requirePin;
+
+  /// 6桁等のアクセス PIN コード
+  final String pinCode;
+
+  /// QR コードに PIN を埋め込んでワンタップログインできるようにするか
+  final bool embedPinInQr;
+
+  const RemoteAccessConfig({
+    required this.allowLanAccess,
+    required this.remoteControlEnabled,
+    required this.requirePin,
+    required this.pinCode,
+    required this.embedPinInQr,
+  });
+
+  @override
+  int get hashCode =>
+      allowLanAccess.hashCode ^
+      remoteControlEnabled.hashCode ^
+      requirePin.hashCode ^
+      pinCode.hashCode ^
+      embedPinInQr.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RemoteAccessConfig &&
+          runtimeType == other.runtimeType &&
+          allowLanAccess == other.allowLanAccess &&
+          remoteControlEnabled == other.remoteControlEnabled &&
+          requirePin == other.requirePin &&
+          pinCode == other.pinCode &&
+          embedPinInQr == other.embedPinInQr;
+}
+
+/// ローカルネットワーク接続・Web リモコンの現在稼働状態
+class RemoteAccessStatus {
+  final RemoteAccessConfig config;
+  final bool serverRunning;
+  final int port;
+  final String boundAddress;
+  final List<String> localIps;
+  final String localUrl;
+  final List<String> lanUrls;
+  final String primaryRemoteUrl;
+  final String qrTargetUrl;
+  final QrCodeMatrix? qrCode;
+
+  const RemoteAccessStatus({
+    required this.config,
+    required this.serverRunning,
+    required this.port,
+    required this.boundAddress,
+    required this.localIps,
+    required this.localUrl,
+    required this.lanUrls,
+    required this.primaryRemoteUrl,
+    required this.qrTargetUrl,
+    this.qrCode,
+  });
+
+  @override
+  int get hashCode =>
+      config.hashCode ^
+      serverRunning.hashCode ^
+      port.hashCode ^
+      boundAddress.hashCode ^
+      localIps.hashCode ^
+      localUrl.hashCode ^
+      lanUrls.hashCode ^
+      primaryRemoteUrl.hashCode ^
+      qrTargetUrl.hashCode ^
+      qrCode.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RemoteAccessStatus &&
+          runtimeType == other.runtimeType &&
+          config == other.config &&
+          serverRunning == other.serverRunning &&
+          port == other.port &&
+          boundAddress == other.boundAddress &&
+          localIps == other.localIps &&
+          localUrl == other.localUrl &&
+          lanUrls == other.lanUrls &&
+          primaryRemoteUrl == other.primaryRemoteUrl &&
+          qrTargetUrl == other.qrTargetUrl &&
+          qrCode == other.qrCode;
 }
 
 /// アップデートダウンロード進捗

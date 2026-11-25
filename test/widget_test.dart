@@ -12,6 +12,7 @@ import 'package:stosup/theme/app_theme.dart';
 import 'package:stosup/widgets/feature_toggle_banner.dart';
 import 'package:stosup/widgets/markdown_notes_view.dart';
 import 'package:stosup/widgets/overlay_bg_picker.dart';
+import 'package:stosup/widgets/qr_code_view.dart';
 import 'package:stosup/widgets/system_font_picker.dart';
 import 'package:stosup/widgets/user_avatar.dart';
 
@@ -338,6 +339,8 @@ void main() {
     expect(find.text('おめでとうクラッカー'), findsOneWidget);
     expect(find.text('草シャワー落下'), findsOneWidget);
     expect(find.text('888 紙吹雪'), findsOneWidget);
+    expect(find.textContaining('WordParty オーバーレイ背景色'), findsOneWidget);
+    expect(find.text('カラー選択'), findsOneWidget);
 
     ctrl.appVersion = '0.4.0';
     await tester.pumpWidget(
@@ -351,5 +354,40 @@ void main() {
     expect(find.text('アップデートチェック'), findsOneWidget);
     expect(find.text('リリースノートを表示'), findsOneWidget);
     expect(find.text('GitHub リポジトリを開く'), findsOneWidget);
+    expect(find.text('ローカルネットワーク (LAN) 接続 ＆ Web リモコン'), findsOneWidget);
+    expect(find.text('ローカルネットワーク内の他端末からの接続を許可する'), findsOneWidget);
+
+    // LAN 公開 ON 状態（QR コード・LAN URL・ファイアウォール手順）の描画検証
+    ctrl.remoteAccessStatus = const RemoteAccessStatus(
+      config: RemoteAccessConfig(
+        allowLanAccess: true,
+        remoteControlEnabled: true,
+        requirePin: true,
+        pinCode: '123456',
+        embedPinInQr: true,
+      ),
+      serverRunning: true,
+      port: 18765,
+      boundAddress: '0.0.0.0:18765',
+      localIps: ['192.168.1.50'],
+      localUrl: 'http://127.0.0.1:18765/remote',
+      lanUrls: ['http://192.168.1.50:18765/remote'],
+      primaryRemoteUrl: 'http://192.168.1.50:18765/remote',
+      qrTargetUrl: 'http://192.168.1.50:18765/remote?pin=123456',
+      qrCode: QrCodeMatrix(
+        size: 3,
+        modules: [true, false, true, false, true, false, true, false, true],
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(body: SettingsScreen(controller: ctrl)),
+      ),
+    );
+    expect(find.text('LAN 公開中 (0.0.0.0:18765)'), findsOneWidget);
+    expect(find.text('http://192.168.1.50:18765/remote'), findsOneWidget);
+    expect(find.text('許可コマンドをコピー'), findsOneWidget);
+    expect(find.byType(QrCodeView), findsOneWidget);
   });
 }

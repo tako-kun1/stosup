@@ -5,6 +5,7 @@ import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/feature_toggle_banner.dart';
+import '../widgets/overlay_bg_picker.dart';
 
 /// WordParty 形式の特定ワード反応演出エディタ画面
 /// 固定表示・クラッカー・落下物・紙吹雪・投てき・環境演出・効果音(SE)・イベント連動に対応
@@ -22,11 +23,16 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
   late int _masterVolume;
   late int _maxConcurrent;
   late bool _allowMultipleMatch;
+  late MediaReactionConfig _lastSyncedConfig;
 
   @override
   void initState() {
     super.initState();
-    final cfg = widget.controller.mediaReactionConfig;
+    _syncConfigFromController(widget.controller.mediaReactionConfig);
+  }
+
+  void _syncConfigFromController(MediaReactionConfig cfg) {
+    _lastSyncedConfig = cfg;
     _playbackMode = cfg.playbackMode;
     _masterVolume = cfg.masterVolume;
     _maxConcurrent = cfg.maxConcurrent;
@@ -365,6 +371,9 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
   Widget build(BuildContext context) {
     final p = context.palette;
     final ctrl = widget.controller;
+    if (ctrl.mediaReactionConfig != _lastSyncedConfig) {
+      _syncConfigFromController(ctrl.mediaReactionConfig);
+    }
     final enabled = ctrl.featureFlags.mediaReactionEnabled;
     final rules = ctrl.mediaReactionRules;
     final overlayUrl = '${ctrl.overlayBaseUrl}/overlay/media';
@@ -556,6 +565,13 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                         ),
                       ],
                     ],
+                  ),
+                  const Divider(height: 18),
+                  OverlayBgPicker(
+                    title: 'WordParty オーバーレイ背景色（選択すると OBS ＆ 全端末へ即時反映）',
+                    compact: true,
+                    value: ctrl.overlayConfig.mediaBgColor,
+                    onChanged: ctrl.setMediaOverlayBgColor,
                   ),
                 ],
               ),
