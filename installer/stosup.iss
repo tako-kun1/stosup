@@ -40,6 +40,7 @@ WizardStyle=modern
 CloseApplications=yes
 CloseApplicationsFilter=stosup.exe
 RestartApplications=no
+SetupIconFile=..\windows\runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]

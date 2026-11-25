@@ -17,6 +17,7 @@ use crate::models::{CommentItem, LotteryResult, OverlayConfig, WordCounterConfig
 const COMMENTS_HTML: &str = include_str!("comments.html");
 const LOTTERY_HTML: &str = include_str!("lottery.html");
 const COUNTER_HTML: &str = include_str!("counter.html");
+const APP_ICON_ICO: &[u8] = include_bytes!("../../../windows/runner/resources/app_icon.ico");
 
 /// オーバーレイ画面へ WebSocket で送信するメッセージ
 #[derive(Debug, Clone, Serialize)]
@@ -127,6 +128,7 @@ pub async fn start_overlay_server(
 
     let app = Router::new()
         .route("/", get(index_handler))
+        .route("/favicon.ico", get(favicon_handler))
         .route("/overlay/comments", get(|| async { Html(COMMENTS_HTML) }))
         .route("/overlay/lottery", get(|| async { Html(LOTTERY_HTML) }))
         .route("/overlay/counter", get(|| async { Html(COUNTER_HTML) }))
@@ -149,9 +151,16 @@ pub async fn start_overlay_server(
     })
 }
 
+async fn favicon_handler() -> impl IntoResponse {
+    (
+        [(axum::http::header::CONTENT_TYPE, "image/x-icon")],
+        APP_ICON_ICO,
+    )
+}
+
 async fn index_handler() -> Html<&'static str> {
     Html(
-        "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><title>Stosup OBS オーバーレイ</title></head>\
+        "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><link rel='icon' href='/favicon.ico'><title>Stosup OBS オーバーレイ</title></head>\
          <body style='font-family:sans-serif;background:#0f172a;color:#f8fafc;padding:32px'>\
          <h1>Stosup OBS オーバーレイサーバー稼働中</h1>\
          <ul>\
