@@ -370,6 +370,22 @@ pub async fn reset_comment_lottery(clear_winners_only: bool) -> Result<CommentLo
     Ok(state)
 }
 
+// ==================== 各機能の有効/無効（ON/OFF） ====================
+
+pub async fn get_feature_flags() -> Result<FeatureFlags, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    let flags = runtime.feature_flags.read().await.clone();
+    Ok(flags)
+}
+
+pub async fn save_feature_flags(flags: FeatureFlags) -> Result<FeatureFlags, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .update_feature_flags(flags)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 // ==================== OBS オーバーレイ ====================
 
 pub async fn get_overlay_config() -> Result<OverlayConfig, String> {

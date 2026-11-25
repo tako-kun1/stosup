@@ -11,9 +11,9 @@ use crate::db::Database;
 use crate::engine::{counter, highlight, lottery};
 use crate::models::{
     AppEvent, CommentItem, CommentLotteryConfig, CommentLotteryState, ConnectionMode,
-    ConnectionStateDto, ConnectionStatus, HighlightRule, LotteryResult, OverlayConfig,
-    PlatformKind, RawIncomingComment, ReleaseNotesInfo, UserLotteryRequest, UserRecord,
-    WordCounterConfig,
+    ConnectionStateDto, ConnectionStatus, FeatureFlags, HighlightRule, LotteryResult,
+    OverlayConfig, PlatformKind, RawIncomingComment, ReleaseNotesInfo, UserLotteryRequest,
+    UserRecord, WordCounterConfig,
 };
 use crate::overlay::{start_overlay_server, OverlayServerHandle, OverlaySharedState};
 use crate::platform::{demo, extract_youtube_video_id, youtube, ProviderConnection};
@@ -25,6 +25,7 @@ pub struct AppRuntime {
     pub db: Arc<Mutex<Database>>,
     pub overlay_state: Arc<OverlaySharedState>,
     pub overlay_server: Mutex<Option<OverlayServerHandle>>,
+    pub feature_flags: RwLock<FeatureFlags>,
     pub connection_state: RwLock<ConnectionStateDto>,
     pub active_provider: Mutex<Option<ProviderConnection>>,
     pub recent_comments: RwLock<Vec<CommentItem>>,
@@ -59,21 +60,28 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
     let db_path = default_db_path();
     let db = Database::open(&db_path)?;
     let overlay_config = db.get_overlay_config()?;
-    let counters = db.list_word_counters()?;
+    let feature_flags = db.get_feature_flags()?;
+    let counters = if feature_flags.word_counter_enabled {
+        db.list_word_counters()?
+    } else {
+        Vec::new()
+    };
 
     let db_arc = Arc::new(Mutex::new(db));
     let overlay_state = Arc::new(OverlaySharedState::new(overlay_config.clone(), counters));
     let (event_tx, _) = broadcast::channel::<AppEvent>(512);
     let (comment_tx, comment_rx) = mpsc::unbounded_channel::<RawIncomingComment>();
 
-    // オーバーレイローカルサーバー起動（指定ポートが使用中なら自動フォールバック）
-    let server_handle = match start_overlay_server(overlay_config.port, Arc::clone(&overlay_state))
-        .await
-    {
-        Ok(h) => Some(h),
-        Err(_) => start_overlay_server(0, Arc::clone(&overlay_state))
-            .await
-            .ok(),
+    // OBS オーバーレイ機能が有効な場合のみローカルサーバーを起動
+    let server_handle = if feature_flags.obs_overlay_enabled {
+        match start_overlay_server(overlay_config.port, Arc::clone(&overlay_state)).await {
+            Ok(h) => Some(h),
+            Err(_) => start_overlay_server(0, Arc::clone(&overlay_state))
+                .await
+                .ok(),
+        }
+    } else {
+        None
     };
 
     if let Some(ref handle) = server_handle {
@@ -90,6 +98,7 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
         db: db_arc,
         overlay_state,
         overlay_server: Mutex::new(server_handle),
+        feature_flags: RwLock::new(feature_flags),
         connection_state: RwLock::new(ConnectionStateDto::default()),
         active_provider: Mutex::new(None),
         recent_comments: RwLock::new(Vec::new()),
@@ -127,19 +136,32 @@ impl AppRuntime {
         let _ = self.event_tx.send(ev);
     }
 
-    /// 受信した生コメントを DB記録 → ルール評価 → カウント → コメント抽選収集 → UI & OBS配信 のパイプラインで処理
+    /// 受信した生コメントを各機能の ON/OFF 設定に応じて処理する
     async fn handle_incoming_comment(&self, raw: RawIncomingComment) -> Result<()> {
         let session_id = self.connection_state.read().await.session_id.clone();
         if session_id.is_empty() {
             return Ok(());
         }
 
+        let flags = self.feature_flags.read().await.clone();
+
         let (is_banned, rules, counters_changed, updated_counters) = {
             let db = self.db.lock().await;
-            let is_banned = db.record_user_comment(&session_id, &raw)?;
-            let rules = db.list_highlight_rules()?;
-            let counters_changed =
-                counter::process_counters_for_comment(&db, &raw.user_id, is_banned, &raw.message)?;
+            let is_banned = if flags.user_tracking_enabled {
+                db.record_user_comment(&session_id, &raw)?
+            } else {
+                db.is_user_banned(&raw.user_id)?
+            };
+            let rules = if flags.word_highlight_enabled {
+                db.list_highlight_rules()?
+            } else {
+                Vec::new()
+            };
+            let counters_changed = if flags.word_counter_enabled {
+                counter::process_counters_for_comment(&db, &raw.user_id, is_banned, &raw.message)?
+            } else {
+                false
+            };
             let updated_counters = if counters_changed {
                 Some(db.list_word_counters()?)
             } else {
@@ -148,8 +170,12 @@ impl AppRuntime {
             (is_banned, rules, counters_changed, updated_counters)
         };
 
-        // 特定ワード反応ルールを評価（吹き出し色決定）
-        let matched_rule = highlight::evaluate_highlight(&raw.message, &rules);
+        // 特定ワード反応ルールを評価（機能が有効な場合のみ吹き出し色を適用）
+        let matched_rule = if flags.word_highlight_enabled {
+            highlight::evaluate_highlight(&raw.message, &rules)
+        } else {
+            None
+        };
 
         let item = CommentItem {
             id: raw.id,
@@ -170,34 +196,43 @@ impl AppRuntime {
             bubble_border_color: matched_rule.map(|r| r.border_color.clone()),
         };
 
-        // 直近コメントバッファ保持（最大300件）
-        {
-            let mut list = self.recent_comments.write().await;
-            list.push(item.clone());
-            if list.len() > 300 {
-                let over = list.len() - 300;
-                list.drain(0..over);
+        // コメント表示機能が有効な場合のみ UI ＆ OBS へ反映
+        if flags.comment_display_enabled {
+            {
+                let mut list = self.recent_comments.write().await;
+                list.push(item.clone());
+                if list.len() > 300 {
+                    let over = list.len() - 300;
+                    list.drain(0..over);
+                }
+            }
+            self.emit(AppEvent::comment_received(item.clone()));
+            if flags.obs_overlay_enabled {
+                self.overlay_state.push_comment(item.clone()).await;
             }
         }
 
-        // コメント抽選の受付中なら自動収集
-        let lottery_updated = {
+        // コメント抽選機能が有効かつ受付中の場合のみ自動収集
+        let lottery_updated = if flags.comment_lottery_enabled {
             let mut cl = self.comment_lottery.lock().await;
             if lottery::try_collect_comment_entry(&mut cl, &item) {
                 Some(cl.clone())
             } else {
                 None
             }
+        } else {
+            None
         };
 
-        // UI & OBS オーバーレイへリアルタイム配信
-        self.emit(AppEvent::comment_received(item.clone()));
-        self.overlay_state.push_comment(item).await;
-        self.emit(AppEvent::users_updated());
+        if flags.user_tracking_enabled {
+            self.emit(AppEvent::users_updated());
+        }
 
         if counters_changed {
             if let Some(counters) = updated_counters {
-                self.overlay_state.update_counters(counters.clone()).await;
+                if flags.obs_overlay_enabled {
+                    self.overlay_state.update_counters(counters.clone()).await;
+                }
                 self.emit(AppEvent::counters_updated(counters));
             }
         }
@@ -207,6 +242,64 @@ impl AppRuntime {
         }
 
         Ok(())
+    }
+
+    /// 各機能の ON/OFF 設定を更新・永続化し、OBS サーバー起動停止や受付停止を即時反映する
+    pub async fn update_feature_flags(&self, new_flags: FeatureFlags) -> Result<FeatureFlags> {
+        {
+            let db = self.db.lock().await;
+            db.set_feature_flags(&new_flags)?;
+        }
+        *self.feature_flags.write().await = new_flags.clone();
+
+        // OBS オーバーレイサーバーの起動 / 停止を即時反映
+        if new_flags.obs_overlay_enabled {
+            let mut srv_guard = self.overlay_server.lock().await;
+            if srv_guard.is_none() {
+                let mut cfg = self.overlay_state.config.read().await.clone();
+                let handle = match start_overlay_server(cfg.port, Arc::clone(&self.overlay_state)).await {
+                    Ok(h) => h,
+                    Err(_) => start_overlay_server(0, Arc::clone(&self.overlay_state)).await?,
+                };
+                if handle.port != cfg.port {
+                    cfg.port = handle.port;
+                    self.overlay_state.update_config(cfg.clone()).await;
+                    let db = self.db.lock().await;
+                    let _ = db.set_overlay_config(&cfg);
+                }
+                *srv_guard = Some(handle);
+            }
+        } else {
+            let mut srv_guard = self.overlay_server.lock().await;
+            if let Some(ref mut old) = *srv_guard {
+                old.stop();
+            }
+            *srv_guard = None;
+        }
+
+        // ワードカウント OFF 時は OBS オーバーレイ側を非表示、ON 復帰時は最新カウントを再同期
+        if new_flags.word_counter_enabled {
+            if let Ok(list) = self.list_word_counters().await {
+                self.overlay_state.update_counters(list).await;
+            }
+        } else {
+            self.overlay_state.update_counters(Vec::new()).await;
+        }
+
+        // コメント抽選を OFF にしたら進行中の受付も停止
+        if !new_flags.comment_lottery_enabled {
+            let mut cl = self.comment_lottery.lock().await;
+            if cl.is_accepting {
+                cl.is_accepting = false;
+                cl.ended_at_ms = Some(Utc::now().timestamp_millis());
+                let updated = cl.clone();
+                drop(cl);
+                self.emit(AppEvent::comment_lottery_updated(updated));
+            }
+        }
+
+        self.emit(AppEvent::feature_flags_updated(new_flags.clone()));
+        Ok(new_flags)
     }
 
     pub async fn disconnect_current(&self) {
@@ -388,6 +481,7 @@ impl AppRuntime {
     }
 
     pub async fn save_overlay_config_and_restart(&self, cfg: OverlayConfig) -> Result<OverlayConfig> {
+        let obs_enabled = self.feature_flags.read().await.obs_overlay_enabled;
         let current_port = self
             .overlay_server
             .lock()
@@ -397,7 +491,7 @@ impl AppRuntime {
             .unwrap_or(0);
 
         let mut final_cfg = cfg.clone();
-        if cfg.port != current_port {
+        if obs_enabled && cfg.port != current_port {
             let mut srv_guard = self.overlay_server.lock().await;
             if let Some(ref mut old) = *srv_guard {
                 old.stop();
@@ -445,6 +539,12 @@ impl AppRuntime {
     }
 
     pub async fn draw_user_lottery(&self, req: UserLotteryRequest) -> Result<LotteryResult> {
+        let flags = self.feature_flags.read().await.clone();
+        if !flags.user_lottery_enabled {
+            return Err(anyhow!(
+                "ユーザー抽選機能は現在オフになっています。機能を有効にしてから実行してください。"
+            ));
+        }
         let users = self.list_users().await?;
         let result = {
             let mut won = self.user_lottery_won_ids.lock().await;
@@ -454,12 +554,19 @@ impl AppRuntime {
             let db = self.db.lock().await;
             db.save_lottery_result(&result)?;
         }
-        self.overlay_state.show_lottery(result.clone()).await;
+        if flags.obs_overlay_enabled {
+            self.overlay_state.show_lottery(result.clone()).await;
+        }
         self.emit(AppEvent::lottery_drawn(result.clone()));
         Ok(result)
     }
 
     pub async fn start_comment_lottery(&self, config: CommentLotteryConfig) -> Result<CommentLotteryState> {
+        if !self.feature_flags.read().await.comment_lottery_enabled {
+            return Err(anyhow!(
+                "コメント抽選機能は現在オフになっています。機能を有効にしてから開始してください。"
+            ));
+        }
         let mut post_status = None;
         if config.post_to_chat && !config.start_message.trim().is_empty() {
             match self.post_chat_message(&config.start_message).await {
@@ -515,6 +622,12 @@ impl AppRuntime {
     }
 
     pub async fn draw_comment_lottery(&self) -> Result<LotteryResult> {
+        let flags = self.feature_flags.read().await.clone();
+        if !flags.comment_lottery_enabled {
+            return Err(anyhow!(
+                "コメント抽選機能は現在オフになっています。機能を有効にしてから実行してください。"
+            ));
+        }
         let banned_ids = {
             let db = self.db.lock().await;
             db.get_banned_user_ids()?
@@ -531,7 +644,9 @@ impl AppRuntime {
             db.save_lottery_result(&result)?;
         }
 
-        self.overlay_state.show_lottery(result.clone()).await;
+        if flags.obs_overlay_enabled {
+            self.overlay_state.show_lottery(result.clone()).await;
+        }
         self.emit(AppEvent::comment_lottery_updated(updated_state));
         self.emit(AppEvent::lottery_drawn(result.clone()));
         Ok(result)

@@ -155,6 +155,12 @@ Future<CommentLotteryState> resetCommentLottery({
   clearWinnersOnly: clearWinnersOnly,
 );
 
+Future<FeatureFlags> getFeatureFlags() =>
+    RustLib.instance.api.crateApiGetFeatureFlags();
+
+Future<FeatureFlags> saveFeatureFlags({required FeatureFlags flags}) =>
+    RustLib.instance.api.crateApiSaveFeatureFlags(flags: flags);
+
 Future<OverlayConfig> getOverlayConfig() =>
     RustLib.instance.api.crateApiGetOverlayConfig();
 

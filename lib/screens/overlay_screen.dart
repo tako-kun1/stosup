@@ -5,6 +5,7 @@ import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/color_picker_row.dart';
+import '../widgets/feature_toggle_banner.dart';
 
 /// OBS Studio ブラウザソースオーバーレイの URL 管理 ＆ 外観設定画面
 class OverlayScreen extends StatefulWidget {
@@ -70,6 +71,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final obsEnabled = widget.controller.featureFlags.obsOverlayEnabled;
     final base = widget.controller.overlayBaseUrl;
     final commentsUrl = '$base/overlay/comments';
     final lotteryUrl = '$base/overlay/lottery';
@@ -80,16 +82,46 @@ class _OverlayScreenState extends State<OverlayScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'OBS Studio オーバーレイ（ブラウザソース）',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '以下の URL を OBS Studio の「ブラウザ」ソースに貼り付けるだけで、背景透過のリアルタイムオーバーレイを表示できます。',
-            style: TextStyle(color: Colors.white60),
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'OBS Studio オーバーレイ（ブラウザソース）',
+                      style:
+                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      '以下の URL を OBS Studio の「ブラウザ」ソースに貼り付けるだけで、背景透過のリアルタイムオーバーレイを表示できます。',
+                      style: TextStyle(color: Colors.white60),
+                    ),
+                  ],
+                ),
+              ),
+              FeatureToggleSwitch(
+                label: 'OBS サーバー',
+                enabled: obsEnabled,
+                onChanged: (v) => widget.controller.setFeatureEnabled(
+                  obsOverlay: v,
+                  featureLabel: 'OBS オーバーレイサーバー',
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 18),
+          if (!obsEnabled)
+            FeatureDisabledBanner(
+              featureName: 'OBS オーバーレイサーバー',
+              description:
+                  'ローカル HTTP/WebSocket サーバーを停止しポートを解放しています。OBS で表示する際はオンにしてください。',
+              onEnable: () => widget.controller.setFeatureEnabled(
+                obsOverlay: true,
+                featureLabel: 'OBS オーバーレイサーバー',
+              ),
+            ),
 
           // URL 一覧カード
           _OverlayUrlCard(
@@ -99,7 +131,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
             description: '推奨サイズ: 幅 480 × 高さ 720。特定ワード反応ルールの吹き出し色がそのまま反映されます。',
             url: commentsUrl,
             onCopy: () => _copy(commentsUrl, 'コメント表示'),
-            onOpen: () => widget.controller.openUrl(commentsUrl),
+            onOpen: obsEnabled ? () => widget.controller.openUrl(commentsUrl) : null,
           ),
           const SizedBox(height: 12),
           _OverlayUrlCard(
@@ -109,7 +141,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
             description: '推奨サイズ: 幅 960 × 高さ 540。ユーザー抽選・コメント抽選の当選者のアイコンと名前を大きく表示します。',
             url: lotteryUrl,
             onCopy: () => _copy(lotteryUrl, '抽選結果表示'),
-            onOpen: () => widget.controller.openUrl(lotteryUrl),
+            onOpen: obsEnabled ? () => widget.controller.openUrl(lotteryUrl) : null,
           ),
           const SizedBox(height: 12),
           _OverlayUrlCard(
@@ -119,7 +151,7 @@ class _OverlayScreenState extends State<OverlayScreen> {
             description: '推奨サイズ: 幅 600 × 高さ 240。有効なすべてのカウンターをリアルタイム表示します（単体URLはカウンター画面からコピー可能）。',
             url: counterUrl,
             onCopy: () => _copy(counterUrl, 'ワードカウンター'),
-            onOpen: () => widget.controller.openUrl(counterUrl),
+            onOpen: obsEnabled ? () => widget.controller.openUrl(counterUrl) : null,
           ),
           const SizedBox(height: 20),
 
@@ -260,7 +292,7 @@ class _OverlayUrlCard extends StatelessWidget {
   final String description;
   final String url;
   final VoidCallback onCopy;
-  final VoidCallback onOpen;
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {

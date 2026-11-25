@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
+import '../widgets/feature_toggle_banner.dart';
 import '../widgets/user_avatar.dart';
 
 /// コメント表示 ＆ 配信接続画面
@@ -271,6 +272,15 @@ class _CommentsScreenState extends State<CommentsScreen> {
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 15),
                           ),
+                          const SizedBox(width: 12),
+                          FeatureToggleSwitch(
+                            label: 'コメント表示',
+                            enabled: ctrl.featureFlags.commentDisplayEnabled,
+                            onChanged: (v) => ctrl.setFeatureEnabled(
+                              commentDisplay: v,
+                              featureLabel: 'コメント表示機能',
+                            ),
+                          ),
                           const Spacer(),
                           Row(
                             children: [
@@ -295,6 +305,19 @@ class _CommentsScreenState extends State<CommentsScreen> {
                       ),
                     ),
                     const Divider(height: 1),
+                    if (!ctrl.featureFlags.commentDisplayEnabled)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                        child: FeatureDisabledBanner(
+                          featureName: 'コメント表示機能',
+                          description:
+                              '新規コメントのアプリ内表示および OBS コメントオーバーレイ配信を一時停止しています。',
+                          onEnable: () => ctrl.setFeatureEnabled(
+                            commentDisplay: true,
+                            featureLabel: 'コメント表示機能',
+                          ),
+                        ),
+                      ),
                     Expanded(
                       child: ctrl.comments.isEmpty
                           ? const Center(
@@ -346,10 +369,22 @@ class _CommentsScreenState extends State<CommentsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(14),
                   children: [
-                    const Text(
-                      '稼働中ワードカウンター',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    Row(
+                      children: [
+                        const Text(
+                          '稼働中ワードカウンター',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        if (!ctrl.featureFlags.wordCounterEnabled) ...[
+                          const SizedBox(width: 8),
+                          const Text(
+                            '(機能OFF)',
+                            style: TextStyle(
+                                fontSize: 11.5, color: AppTheme.accentAmber),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 8),
                     if (ctrl.wordCounters.where((e) => e.enabled).isEmpty)

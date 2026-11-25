@@ -15,6 +15,7 @@ class AppEvent {
   final List<WordCounterConfig>? counters;
   final CommentLotteryState? commentLottery;
   final LotteryResult? lotteryResult;
+  final FeatureFlags? featureFlags;
   final String? noticeLevel;
   final String? noticeMessage;
 
@@ -25,6 +26,7 @@ class AppEvent {
     this.counters,
     this.commentLottery,
     this.lotteryResult,
+    this.featureFlags,
     this.noticeLevel,
     this.noticeMessage,
   });
@@ -37,6 +39,7 @@ class AppEvent {
       counters.hashCode ^
       commentLottery.hashCode ^
       lotteryResult.hashCode ^
+      featureFlags.hashCode ^
       noticeLevel.hashCode ^
       noticeMessage.hashCode;
 
@@ -51,6 +54,7 @@ class AppEvent {
           counters == other.counters &&
           commentLottery == other.commentLottery &&
           lotteryResult == other.lotteryResult &&
+          featureFlags == other.featureFlags &&
           noticeLevel == other.noticeLevel &&
           noticeMessage == other.noticeMessage;
 }
@@ -63,6 +67,7 @@ enum AppEventKind {
   usersUpdated,
   commentLotteryUpdated,
   lotteryDrawn,
+  featureFlagsUpdated,
   systemNotice,
 }
 
@@ -346,6 +351,69 @@ class ConnectionStateDto {
 }
 
 enum ConnectionStatus { disconnected, connecting, connected, error }
+
+/// 各機能の有効 / 無効（ON / OFF）切り替え設定
+class FeatureFlags {
+  /// コメント表示機能（アプリ内・OBSコメント表示）
+  final bool commentDisplayEnabled;
+
+  /// 特定ワード反応（吹き出し背景色の変更）
+  final bool wordHighlightEnabled;
+
+  /// 特定ワードカウント機能
+  final bool wordCounterEnabled;
+
+  /// ユーザー抽選システム
+  final bool userLotteryEnabled;
+
+  /// コメント抽選システム
+  final bool commentLotteryEnabled;
+
+  /// 参加ユーザーリスト自動記録（視聴回数・コメント回数集計）
+  final bool userTrackingEnabled;
+
+  /// OBS Studio オーバーレイローカルサーバー
+  final bool obsOverlayEnabled;
+
+  /// 起動時の GitHub 自動アップデート確認
+  final bool autoUpdateCheckEnabled;
+
+  const FeatureFlags({
+    required this.commentDisplayEnabled,
+    required this.wordHighlightEnabled,
+    required this.wordCounterEnabled,
+    required this.userLotteryEnabled,
+    required this.commentLotteryEnabled,
+    required this.userTrackingEnabled,
+    required this.obsOverlayEnabled,
+    required this.autoUpdateCheckEnabled,
+  });
+
+  @override
+  int get hashCode =>
+      commentDisplayEnabled.hashCode ^
+      wordHighlightEnabled.hashCode ^
+      wordCounterEnabled.hashCode ^
+      userLotteryEnabled.hashCode ^
+      commentLotteryEnabled.hashCode ^
+      userTrackingEnabled.hashCode ^
+      obsOverlayEnabled.hashCode ^
+      autoUpdateCheckEnabled.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FeatureFlags &&
+          runtimeType == other.runtimeType &&
+          commentDisplayEnabled == other.commentDisplayEnabled &&
+          wordHighlightEnabled == other.wordHighlightEnabled &&
+          wordCounterEnabled == other.wordCounterEnabled &&
+          userLotteryEnabled == other.userLotteryEnabled &&
+          commentLotteryEnabled == other.commentLotteryEnabled &&
+          userTrackingEnabled == other.userTrackingEnabled &&
+          obsOverlayEnabled == other.obsOverlayEnabled &&
+          autoUpdateCheckEnabled == other.autoUpdateCheckEnabled;
+}
 
 /// 特定ワード反応による吹き出し色変更ルール
 class HighlightRule {

@@ -362,6 +362,54 @@ pub struct RawIncomingComment {
     pub is_member: bool,
 }
 
+fn default_true() -> bool {
+    true
+}
+
+/// 各機能の有効 / 無効（ON / OFF）切り替え設定
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeatureFlags {
+    /// コメント表示機能（アプリ内・OBSコメント表示）
+    #[serde(default = "default_true")]
+    pub comment_display_enabled: bool,
+    /// 特定ワード反応（吹き出し背景色の変更）
+    #[serde(default = "default_true")]
+    pub word_highlight_enabled: bool,
+    /// 特定ワードカウント機能
+    #[serde(default = "default_true")]
+    pub word_counter_enabled: bool,
+    /// ユーザー抽選システム
+    #[serde(default = "default_true")]
+    pub user_lottery_enabled: bool,
+    /// コメント抽選システム
+    #[serde(default = "default_true")]
+    pub comment_lottery_enabled: bool,
+    /// 参加ユーザーリスト自動記録（視聴回数・コメント回数集計）
+    #[serde(default = "default_true")]
+    pub user_tracking_enabled: bool,
+    /// OBS Studio オーバーレイローカルサーバー
+    #[serde(default = "default_true")]
+    pub obs_overlay_enabled: bool,
+    /// 起動時の GitHub 自動アップデート確認
+    #[serde(default = "default_true")]
+    pub auto_update_check_enabled: bool,
+}
+
+impl Default for FeatureFlags {
+    fn default() -> Self {
+        Self {
+            comment_display_enabled: true,
+            word_highlight_enabled: true,
+            word_counter_enabled: true,
+            user_lottery_enabled: true,
+            comment_lottery_enabled: true,
+            user_tracking_enabled: true,
+            obs_overlay_enabled: true,
+            auto_update_check_enabled: true,
+        }
+    }
+}
+
 /// リアルタイムイベント種別
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AppEventKind {
@@ -371,6 +419,7 @@ pub enum AppEventKind {
     UsersUpdated,
     CommentLotteryUpdated,
     LotteryDrawn,
+    FeatureFlagsUpdated,
     SystemNotice,
 }
 
@@ -383,6 +432,7 @@ pub struct AppEvent {
     pub counters: Option<Vec<WordCounterConfig>>,
     pub comment_lottery: Option<CommentLotteryState>,
     pub lottery_result: Option<LotteryResult>,
+    pub feature_flags: Option<FeatureFlags>,
     pub notice_level: Option<String>,
     pub notice_message: Option<String>,
 }
@@ -396,6 +446,7 @@ impl AppEvent {
             counters: None,
             comment_lottery: None,
             lottery_result: None,
+            feature_flags: None,
             notice_level: None,
             notice_message: None,
         }
@@ -409,6 +460,7 @@ impl AppEvent {
             counters: None,
             comment_lottery: None,
             lottery_result: None,
+            feature_flags: None,
             notice_level: None,
             notice_message: None,
         }
@@ -422,6 +474,7 @@ impl AppEvent {
             counters: Some(counters),
             comment_lottery: None,
             lottery_result: None,
+            feature_flags: None,
             notice_level: None,
             notice_message: None,
         }
@@ -435,6 +488,7 @@ impl AppEvent {
             counters: None,
             comment_lottery: None,
             lottery_result: None,
+            feature_flags: None,
             notice_level: None,
             notice_message: None,
         }
@@ -448,6 +502,7 @@ impl AppEvent {
             counters: None,
             comment_lottery: Some(state),
             lottery_result: None,
+            feature_flags: None,
             notice_level: None,
             notice_message: None,
         }
@@ -461,6 +516,21 @@ impl AppEvent {
             counters: None,
             comment_lottery: None,
             lottery_result: Some(result),
+            feature_flags: None,
+            notice_level: None,
+            notice_message: None,
+        }
+    }
+
+    pub fn feature_flags_updated(flags: FeatureFlags) -> Self {
+        Self {
+            kind: AppEventKind::FeatureFlagsUpdated,
+            comment: None,
+            connection: None,
+            counters: None,
+            comment_lottery: None,
+            lottery_result: None,
+            feature_flags: Some(flags),
             notice_level: None,
             notice_message: None,
         }
@@ -474,6 +544,7 @@ impl AppEvent {
             counters: None,
             comment_lottery: None,
             lottery_result: None,
+            feature_flags: None,
             notice_level: Some(level.into()),
             notice_message: Some(message.into()),
         }

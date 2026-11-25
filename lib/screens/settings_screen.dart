@@ -64,6 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final ctrl = widget.controller;
     final oauth = ctrl.oauthStatus;
+    final flags = ctrl.featureFlags;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -71,8 +72,140 @@ class _SettingsScreenState extends State<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '設定・連携・アップデート',
+            '設定・機能ON/OFF・アップデート',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+
+          // 各機能の ON/OFF 一括管理カード
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.tune,
+                          color: AppTheme.accentSky, size: 24),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          '各機能の有効 / 無効（ON / OFF 管理）',
+                          style: TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => ctrl.setAllFeaturesEnabled(true),
+                        icon: const Icon(Icons.check_circle_outline, size: 16),
+                        label: const Text('すべて ON'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => ctrl.setAllFeaturesEnabled(false),
+                        icon: const Icon(Icons.power_off_outlined, size: 16),
+                        label: const Text('すべて OFF'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    '配信スタイルに合わせて使用する機能だけをオンにできます。設定は自動で保存され、各機能画面の右上スイッチとも連動します。',
+                    style: TextStyle(fontSize: 13, color: Colors.white60),
+                  ),
+                  const SizedBox(height: 10),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.chat_bubble_outline),
+                    title: const Text('コメント表示機能'),
+                    subtitle: const Text('アプリ内コメント一覧および OBS コメント表示への反映'),
+                    value: flags.commentDisplayEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      commentDisplay: v,
+                      featureLabel: 'コメント表示機能',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.palette_outlined),
+                    title: const Text('特定ワード反応（吹き出し色変更）'),
+                    subtitle: const Text('指定ワードを含むコメントの吹き出し背景色・文字色の変更'),
+                    value: flags.wordHighlightEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      wordHighlight: v,
+                      featureLabel: '特定ワード反応（吹き出し色変更）',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.pin_outlined),
+                    title: const Text('特定ワードカウント機能'),
+                    subtitle: const Text('アカウント毎上限あり / 上限なしの自動ワードカウント'),
+                    value: flags.wordCounterEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      wordCounter: v,
+                      featureLabel: '特定ワードカウント機能',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.people_alt_outlined),
+                    title: const Text('ユーザー抽選システム'),
+                    subtitle: const Text('参加ユーザーリストからの抽選（1度のみ / 複数回）'),
+                    value: flags.userLotteryEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      userLottery: v,
+                      featureLabel: 'ユーザー抽選システム',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.mark_chat_unread_outlined),
+                    title: const Text('コメント抽選システム'),
+                    subtitle: const Text('開始〜終了コメント間の特定ワード収集と抽選'),
+                    value: flags.commentLotteryEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      commentLottery: v,
+                      featureLabel: 'コメント抽選システム',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.people_outline),
+                    title: const Text('参加ユーザーリスト自動記録'),
+                    subtitle: const Text('1配信1コメントで視聴回数+1・累計コメント数の自動記録'),
+                    value: flags.userTrackingEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      userTracking: v,
+                      featureLabel: 'ユーザーリスト自動記録',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.layers_outlined),
+                    title: const Text('OBS オーバーレイローカルサーバー'),
+                    subtitle: const Text('OBS ブラウザソース用の HTTP / WebSocket サーバー稼働'),
+                    value: flags.obsOverlayEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      obsOverlay: v,
+                      featureLabel: 'OBS オーバーレイサーバー',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.system_update_alt),
+                    title: const Text('起動時の自動アップデート確認'),
+                    subtitle: const Text('アプリ起動時に GitHub Releases の最新版を自動チェック'),
+                    value: flags.autoUpdateCheckEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      autoUpdateCheck: v,
+                      featureLabel: '起動時の自動アップデート確認',
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 16),
 

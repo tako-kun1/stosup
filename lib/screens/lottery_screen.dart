@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
+import '../widgets/feature_toggle_banner.dart';
 import '../widgets/user_avatar.dart';
 
 /// ユーザー抽選システム ＆ コメント抽選システム画面
@@ -131,6 +132,7 @@ class _LotteryScreenState extends State<LotteryScreen>
   }
 
   Widget _buildUserLotteryTab(StosupController ctrl) {
+    final featureEnabled = ctrl.featureFlags.userLotteryEnabled;
     final wonSet = ctrl.userLotteryWonIds.toSet();
     final eligibleUsers = ctrl.users
         .where((u) => !u.isBanned)
@@ -144,22 +146,48 @@ class _LotteryScreenState extends State<LotteryScreen>
 
     return Padding(
       padding: const EdgeInsets.all(20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          // 左: 条件設定カード
-          SizedBox(
-            width: 390,
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('抽選設定',
-                          style: TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.bold)),
+          if (!featureEnabled)
+            FeatureDisabledBanner(
+              featureName: 'ユーザー抽選システム',
+              description: 'ユーザー抽選の実行を無効化しています。利用するときにオンへ切り替えてください。',
+              onEnable: () => ctrl.setFeatureEnabled(
+                userLottery: true,
+                featureLabel: 'ユーザー抽選システム',
+              ),
+            ),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 左: 条件設定カード
+                SizedBox(
+                  width: 390,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text('抽選設定',
+                                    style: TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold)),
+                                const Spacer(),
+                                FeatureToggleSwitch(
+                                  label: 'ユーザー抽選',
+                                  enabled: featureEnabled,
+                                  onChanged: (v) => ctrl.setFeatureEnabled(
+                                    userLottery: v,
+                                    featureLabel: 'ユーザー抽選システム',
+                                  ),
+                                ),
+                              ],
+                            ),
                       const SizedBox(height: 12),
                       const Text('重複当選モード',
                           style: TextStyle(fontWeight: FontWeight.w600)),
@@ -277,7 +305,7 @@ class _LotteryScreenState extends State<LotteryScreen>
                         width: double.infinity,
                         height: 48,
                         child: FilledButton.icon(
-                          onPressed: eligibleUsers.isEmpty
+                          onPressed: (!featureEnabled || eligibleUsers.isEmpty)
                               ? null
                               : () => ctrl.drawUserLottery(UserLotteryRequest(
                                     currentSessionOnly: _currentSessionOnly,
@@ -325,6 +353,9 @@ class _LotteryScreenState extends State<LotteryScreen>
               ],
             ),
           ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -332,56 +363,84 @@ class _LotteryScreenState extends State<LotteryScreen>
 
   Widget _buildCommentLotteryTab(StosupController ctrl) {
     final cl = ctrl.commentLottery;
+    final featureEnabled = ctrl.featureFlags.commentLotteryEnabled;
 
     return Padding(
       padding: const EdgeInsets.all(20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          // 左: コメント抽選設定 ＆ 操作パネル
-          SizedBox(
-            width: 410,
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Text('コメント抽選コントロール',
-                              style: TextStyle(
-                                  fontSize: 17, fontWeight: FontWeight.bold)),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: (cl.isAccepting
-                                      ? AppTheme.accentEmerald
-                                      : Colors.white24)
-                                  .withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: cl.isAccepting
-                                    ? AppTheme.accentEmerald
-                                    : Colors.white38,
+          if (!featureEnabled)
+            FeatureDisabledBanner(
+              featureName: 'コメント抽選システム',
+              description:
+                  'コメント抽選の受付開始・応募コメント自動収集・抽選実行を無効化しています。',
+              onEnable: () => ctrl.setFeatureEnabled(
+                commentLottery: true,
+                featureLabel: 'コメント抽選システム',
+              ),
+            ),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 左: コメント抽選設定 ＆ 操作パネル
+                SizedBox(
+                  width: 410,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Expanded(
+                                  child: Text('コメント抽選',
+                                      style: TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.bold)),
+                                ),
+                                FeatureToggleSwitch(
+                                  label: 'コメント抽選',
+                                  enabled: featureEnabled,
+                                  onChanged: (v) => ctrl.setFeatureEnabled(
+                                    commentLottery: v,
+                                    featureLabel: 'コメント抽選システム',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: (cl.isAccepting
+                                          ? AppTheme.accentEmerald
+                                          : Colors.white24)
+                                      .withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: cl.isAccepting
+                                        ? AppTheme.accentEmerald
+                                        : Colors.white38,
+                                  ),
+                                ),
+                                child: Text(
+                                  cl.isAccepting ? '応募受付中' : '待機 / 終了',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: cl.isAccepting
+                                        ? AppTheme.accentEmerald
+                                        : Colors.white70,
+                                  ),
+                                ),
                               ),
                             ),
-                            child: Text(
-                              cl.isAccepting ? '応募受付中' : '待機 / 終了',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: cl.isAccepting
-                                    ? AppTheme.accentEmerald
-                                    : Colors.white70,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _startMsgCtrl,
@@ -524,7 +583,7 @@ class _LotteryScreenState extends State<LotteryScreen>
                                 backgroundColor: AppTheme.accentEmerald,
                                 foregroundColor: Colors.black,
                               ),
-                              onPressed: cl.isAccepting
+                              onPressed: (!featureEnabled || cl.isAccepting)
                                   ? null
                                   : () => ctrl.startCommentLottery(
                                       _buildCommentConfig()),
@@ -552,7 +611,7 @@ class _LotteryScreenState extends State<LotteryScreen>
                         width: double.infinity,
                         height: 46,
                         child: FilledButton.icon(
-                          onPressed: cl.entries.isEmpty
+                          onPressed: (!featureEnabled || cl.entries.isEmpty)
                               ? null
                               : ctrl.drawCommentLottery,
                           icon: const Icon(Icons.casino),
@@ -653,6 +712,9 @@ class _LotteryScreenState extends State<LotteryScreen>
                     ),
                   ),
                 ),
+              ],
+            ),
+          ),
               ],
             ),
           ),

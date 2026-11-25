@@ -59,6 +59,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ConnectionStateDto dco_decode_box_autoadd_connection_state_dto(dynamic raw);
 
   @protected
+  FeatureFlags dco_decode_box_autoadd_feature_flags(dynamic raw);
+
+  @protected
   HighlightRule dco_decode_box_autoadd_highlight_rule(dynamic raw);
 
   @protected
@@ -102,6 +105,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ConnectionStatus dco_decode_connection_status(dynamic raw);
+
+  @protected
+  FeatureFlags dco_decode_feature_flags(dynamic raw);
 
   @protected
   HighlightRule dco_decode_highlight_rule(dynamic raw);
@@ -166,6 +172,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ConnectionStateDto? dco_decode_opt_box_autoadd_connection_state_dto(
     dynamic raw,
   );
+
+  @protected
+  FeatureFlags? dco_decode_opt_box_autoadd_feature_flags(dynamic raw);
 
   @protected
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
@@ -269,6 +278,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  FeatureFlags sse_decode_box_autoadd_feature_flags(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   HighlightRule sse_decode_box_autoadd_highlight_rule(
     SseDeserializer deserializer,
   );
@@ -330,6 +344,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ConnectionStatus sse_decode_connection_status(SseDeserializer deserializer);
+
+  @protected
+  FeatureFlags sse_decode_feature_flags(SseDeserializer deserializer);
 
   @protected
   HighlightRule sse_decode_highlight_rule(SseDeserializer deserializer);
@@ -406,6 +423,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ConnectionStateDto? sse_decode_opt_box_autoadd_connection_state_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FeatureFlags? sse_decode_opt_box_autoadd_feature_flags(
     SseDeserializer deserializer,
   );
 
@@ -533,6 +555,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_feature_flags(
+    FeatureFlags self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_highlight_rule(
     HighlightRule self,
     SseSerializer serializer,
@@ -612,6 +640,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     ConnectionStatus self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_feature_flags(FeatureFlags self, SseSerializer serializer);
 
   @protected
   void sse_encode_highlight_rule(HighlightRule self, SseSerializer serializer);
@@ -706,6 +737,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_connection_state_dto(
     ConnectionStateDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_feature_flags(
+    FeatureFlags? self,
     SseSerializer serializer,
   );
 

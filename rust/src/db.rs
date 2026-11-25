@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::models::{
-    HighlightRule, LotteryResult, LotteryWinner, MatchMode, OverlayConfig, PlatformKind,
-    RawIncomingComment, UserRecord, WordCounterConfig,
+    FeatureFlags, HighlightRule, LotteryResult, LotteryWinner, MatchMode, OverlayConfig,
+    PlatformKind, RawIncomingComment, UserRecord, WordCounterConfig,
 };
 
 /// SQLite 永続化データベース
@@ -241,6 +241,20 @@ impl Database {
     pub fn set_overlay_config(&self, cfg: &OverlayConfig) -> Result<()> {
         let json = serde_json::to_string(cfg)?;
         self.set_setting("overlay_config", &json)
+    }
+
+    pub fn get_feature_flags(&self) -> Result<FeatureFlags> {
+        if let Some(json) = self.get_setting("feature_flags")? {
+            if let Ok(flags) = serde_json::from_str(&json) {
+                return Ok(flags);
+            }
+        }
+        Ok(FeatureFlags::default())
+    }
+
+    pub fn set_feature_flags(&self, flags: &FeatureFlags) -> Result<()> {
+        let json = serde_json::to_string(flags)?;
+        self.set_setting("feature_flags", &json)
     }
 
     // ==================== 配信セッション ====================
@@ -831,5 +845,27 @@ mod tests {
         let found = counters.iter().find(|c| c.id == "test-cnt").unwrap();
         assert_eq!(found.total_count, 3);
         assert_eq!(found.unique_user_count, 2);
+    }
+
+    #[test]
+    fn test_feature_flags_persistence() {
+        let db = Database::open_in_memory().unwrap();
+        let defaults = db.get_feature_flags().unwrap();
+        assert!(defaults.comment_display_enabled);
+        assert!(defaults.word_highlight_enabled);
+        assert!(defaults.obs_overlay_enabled);
+
+        let custom = FeatureFlags {
+            comment_display_enabled: false,
+            word_highlight_enabled: false,
+            word_counter_enabled: true,
+            user_lottery_enabled: false,
+            comment_lottery_enabled: true,
+            user_tracking_enabled: false,
+            obs_overlay_enabled: false,
+            auto_update_check_enabled: false,
+        };
+        db.set_feature_flags(&custom).unwrap();
+        assert_eq!(db.get_feature_flags().unwrap(), custom);
     }
 }

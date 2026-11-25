@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
+import '../widgets/feature_toggle_banner.dart';
 import '../widgets/user_avatar.dart';
 
 enum _UserFilter { all, currentSession, bannedOnly }
@@ -145,6 +146,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
     final inSessionCount = allUsers.where((u) => u.inCurrentSession).length;
     final bannedCount = allUsers.where((u) => u.isBanned).length;
+    final trackingEnabled = widget.controller.featureFlags.userTrackingEnabled;
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -170,6 +172,15 @@ class _UsersScreenState extends State<UsersScreen> {
                   ],
                 ),
               ),
+              FeatureToggleSwitch(
+                label: '自動記録',
+                enabled: trackingEnabled,
+                onChanged: (v) => widget.controller.setFeatureEnabled(
+                  userTracking: v,
+                  featureLabel: 'ユーザーリスト自動記録',
+                ),
+              ),
+              const SizedBox(width: 12),
               _StatBadge('総ユーザー', '${allUsers.length}人', AppTheme.accentSky),
               const SizedBox(width: 8),
               _StatBadge('今回参加', '$inSessionCount人', AppTheme.accentEmerald),
@@ -178,6 +189,16 @@ class _UsersScreenState extends State<UsersScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          if (!trackingEnabled)
+            FeatureDisabledBanner(
+              featureName: 'ユーザーリスト自動記録',
+              description:
+                  'コメント受信時の視聴回数・コメント回数の自動集計を停止しています（既存リストの閲覧および BAN 管理は引き続き利用できます）。',
+              onEnable: () => widget.controller.setFeatureEnabled(
+                userTracking: true,
+                featureLabel: 'ユーザーリスト自動記録',
+              ),
+            ),
 
           // 検索・フィルタ・並び替えバー
           Row(

@@ -5,6 +5,7 @@ import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/color_picker_row.dart';
+import '../widgets/feature_toggle_banner.dart';
 
 /// 特定ワードカウンター画面（アカウント毎にn回まで / 回数上限なし）
 class CountersScreen extends StatelessWidget {
@@ -190,6 +191,7 @@ class CountersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final counters = controller.wordCounters;
+    final featureEnabled = controller.featureFlags.wordCounterEnabled;
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -215,6 +217,15 @@ class CountersScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              FeatureToggleSwitch(
+                label: 'ワードカウント',
+                enabled: featureEnabled,
+                onChanged: (v) => controller.setFeatureEnabled(
+                  wordCounter: v,
+                  featureLabel: '特定ワードカウント機能',
+                ),
+              ),
+              const SizedBox(width: 12),
               FilledButton.icon(
                 onPressed: () => _openEditor(context),
                 icon: const Icon(Icons.add),
@@ -223,6 +234,16 @@ class CountersScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+          if (!featureEnabled)
+            FeatureDisabledBanner(
+              featureName: '特定ワードカウント機能',
+              description:
+                  'コメント受信時の自動カウント加算および OBS カウンター表示を一括停止しています。',
+              onEnable: () => controller.setFeatureEnabled(
+                wordCounter: true,
+                featureLabel: '特定ワードカウント機能',
+              ),
+            ),
           Expanded(
             child: counters.isEmpty
                 ? const Center(

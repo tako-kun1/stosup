@@ -4,6 +4,7 @@ import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/color_picker_row.dart';
+import '../widgets/feature_toggle_banner.dart';
 
 /// 特定ワード反応によるコメント吹き出し背景色の変更ルール設定画面
 class HighlightRulesScreen extends StatelessWidget {
@@ -225,6 +226,7 @@ class HighlightRulesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rules = controller.highlightRules;
+    final featureEnabled = controller.featureFlags.wordHighlightEnabled;
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -250,6 +252,15 @@ class HighlightRulesScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              FeatureToggleSwitch(
+                label: 'ワード色反応',
+                enabled: featureEnabled,
+                onChanged: (v) => controller.setFeatureEnabled(
+                  wordHighlight: v,
+                  featureLabel: '特定ワード反応（吹き出し色変更）',
+                ),
+              ),
+              const SizedBox(width: 12),
               FilledButton.icon(
                 onPressed: () => _openEditor(context),
                 icon: const Icon(Icons.add),
@@ -258,6 +269,16 @@ class HighlightRulesScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+          if (!featureEnabled)
+            FeatureDisabledBanner(
+              featureName: '特定ワード反応（吹き出し色変更）',
+              description:
+                  '個別ルールが有効でも、すべてのコメントを通常の吹き出し色で表示します。',
+              onEnable: () => controller.setFeatureEnabled(
+                wordHighlight: true,
+                featureLabel: '特定ワード反応（吹き出し色変更）',
+              ),
+            ),
           Expanded(
             child: rules.isEmpty
                 ? const Center(

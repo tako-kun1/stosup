@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stosup/theme/app_theme.dart';
+import 'package:stosup/widgets/feature_toggle_banner.dart';
 import 'package:stosup/widgets/markdown_notes_view.dart';
 import 'package:stosup/widgets/user_avatar.dart';
 
@@ -51,5 +52,43 @@ void main() {
     );
 
     expect(find.text('た'), findsOneWidget);
+  });
+
+  testWidgets('FeatureToggleSwitch と FeatureDisabledBanner が ON/OFF 操作に応答する',
+      (WidgetTester tester) async {
+    var enabled = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: StatefulBuilder(
+          builder: (context, setState) => Scaffold(
+            body: Column(
+              children: [
+                FeatureToggleSwitch(
+                  label: 'ワードカウント',
+                  enabled: enabled,
+                  onChanged: (v) => setState(() => enabled = v),
+                ),
+                if (!enabled)
+                  FeatureDisabledBanner(
+                    featureName: 'ワードカウント',
+                    description: 'テスト説明',
+                    onEnable: () => setState(() => enabled = true),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('ワードカウント: OFF'), findsOneWidget);
+    expect(find.text('「ワードカウント」は現在オフになっています'), findsOneWidget);
+
+    await tester.tap(find.text('オンにする'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ワードカウント: ON'), findsOneWidget);
+    expect(find.text('「ワードカウント」は現在オフになっています'), findsNothing);
   });
 }

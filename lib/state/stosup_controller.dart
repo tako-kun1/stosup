@@ -57,6 +57,17 @@ class StosupController extends ChangeNotifier {
     defaultTextColor: '#F8FAFC',
   );
 
+  FeatureFlags featureFlags = const FeatureFlags(
+    commentDisplayEnabled: true,
+    wordHighlightEnabled: true,
+    wordCounterEnabled: true,
+    userLotteryEnabled: true,
+    commentLotteryEnabled: true,
+    userTrackingEnabled: true,
+    obsOverlayEnabled: true,
+    autoUpdateCheckEnabled: true,
+  );
+
   YouTubeOAuthStatus oauthStatus = const YouTubeOAuthStatus(
     clientId: '',
     hasClientSecret: false,
@@ -92,8 +103,10 @@ class StosupController extends ChangeNotifier {
 
       // アップデート後初回起動時のリリースノート判定
       unawaited(_checkStartupReleaseNotes());
-      // バックグラウンドで GitHub 最新版チェック
-      unawaited(checkUpdates(silent: true));
+      // 自動アップデート確認機能が ON の場合のみバックグラウンドで最新版チェック
+      if (featureFlags.autoUpdateCheckEnabled) {
+        unawaited(checkUpdates(silent: true));
+      }
     } catch (e) {
       initError = e.toString();
       notifyListeners();
@@ -112,6 +125,7 @@ class StosupController extends ChangeNotifier {
       api.listLotteryHistory(limit: 30),
       api.getOverlayConfig(),
       api.getYoutubeOauthStatus(),
+      api.getFeatureFlags(),
     ]);
 
     connectionState = results[0] as ConnectionStateDto;
@@ -124,6 +138,7 @@ class StosupController extends ChangeNotifier {
     lotteryHistory = results[7] as List<LotteryResult>;
     overlayConfig = results[8] as OverlayConfig;
     oauthStatus = results[9] as YouTubeOAuthStatus;
+    featureFlags = results[10] as FeatureFlags;
     notifyListeners();
   }
 
@@ -162,6 +177,11 @@ class StosupController extends ChangeNotifier {
             lastUserLotteryResult = res;
           }
           lotteryHistory = [res, ...lotteryHistory.take(29)];
+          notifyListeners();
+        }
+      case AppEventKind.featureFlagsUpdated:
+        if (ev.featureFlags != null) {
+          featureFlags = ev.featureFlags!;
           notifyListeners();
         }
       case AppEventKind.systemNotice:
@@ -460,6 +480,80 @@ class StosupController extends ChangeNotifier {
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
+  }
+
+  // ==================== 各機能の有効/無効（ON/OFF） ====================
+
+  Future<void> updateFeatureFlags(
+    FeatureFlags next, {
+    String? noticeMessage,
+  }) async {
+    try {
+      featureFlags = await api.saveFeatureFlags(flags: next);
+      // OBSサーバー再起動時にポートが変わる可能性があるため同期
+      overlayConfig = await api.getOverlayConfig();
+      notifyListeners();
+      if (noticeMessage != null) {
+        onNotice?.call('info', noticeMessage);
+      }
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> setFeatureEnabled({
+    bool? commentDisplay,
+    bool? wordHighlight,
+    bool? wordCounter,
+    bool? userLottery,
+    bool? commentLottery,
+    bool? userTracking,
+    bool? obsOverlay,
+    bool? autoUpdateCheck,
+    String? featureLabel,
+  }) async {
+    final next = FeatureFlags(
+      commentDisplayEnabled:
+          commentDisplay ?? featureFlags.commentDisplayEnabled,
+      wordHighlightEnabled: wordHighlight ?? featureFlags.wordHighlightEnabled,
+      wordCounterEnabled: wordCounter ?? featureFlags.wordCounterEnabled,
+      userLotteryEnabled: userLottery ?? featureFlags.userLotteryEnabled,
+      commentLotteryEnabled:
+          commentLottery ?? featureFlags.commentLotteryEnabled,
+      userTrackingEnabled: userTracking ?? featureFlags.userTrackingEnabled,
+      obsOverlayEnabled: obsOverlay ?? featureFlags.obsOverlayEnabled,
+      autoUpdateCheckEnabled:
+          autoUpdateCheck ?? featureFlags.autoUpdateCheckEnabled,
+    );
+    final switchedValue = commentDisplay ??
+        wordHighlight ??
+        wordCounter ??
+        userLottery ??
+        commentLottery ??
+        userTracking ??
+        obsOverlay ??
+        autoUpdateCheck;
+    final msg = (featureLabel != null && switchedValue != null)
+        ? '「$featureLabel」を ${switchedValue ? "オン" : "オフ"} にしました'
+        : null;
+    await updateFeatureFlags(next, noticeMessage: msg);
+  }
+
+  Future<void> setAllFeaturesEnabled(bool enabled) async {
+    final next = FeatureFlags(
+      commentDisplayEnabled: enabled,
+      wordHighlightEnabled: enabled,
+      wordCounterEnabled: enabled,
+      userLotteryEnabled: enabled,
+      commentLotteryEnabled: enabled,
+      userTrackingEnabled: enabled,
+      obsOverlayEnabled: enabled,
+      autoUpdateCheckEnabled: enabled,
+    );
+    await updateFeatureFlags(
+      next,
+      noticeMessage: enabled ? 'すべての機能をオンにしました' : 'すべての機能をオフにしました',
+    );
   }
 
   // ==================== OBS オーバーレイ ====================

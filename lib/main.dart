@@ -182,6 +182,9 @@ class _StosupShellState extends State<StosupShell> {
     final connected =
         _controller.connectionState.status == ConnectionStatus.connected;
     final updateInfo = _controller.availableUpdate;
+    final flags = _controller.featureFlags;
+    final allLotteryOff =
+        !flags.userLotteryEnabled && !flags.commentLotteryEnabled;
 
     return Scaffold(
       body: Column(
@@ -299,48 +302,70 @@ class _StosupShellState extends State<StosupShell> {
                               icon: Icons.chat_bubble_outline,
                               label: 'コメント表示',
                               selected: _selectedIndex == 0,
-                              badge: connected ? 'LIVE' : null,
-                              badgeColor: AppTheme.accentEmerald,
+                              badge: !flags.commentDisplayEnabled
+                                  ? 'OFF'
+                                  : (connected ? 'LIVE' : null),
+                              badgeColor: !flags.commentDisplayEnabled
+                                  ? Colors.white54
+                                  : AppTheme.accentEmerald,
+                              dimmed: !flags.commentDisplayEnabled,
                               onTap: () => setState(() => _selectedIndex = 0),
                             ),
                             _NavTile(
                               icon: Icons.palette_outlined,
                               label: 'ワード色反応',
                               selected: _selectedIndex == 1,
+                              badge: !flags.wordHighlightEnabled ? 'OFF' : null,
+                              badgeColor: Colors.white54,
+                              dimmed: !flags.wordHighlightEnabled,
                               onTap: () => setState(() => _selectedIndex = 1),
                             ),
                             _NavTile(
                               icon: Icons.pin_outlined,
                               label: 'ワードカウント',
                               selected: _selectedIndex == 2,
+                              badge: !flags.wordCounterEnabled ? 'OFF' : null,
+                              badgeColor: Colors.white54,
+                              dimmed: !flags.wordCounterEnabled,
                               onTap: () => setState(() => _selectedIndex = 2),
                             ),
                             _NavTile(
                               icon: Icons.casino_outlined,
                               label: '抽選システム',
                               selected: _selectedIndex == 3,
-                              badge: _controller.commentLottery.isAccepting
-                                  ? '受付中'
-                                  : null,
-                              badgeColor: AppTheme.accentAmber,
+                              badge: allLotteryOff
+                                  ? 'OFF'
+                                  : (_controller.commentLottery.isAccepting
+                                      ? '受付中'
+                                      : null),
+                              badgeColor: allLotteryOff
+                                  ? Colors.white54
+                                  : AppTheme.accentAmber,
+                              dimmed: allLotteryOff,
                               onTap: () => setState(() => _selectedIndex = 3),
                             ),
                             _NavTile(
                               icon: Icons.people_outline,
                               label: 'ユーザー / BAN',
                               selected: _selectedIndex == 4,
+                              badge: !flags.userTrackingEnabled ? 'OFF' : null,
+                              badgeColor: Colors.white54,
+                              dimmed: !flags.userTrackingEnabled,
                               onTap: () => setState(() => _selectedIndex = 4),
                             ),
                             _NavTile(
                               icon: Icons.layers_outlined,
                               label: 'OBS オーバーレイ',
                               selected: _selectedIndex == 5,
+                              badge: !flags.obsOverlayEnabled ? 'OFF' : null,
+                              badgeColor: Colors.white54,
+                              dimmed: !flags.obsOverlayEnabled,
                               onTap: () => setState(() => _selectedIndex = 5),
                             ),
                             const Divider(height: 20),
                             _NavTile(
                               icon: Icons.settings_outlined,
-                              label: '設定・更新',
+                              label: '設定・機能ON/OFF',
                               selected: _selectedIndex == 6,
                               badge: updateInfo?.hasUpdate == true ? 'NEW' : null,
                               badgeColor: AppTheme.accentEmerald,
@@ -361,16 +386,25 @@ class _StosupShellState extends State<StosupShell> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.circle,
-                                size: 8, color: AppTheme.accentEmerald),
+                            Icon(
+                              Icons.circle,
+                              size: 8,
+                              color: flags.obsOverlayEnabled
+                                  ? AppTheme.accentEmerald
+                                  : Colors.white38,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'OBS :${_controller.overlayConfig.port}',
-                                style: const TextStyle(
+                                flags.obsOverlayEnabled
+                                    ? 'OBS :${_controller.overlayConfig.port}'
+                                    : 'OBS 停止中 (OFF)',
+                                style: TextStyle(
                                   fontFamily: 'Consolas',
                                   fontSize: 12,
-                                  color: Colors.white70,
+                                  color: flags.obsOverlayEnabled
+                                      ? Colors.white70
+                                      : Colors.white38,
                                 ),
                               ),
                             ),
@@ -400,6 +434,7 @@ class _NavTile extends StatelessWidget {
     required this.onTap,
     this.badge,
     this.badgeColor,
+    this.dimmed = false,
   });
 
   final IconData icon;
@@ -408,6 +443,7 @@ class _NavTile extends StatelessWidget {
   final VoidCallback onTap;
   final String? badge;
   final Color? badgeColor;
+  final bool dimmed;
 
   @override
   Widget build(BuildContext context) {
@@ -428,7 +464,9 @@ class _NavTile extends StatelessWidget {
                 Icon(
                   icon,
                   size: 20,
-                  color: selected ? AppTheme.accentSky : Colors.white70,
+                  color: selected
+                      ? AppTheme.accentSky
+                      : (dimmed ? Colors.white38 : Colors.white70),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -438,7 +476,9 @@ class _NavTile extends StatelessWidget {
                       fontSize: 13.5,
                       fontWeight:
                           selected ? FontWeight.bold : FontWeight.normal,
-                      color: selected ? Colors.white : Colors.white70,
+                      color: selected
+                          ? Colors.white
+                          : (dimmed ? Colors.white38 : Colors.white70),
                     ),
                   ),
                 ),
