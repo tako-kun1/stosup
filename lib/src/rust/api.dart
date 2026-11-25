@@ -117,6 +117,15 @@ Future<List<UserRecord>> setUserMemo({
   memo: memo,
 );
 
+Future<List<UserRecord>> deleteUser({
+  required String userId,
+  required PlatformKind platform,
+}) =>
+    RustLib.instance.api.crateApiDeleteUser(userId: userId, platform: platform);
+
+Future<List<UserRecord>> resetUsers({required bool keepBanned}) =>
+    RustLib.instance.api.crateApiResetUsers(keepBanned: keepBanned);
+
 Future<FirstTimeCounterState> getFirstTimeState() =>
     RustLib.instance.api.crateApiGetFirstTimeState();
 

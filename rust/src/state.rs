@@ -459,6 +459,50 @@ impl AppRuntime {
         }
     }
 
+    pub async fn delete_user(&self, user_id: &str, platform: PlatformKind) -> Result<Vec<UserRecord>> {
+        let total_ft = {
+            let db = self.db.lock().await;
+            db.delete_user(user_id, platform)?;
+            db.count_all_time_first_timers()?
+        };
+        self.user_lottery_won_ids.lock().await.remove(user_id);
+        let ft_snapshot = {
+            let mut ft = self.first_time_state.lock().await;
+            ft.total_detected_all_time = total_ft;
+            ft.recent_users.retain(|u| u.user_id != user_id);
+            ft.clone()
+        };
+        let ft_enabled = self.feature_flags.read().await.first_time_counter_enabled;
+        self.overlay_state
+            .update_first_time(ft_snapshot.clone(), ft_enabled)
+            .await;
+        self.emit(AppEvent::first_time_updated(ft_snapshot));
+        self.emit(AppEvent::users_updated());
+        self.list_users().await
+    }
+
+    pub async fn reset_users(&self, keep_banned: bool) -> Result<Vec<UserRecord>> {
+        let total_ft = {
+            let db = self.db.lock().await;
+            db.reset_users(keep_banned)?;
+            db.count_all_time_first_timers()?
+        };
+        self.user_lottery_won_ids.lock().await.clear();
+        let ft_snapshot = {
+            let mut ft = self.first_time_state.lock().await;
+            ft.total_detected_all_time = total_ft;
+            ft.recent_users.clear();
+            ft.clone()
+        };
+        let ft_enabled = self.feature_flags.read().await.first_time_counter_enabled;
+        self.overlay_state
+            .update_first_time(ft_snapshot.clone(), ft_enabled)
+            .await;
+        self.emit(AppEvent::first_time_updated(ft_snapshot));
+        self.emit(AppEvent::users_updated());
+        self.list_users().await
+    }
+
     /// 各機能の ON/OFF 設定を更新・永続化し、OBS サーバー起動停止や受付停止を即時反映する
     pub async fn update_feature_flags(&self, new_flags: FeatureFlags) -> Result<FeatureFlags> {
         {

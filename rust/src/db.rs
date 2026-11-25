@@ -555,6 +555,41 @@ impl Database {
         Ok(())
     }
 
+    /// 特定のユーザーをユーザーリスト（および配信参加記録）から個別削除する
+    pub fn delete_user(&self, user_id: &str, platform: PlatformKind) -> Result<()> {
+        let p = platform.as_str();
+        self.conn.execute(
+            "DELETE FROM session_participants WHERE user_id = ?1 AND platform = ?2",
+            params![user_id, p],
+        )?;
+        self.conn.execute(
+            "DELETE FROM users WHERE user_id = ?1 AND platform = ?2",
+            params![user_id, p],
+        )?;
+        Ok(())
+    }
+
+    /// ユーザーリストを一括リセットする（keep_banned = true の場合は BAN 済みユーザーを残す）
+    pub fn reset_users(&self, keep_banned: bool) -> Result<()> {
+        if keep_banned {
+            self.conn.execute(
+                "DELETE FROM session_participants
+                 WHERE EXISTS (
+                     SELECT 1 FROM users u
+                     WHERE u.user_id = session_participants.user_id
+                       AND u.platform = session_participants.platform
+                       AND u.is_banned = 0
+                 )",
+                [],
+            )?;
+            self.conn.execute("DELETE FROM users WHERE is_banned = 0", [])?;
+        } else {
+            self.conn.execute("DELETE FROM session_participants", [])?;
+            self.conn.execute("DELETE FROM users", [])?;
+        }
+        Ok(())
+    }
+
     pub fn list_users(&self, current_session_id: Option<&str>) -> Result<Vec<UserRecord>> {
         let session_id = current_session_id.unwrap_or("");
         let mut stmt = self.conn.prepare(
@@ -1065,5 +1100,38 @@ mod tests {
         // デフォルトでは初見プロフィール表示はOFF
         let ft_cfg = db.get_first_time_config().unwrap();
         assert!(!ft_cfg.show_first_timer_profile);
+    }
+
+    #[test]
+    fn test_delete_user_and_reset_users() {
+        let db = Database::open_in_memory().unwrap();
+        let s1 = db
+            .get_or_create_session(PlatformKind::YouTube, "stream-del-1", "削除テスト", 1000)
+            .unwrap();
+        db.record_user_comment(&s1, &sample_comment("c1", "u1", "こんちゃ", 1001))
+            .unwrap();
+        db.record_user_comment(&s1, &sample_comment("c2", "u2", "やあ", 1002))
+            .unwrap();
+        db.record_user_comment(&s1, &sample_comment("c3", "u_ban", "荒らし", 1003))
+            .unwrap();
+        db.set_user_ban("u_ban", PlatformKind::YouTube, true, "荒らし")
+            .unwrap();
+
+        // 個別削除
+        db.delete_user("u1", PlatformKind::YouTube).unwrap();
+        let after_del = db.list_users(Some(&s1)).unwrap();
+        assert_eq!(after_del.len(), 2);
+        assert!(after_del.iter().all(|u| u.user_id != "u1"));
+
+        // BAN ユーザーを残して一括リセット
+        db.reset_users(true).unwrap();
+        let after_keep_ban = db.list_users(Some(&s1)).unwrap();
+        assert_eq!(after_keep_ban.len(), 1);
+        assert_eq!(after_keep_ban[0].user_id, "u_ban");
+
+        // BAN ユーザーも含めて完全一括リセット
+        db.reset_users(false).unwrap();
+        let after_all = db.list_users(Some(&s1)).unwrap();
+        assert!(after_all.is_empty());
     }
 }

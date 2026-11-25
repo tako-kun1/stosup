@@ -110,6 +110,66 @@ class _UsersScreenState extends State<UsersScreen> {
     memoCtrl.dispose();
   }
 
+  Future<void> _confirmDeleteUser(UserRecord u) async {
+    final p = context.palette;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('「${u.displayName}」をリストから削除しますか？'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'このユーザーの視聴回数（${u.watchCount}回）・累計コメント数（${u.totalCommentCount}回）・名前メモ・初見検知履歴${u.isBanned ? "・BAN設定" : ""}が完全に削除されます。',
+              style: TextStyle(fontSize: 13, color: p.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '削除後にもう一度コメントした場合は、未登録ユーザーとして新たに記録されます。',
+              style: TextStyle(fontSize: 12.5, color: p.textSecondary),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: p.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.delete_outline, size: 16),
+            label: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await widget.controller.deleteUser(
+        u.userId,
+        u.platform,
+        displayName: u.displayName,
+      );
+    }
+  }
+
+  Future<void> _confirmResetUsers(int totalCount, int bannedCount) async {
+    final keepBanned = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _ResetUsersDialog(
+        totalCount: totalCount,
+        bannedCount: bannedCount,
+      ),
+    );
+    if (keepBanned != null) {
+      await widget.controller.resetUsers(keepBanned: keepBanned);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
@@ -256,6 +316,24 @@ class _UsersScreenState extends State<UsersScreen> {
                   ),
                 ),
               ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: p.danger,
+                  side: BorderSide(
+                    color: allUsers.isEmpty
+                        ? p.border
+                        : p.danger.withValues(alpha: 0.6),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                ),
+                onPressed: allUsers.isEmpty
+                    ? null
+                    : () => _confirmResetUsers(allUsers.length, bannedCount),
+                icon: const Icon(Icons.delete_sweep_outlined, size: 17),
+                label: const Text('一括リセット'),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -384,6 +462,16 @@ class _UsersScreenState extends State<UsersScreen> {
                                       icon: const Icon(Icons.block, size: 15),
                                       label: const Text('BAN'),
                                     ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                tooltip: 'リストから削除',
+                                onPressed: () => _confirmDeleteUser(u),
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  size: 19,
+                                  color: p.danger,
+                                ),
+                              ),
                             ],
                           ),
                         );
@@ -393,6 +481,94 @@ class _UsersScreenState extends State<UsersScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ResetUsersDialog extends StatefulWidget {
+  const _ResetUsersDialog({
+    required this.totalCount,
+    required this.bannedCount,
+  });
+
+  final int totalCount;
+  final int bannedCount;
+
+  @override
+  State<_ResetUsersDialog> createState() => _ResetUsersDialogState();
+}
+
+class _ResetUsersDialogState extends State<_ResetUsersDialog> {
+  bool _keepBanned = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final targetCount = _keepBanned
+        ? (widget.totalCount - widget.bannedCount)
+        : widget.totalCount;
+
+    return AlertDialog(
+      title: const Text('ユーザーリストを一括リセットしますか？'),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '登録済みユーザー（全 ${widget.totalCount} 人 / うち BAN 済み ${widget.bannedCount} 人）の視聴回数・累計コメント数・名前メモ・初見検知履歴を削除します。この操作は取り消せません。',
+              style: TextStyle(fontSize: 13, color: p.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            Material(
+              color: p.subtleBg,
+              borderRadius: BorderRadius.circular(8),
+              child: CheckboxListTile(
+                value: _keepBanned,
+                onChanged: (v) => setState(() => _keepBanned = v ?? true),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                title: const Text(
+                  'BAN 済みユーザーは残す（推奨）',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  widget.bannedCount > 0
+                      ? 'チェックを外すと BAN 済みの ${widget.bannedCount} 人も完全に削除されます。'
+                      : '現在 BAN 済みのユーザーはいません。',
+                  style: TextStyle(fontSize: 12, color: p.textSecondary),
+                ),
+              ),
+            ),
+            if (targetCount == 0) ...[
+              const SizedBox(height: 10),
+              Text(
+                '※ 削除対象となる通常ユーザーが 0 人です。BAN 済みユーザーも含めて削除する場合は上のチェックを外してください。',
+                style: TextStyle(fontSize: 12, color: p.warning),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, null),
+          child: const Text('キャンセル'),
+        ),
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: p.danger,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: targetCount == 0
+              ? null
+              : () => Navigator.pop(context, _keepBanned),
+          icon: const Icon(Icons.delete_sweep_outlined, size: 17),
+          label: Text('リセットを実行（$targetCount人を削除）'),
+        ),
+      ],
     );
   }
 }

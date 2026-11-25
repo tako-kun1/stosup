@@ -1,6 +1,6 @@
 [package]
 name = "stosup_core"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 description = "Core backend engine for Stosup streaming assistant software"
 

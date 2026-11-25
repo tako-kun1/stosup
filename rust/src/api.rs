@@ -273,6 +273,25 @@ pub async fn set_user_memo(
     runtime.list_users().await.map_err(|e| e.to_string())
 }
 
+pub async fn delete_user(
+    user_id: String,
+    platform: PlatformKind,
+) -> Result<Vec<UserRecord>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .delete_user(&user_id, platform)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn reset_users(keep_banned: bool) -> Result<Vec<UserRecord>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .reset_users(keep_banned)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 // ==================== 初見カウンター ====================
 
 pub async fn get_first_time_state() -> Result<FirstTimeCounterState, String> {

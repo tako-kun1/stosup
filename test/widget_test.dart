@@ -1,11 +1,62 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stosup/screens/users_screen.dart';
+import 'package:stosup/src/rust/models.dart';
+import 'package:stosup/state/stosup_controller.dart';
 import 'package:stosup/theme/app_theme.dart';
 import 'package:stosup/widgets/feature_toggle_banner.dart';
 import 'package:stosup/widgets/markdown_notes_view.dart';
 import 'package:stosup/widgets/overlay_bg_picker.dart';
 import 'package:stosup/widgets/system_font_picker.dart';
 import 'package:stosup/widgets/user_avatar.dart';
+
+class _FakeUsersController extends StosupController {
+  final List<String> deletedIds = [];
+  final List<bool> resetKeepBannedCalls = [];
+
+  @override
+  Future<void> deleteUser(
+    String userId,
+    PlatformKind platform, {
+    String? displayName,
+  }) async {
+    deletedIds.add(userId);
+    users = users
+        .where((u) => !(u.userId == userId && u.platform == platform))
+        .toList();
+    notifyListeners();
+  }
+
+  @override
+  Future<void> resetUsers({required bool keepBanned}) async {
+    resetKeepBannedCalls.add(keepBanned);
+    users = keepBanned ? users.where((u) => u.isBanned).toList() : [];
+    notifyListeners();
+  }
+}
+
+UserRecord _sampleUser(
+  String id,
+  String name, {
+  bool banned = false,
+  int lastSeenMs = 1000,
+}) {
+  return UserRecord(
+    userId: id,
+    platform: PlatformKind.youTube,
+    displayName: name,
+    iconUrl: '',
+    watchCount: BigInt.from(2),
+    totalCommentCount: BigInt.from(5),
+    sessionCommentCount: BigInt.from(1),
+    inCurrentSession: true,
+    isBanned: banned,
+    banReason: banned ? 'スパム' : '',
+    memo: '',
+    firstSeenMs: 500,
+    lastSeenMs: lastSeenMs,
+  );
+}
 
 void main() {
   test('AppTheme CSS HEX カラー変換が正しく動作する', () {
@@ -172,5 +223,66 @@ void main() {
     await tester.tap(find.text('BIZ UDPゴシック'));
     await tester.pumpAndSettle();
     expect(selectedFont, 'BIZ UDPゴシック');
+  });
+
+  testWidgets('UsersScreen で個別削除と一括リセット（BAN保持切替）ができる',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final ctrl = _FakeUsersController()
+      ..users = [
+        _sampleUser('u1', '太郎', lastSeenMs: 3000),
+        _sampleUser('u2', '花子', lastSeenMs: 2000),
+        _sampleUser('u3', '荒らし', banned: true, lastSeenMs: 1000),
+      ];
+    addTearDown(ctrl.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: ctrl,
+            builder: (_, _) => UsersScreen(controller: ctrl),
+          ),
+        ),
+      ),
+    );
+
+    // 1. 個別削除（先頭行＝太郎を削除）
+    expect(find.text('太郎'), findsOneWidget);
+    await tester.tap(find.byTooltip('リストから削除').first);
+    await tester.pumpAndSettle();
+    expect(find.text('「太郎」をリストから削除しますか？'), findsOneWidget);
+
+    await tester.tap(find.text('削除する'));
+    await tester.pumpAndSettle();
+    expect(ctrl.deletedIds, ['u1']);
+    expect(find.text('太郎'), findsNothing);
+    expect(find.text('花子'), findsOneWidget);
+
+    // 2. 一括リセット（デフォルトは BAN ユーザーを残す＝1人削除）
+    await tester.tap(find.text('一括リセット'));
+    await tester.pumpAndSettle();
+    expect(find.text('ユーザーリストを一括リセットしますか？'), findsOneWidget);
+    expect(find.text('リセットを実行（1人を削除）'), findsOneWidget);
+
+    // チェックを外すと BAN ユーザー含む 2 人が削除対象に変わる
+    await tester.tap(find.text('BAN 済みユーザーは残す（推奨）'));
+    await tester.pumpAndSettle();
+    expect(find.text('リセットを実行（2人を削除）'), findsOneWidget);
+
+    // 再度チェックを ON に戻して実行すると通常ユーザーのみ削除される
+    await tester.tap(find.text('BAN 済みユーザーは残す（推奨）'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('リセットを実行（1人を削除）'));
+    await tester.pumpAndSettle();
+
+    expect(ctrl.resetKeepBannedCalls, [true]);
+    expect(find.text('花子'), findsNothing);
+    expect(find.text('荒らし'), findsOneWidget);
   });
 }

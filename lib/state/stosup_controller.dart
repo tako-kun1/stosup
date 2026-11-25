@@ -454,6 +454,44 @@ class StosupController extends ChangeNotifier {
     }
   }
 
+  Future<void> deleteUser(
+    String userId,
+    PlatformKind platform, {
+    String? displayName,
+  }) async {
+    try {
+      users = await api.deleteUser(userId: userId, platform: platform);
+      userLotteryWonIds = await api.getUserLotteryWonIds();
+      firstTimeState = await api.getFirstTimeState();
+      notifyListeners();
+      onNotice?.call(
+        'info',
+        displayName != null
+            ? '「$displayName」をユーザーリストから削除しました'
+            : 'ユーザーをリストから削除しました',
+      );
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> resetUsers({required bool keepBanned}) async {
+    try {
+      users = await api.resetUsers(keepBanned: keepBanned);
+      userLotteryWonIds = await api.getUserLotteryWonIds();
+      firstTimeState = await api.getFirstTimeState();
+      notifyListeners();
+      onNotice?.call(
+        'warning',
+        keepBanned
+            ? 'ユーザーリストを一括リセットしました（BAN済みユーザーは維持）'
+            : 'BAN済みユーザーを含め、ユーザーリストをすべてリセットしました',
+      );
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
   // ==================== ユーザー抽選 ====================
 
   Future<LotteryResult?> drawUserLottery(UserLotteryRequest req) async {
