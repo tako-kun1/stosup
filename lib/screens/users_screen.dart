@@ -10,7 +10,7 @@ enum _UserFilter { all, currentSession, bannedOnly }
 
 enum _UserSort { lastSeen, watchCount, commentCount, name }
 
-/// コメント参加ユーザーリスト ＆ 視聴回数・コメント回数・BAN管理画面
+/// コメント参加ユーザーリスト ＆ 視聴回数・コメント回数・BAN管理画面（ライト/ダーク両対応）
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key, required this.controller});
 
@@ -36,19 +36,19 @@ class _UsersScreenState extends State<UsersScreen> {
       await widget.controller.setUserBan(u.userId, u.platform, false, '');
       return;
     }
+    final p = context.palette;
     final reasonCtrl = TextEditingController(text: u.banReason);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceDark,
         title: Text('${u.displayName} をアプリ内BANしますか？'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'BANされたユーザーはユーザー抽選・コメント抽選・ワードカウントに一切参加できなくなります。',
-              style: TextStyle(fontSize: 13, color: Colors.white70),
+              style: TextStyle(fontSize: 13, color: p.textSecondary),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -65,7 +65,7 @@ class _UsersScreenState extends State<UsersScreen> {
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('キャンセル')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppTheme.accentRose),
+            style: FilledButton.styleFrom(backgroundColor: p.danger),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('BANする'),
           ),
@@ -84,7 +84,6 @@ class _UsersScreenState extends State<UsersScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceDark,
         title: Text('${u.displayName} のメモ'),
         content: TextField(
           controller: memoCtrl,
@@ -113,6 +112,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final allUsers = widget.controller.users;
     final query = _searchCtrl.text.trim().toLowerCase();
 
@@ -155,19 +155,19 @@ class _UsersScreenState extends State<UsersScreen> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'コメント参加ユーザーリスト ＆ BAN 管理',
                       style:
-                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       '1配信につき1回でもコメントすると視聴回数が +1 されます。BANしたユーザーは抽選システム等に一切参加できなくなります。',
-                      style: TextStyle(color: Colors.white60),
+                      style: TextStyle(color: p.textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
@@ -180,15 +180,15 @@ class _UsersScreenState extends State<UsersScreen> {
                   featureLabel: 'ユーザーリスト自動記録',
                 ),
               ),
-              const SizedBox(width: 12),
-              _StatBadge('総ユーザー', '${allUsers.length}人', AppTheme.accentSky),
-              const SizedBox(width: 8),
-              _StatBadge('今回参加', '$inSessionCount人', AppTheme.accentEmerald),
-              const SizedBox(width: 8),
-              _StatBadge('BAN済み', '$bannedCount人', AppTheme.accentRose),
+              const SizedBox(width: 10),
+              _StatBadge('総ユーザー', '${allUsers.length}人', p.accent),
+              const SizedBox(width: 6),
+              _StatBadge('今回参加', '$inSessionCount人', p.success),
+              const SizedBox(width: 6),
+              _StatBadge('BAN済み', '$bannedCount人', p.danger),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           if (!trackingEnabled)
             FeatureDisabledBanner(
               featureName: 'ユーザーリスト自動記録',
@@ -208,12 +208,12 @@ class _UsersScreenState extends State<UsersScreen> {
                   controller: _searchCtrl,
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: Icon(Icons.search, size: 19),
                     hintText: 'ユーザー名・ID・メモで検索...',
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               SegmentedButton<_UserFilter>(
                 segments: const [
                   ButtonSegment(value: _UserFilter.all, label: Text('全員')),
@@ -225,23 +225,25 @@ class _UsersScreenState extends State<UsersScreen> {
                 selected: {_filter},
                 onSelectionChanged: (s) => setState(() => _filter = s.first),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               DropdownButtonHideUnderline(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.borderDark),
+                    color: p.inputBg,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: p.border),
                   ),
                   child: DropdownButton<_UserSort>(
                     value: _sort,
-                    dropdownColor: AppTheme.cardDark,
+                    dropdownColor: p.cardBg,
+                    style: TextStyle(color: p.textPrimary, fontSize: 13),
                     items: const [
                       DropdownMenuItem(
                           value: _UserSort.lastSeen, child: Text('最終コメント順')),
                       DropdownMenuItem(
-                          value: _UserSort.watchCount, child: Text('視聴回数が多い順')),
+                          value: _UserSort.watchCount,
+                          child: Text('視聴回数が多い順')),
                       DropdownMenuItem(
                           value: _UserSort.commentCount,
                           child: Text('コメント回数が多い順')),
@@ -256,16 +258,16 @@ class _UsersScreenState extends State<UsersScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // ユーザーリスト
           Expanded(
             child: Card(
               child: filtered.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         '条件に一致するユーザーがいません。配信に接続してコメントを受信すると自動で記録されます。',
-                        style: TextStyle(color: Colors.white54),
+                        style: TextStyle(color: p.textSecondary),
                       ),
                     )
                   : ListView.separated(
@@ -275,13 +277,12 @@ class _UsersScreenState extends State<UsersScreen> {
                         final u = filtered[idx];
                         return ListTile(
                           contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 6),
+                              horizontal: 14, vertical: 4),
                           leading: UserAvatar(
                             name: u.displayName,
                             iconUrl: u.iconUrl,
-                            radius: 21,
-                            borderColor:
-                                u.isBanned ? AppTheme.accentRose : null,
+                            radius: 19,
+                            borderColor: u.isBanned ? p.danger : null,
                           ),
                           title: Row(
                             children: [
@@ -289,42 +290,39 @@ class _UsersScreenState extends State<UsersScreen> {
                                 u.displayName,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: u.isBanned
-                                      ? AppTheme.accentRose
-                                      : Colors.white,
+                                  color: u.isBanned ? p.danger : p.textPrimary,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 7, vertical: 2),
+                                    horizontal: 6, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: Colors.white10,
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: p.subtleBg,
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   u.platform == PlatformKind.youTube
                                       ? 'YouTube'
                                       : 'Demo',
-                                  style: const TextStyle(
-                                      fontSize: 11, color: Colors.white70),
+                                  style: TextStyle(
+                                      fontSize: 11, color: p.textSecondary),
                                 ),
                               ),
                               if (u.inCurrentSession) ...[
                                 const SizedBox(width: 6),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 7, vertical: 2),
+                                      horizontal: 6, vertical: 1),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.accentEmerald
-                                        .withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(6),
+                                    color: p.success.withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: const Text(
+                                  child: Text(
                                     '今回参加',
                                     style: TextStyle(
                                         fontSize: 11,
-                                        color: AppTheme.accentEmerald,
+                                        color: p.success,
                                         fontWeight: FontWeight.bold),
                                   ),
                                 ),
@@ -333,10 +331,10 @@ class _UsersScreenState extends State<UsersScreen> {
                                 const SizedBox(width: 6),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 7, vertical: 2),
+                                      horizontal: 6, vertical: 1),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.accentRose,
-                                    borderRadius: BorderRadius.circular(6),
+                                    color: p.danger,
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     u.banReason.isEmpty
@@ -352,13 +350,13 @@ class _UsersScreenState extends State<UsersScreen> {
                             ],
                           ),
                           subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.only(top: 3),
                             child: Text(
                               '視聴回数: ${u.watchCount}回   |   累計コメント: ${u.totalCommentCount}回'
                               '${u.inCurrentSession ? " (今回 ${u.sessionCommentCount}回)" : ""}'
                               '${u.memo.isNotEmpty ? "   |   メモ: ${u.memo}" : ""}',
-                              style: const TextStyle(
-                                  fontSize: 12.5, color: Colors.white70),
+                              style: TextStyle(
+                                  fontSize: 12.5, color: p.textSecondary),
                             ),
                           ),
                           trailing: Row(
@@ -368,22 +366,22 @@ class _UsersScreenState extends State<UsersScreen> {
                                 tooltip: 'メモを編集',
                                 onPressed: () => _editMemo(u),
                                 icon: const Icon(Icons.note_alt_outlined,
-                                    size: 19),
+                                    size: 18),
                               ),
                               const SizedBox(width: 4),
                               u.isBanned
                                   ? OutlinedButton.icon(
                                       onPressed: () => _toggleBan(u),
-                                      icon: const Icon(Icons.undo, size: 16),
+                                      icon: const Icon(Icons.undo, size: 15),
                                       label: const Text('BAN解除'),
                                     )
                                   : FilledButton.icon(
                                       style: FilledButton.styleFrom(
-                                        backgroundColor: AppTheme.accentRose
-                                            .withValues(alpha: 0.85),
+                                        backgroundColor: p.danger,
+                                        foregroundColor: Colors.white,
                                       ),
                                       onPressed: () => _toggleBan(u),
-                                      icon: const Icon(Icons.block, size: 16),
+                                      icon: const Icon(Icons.block, size: 15),
                                       label: const Text('BAN'),
                                     ),
                             ],
@@ -407,21 +405,21 @@ class _StatBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
+        color: p.cardBg,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: p.border),
       ),
       child: Column(
         children: [
-          Text(label,
-              style: const TextStyle(fontSize: 11, color: Colors.white70)),
+          Text(label, style: TextStyle(fontSize: 10.5, color: p.textSecondary)),
           Text(
             value,
             style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.bold, color: color),
+                fontSize: 14.5, fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),

@@ -23,7 +23,9 @@ class HighlightRulesScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _openEditor(BuildContext context, [HighlightRule? existing]) async {
+  Future<void> _openEditor(BuildContext context,
+      [HighlightRule? existing]) async {
+    final p = context.palette;
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final patternCtrl = TextEditingController(text: existing?.pattern ?? '');
     final priorityCtrl =
@@ -31,8 +33,8 @@ class HighlightRulesScreen extends StatelessWidget {
     var matchMode = existing?.matchMode ?? MatchMode.contains;
     var caseSensitive = existing?.caseSensitive ?? false;
     var bgColor = existing?.bgColor ?? '#065F46E6';
-    var textColor = existing?.textColor ?? '#F8FAFC';
-    var borderColor = existing?.borderColor ?? '#34D399';
+    var textColor = existing?.textColor ?? '#F4F4F5';
+    var borderColor = existing?.borderColor ?? '#16A34A';
     var enabled = existing?.enabled ?? true;
 
     final saved = await showDialog<bool>(
@@ -41,35 +43,33 @@ class HighlightRulesScreen extends StatelessWidget {
         builder: (ctx, setState) {
           final bg = AppTheme.parseCssHex(bgColor);
           final fg = AppTheme.parseCssHex(textColor, fallback: Colors.white);
-          final bd = AppTheme.parseCssHex(borderColor, fallback: Colors.white38);
+          final bd = AppTheme.parseCssHex(borderColor, fallback: p.border);
 
           return AlertDialog(
-            backgroundColor: AppTheme.surfaceDark,
             title: Text(existing == null ? 'ワード反応ルールを追加' : 'ワード反応ルールを編集'),
             content: SizedBox(
-              width: 560,
+              width: 540,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ライブプレビュー
-                    const Text('吹き出しプレビュー',
-                        style: TextStyle(fontSize: 12, color: Colors.white60)),
+                    Text('吹き出しプレビュー',
+                        style: TextStyle(fontSize: 12, color: p.textSecondary)),
                     const SizedBox(height: 6),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                          horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
                         color: bg,
                         borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(4),
-                          topRight: Radius.circular(14),
-                          bottomLeft: Radius.circular(14),
-                          bottomRight: Radius.circular(14),
+                          topLeft: Radius.circular(3),
+                          topRight: Radius.circular(8),
+                          bottomLeft: Radius.circular(8),
+                          bottomRight: Radius.circular(8),
                         ),
-                        border: Border.all(color: bd, width: 2),
+                        border: Border.all(color: bd, width: 1.8),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,12 +87,12 @@ class HighlightRulesScreen extends StatelessWidget {
                             patternCtrl.text.isEmpty
                                 ? '特定のワードを含むコメントの表示イメージです！'
                                 : '「${patternCtrl.text}」に反応したコメントはこのように表示されます！',
-                            style: TextStyle(color: fg, fontSize: 14.5),
+                            style: TextStyle(color: fg, fontSize: 14),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     TextField(
                       controller: nameCtrl,
                       decoration: const InputDecoration(
@@ -115,7 +115,7 @@ class HighlightRulesScreen extends StatelessWidget {
                         Expanded(
                           child: DropdownButtonFormField<MatchMode>(
                             initialValue: matchMode,
-                            dropdownColor: AppTheme.cardDark,
+                            dropdownColor: p.cardBg,
                             decoration:
                                 const InputDecoration(labelText: '一致方式'),
                             items: const [
@@ -132,7 +132,7 @@ class HighlightRulesScreen extends StatelessWidget {
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         SizedBox(
                           width: 130,
                           child: TextField(
@@ -147,12 +147,13 @@ class HighlightRulesScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     SwitchListTile(
+                      dense: true,
                       contentPadding: EdgeInsets.zero,
                       value: caseSensitive,
                       onChanged: (v) => setState(() => caseSensitive = v),
                       title: const Text('英字の大文字・小文字を区別する'),
                     ),
-                    const Divider(),
+                    const Divider(height: 20),
                     ColorPickerRow(
                       label: '吹き出し背景色',
                       hexValue: bgColor,
@@ -163,12 +164,12 @@ class HighlightRulesScreen extends StatelessWidget {
                       label: '文字色',
                       hexValue: textColor,
                       presets: const [
-                        '#F8FAFC',
+                        '#F4F4F5',
                         '#ECFDF5',
                         '#FFF7ED',
                         '#FEF9C3',
                         '#FCE7F3',
-                        '#0F172A',
+                        '#18181B',
                       ],
                       onChanged: (v) => setState(() => textColor = v),
                     ),
@@ -225,6 +226,7 @@ class HighlightRulesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final rules = controller.highlightRules;
     final featureEnabled = controller.featureFlags.wordHighlightEnabled;
 
@@ -235,19 +237,19 @@ class HighlightRulesScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       '特定ワード反応（吹き出し色変更）',
                       style:
-                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       '設定したワードを含むコメントの吹き出し背景色・文字色・枠線色をアプリ内と OBS オーバーレイで自動変更します。',
-                      style: TextStyle(color: Colors.white60),
+                      style: TextStyle(color: p.textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
@@ -260,15 +262,15 @@ class HighlightRulesScreen extends StatelessWidget {
                   featureLabel: '特定ワード反応（吹き出し色変更）',
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               FilledButton.icon(
                 onPressed: () => _openEditor(context),
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add, size: 18),
                 label: const Text('新規ルール追加'),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           if (!featureEnabled)
             FeatureDisabledBanner(
               featureName: '特定ワード反応（吹き出し色変更）',
@@ -281,10 +283,10 @@ class HighlightRulesScreen extends StatelessWidget {
             ),
           Expanded(
             child: rules.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
-                      'ルールが登録されていません。右上の「新規ルール追加」から作成できます。',
-                      style: TextStyle(color: Colors.white54),
+                      'ルールが登録されていません。「新規ルール追加」から作成できます。',
+                      style: TextStyle(color: p.textSecondary),
                     ),
                   )
                 : ListView.builder(
@@ -292,105 +294,108 @@ class HighlightRulesScreen extends StatelessWidget {
                     itemBuilder: (context, idx) {
                       final r = rules[idx];
                       final bg = AppTheme.parseCssHex(r.bgColor);
-                      final fg =
-                          AppTheme.parseCssHex(r.textColor, fallback: Colors.white);
+                      final fg = AppTheme.parseCssHex(r.textColor,
+                          fallback: Colors.white);
                       final bd = AppTheme.parseCssHex(r.borderColor,
-                          fallback: Colors.white38);
+                          fallback: p.border);
 
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Row(
-                            children: [
-                              Switch(
-                                value: r.enabled,
-                                onChanged: (v) {
-                                  controller.saveHighlightRule(HighlightRule(
-                                    id: r.id,
-                                    name: r.name,
-                                    pattern: r.pattern,
-                                    matchMode: r.matchMode,
-                                    caseSensitive: r.caseSensitive,
-                                    bgColor: r.bgColor,
-                                    textColor: r.textColor,
-                                    borderColor: r.borderColor,
-                                    priority: r.priority,
-                                    enabled: v,
-                                  ));
-                                },
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 2,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      r.name,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Wrap(
-                                      spacing: 8,
-                                      children: [
-                                        Chip(
-                                          label: Text('ワード: ${r.pattern}',
-                                              style: const TextStyle(
-                                                  fontSize: 12)),
-                                          visualDensity: VisualDensity.compact,
-                                        ),
-                                        Chip(
-                                          label: Text(_modeLabel(r.matchMode),
-                                              style: const TextStyle(
-                                                  fontSize: 12)),
-                                          visualDensity: VisualDensity.compact,
-                                        ),
-                                        Chip(
-                                          label: Text('優先度: ${r.priority}',
-                                              style: const TextStyle(
-                                                  fontSize: 12)),
-                                          visualDensity: VisualDensity.compact,
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Switch(
+                                  value: r.enabled,
+                                  onChanged: (v) {
+                                    controller.saveHighlightRule(HighlightRule(
+                                      id: r.id,
+                                      name: r.name,
+                                      pattern: r.pattern,
+                                      matchMode: r.matchMode,
+                                      caseSensitive: r.caseSensitive,
+                                      bgColor: r.bgColor,
+                                      textColor: r.textColor,
+                                      borderColor: r.borderColor,
+                                      priority: r.priority,
+                                      enabled: v,
+                                    ));
+                                  },
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 2,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: bg,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: bd, width: 1.8),
-                                  ),
-                                  child: Text(
-                                    'プレビュー: 「${r.pattern}」を含むコメント',
-                                    style: TextStyle(color: fg, fontSize: 13),
-                                    overflow: TextOverflow.ellipsis,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        r.name,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14.5),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Wrap(
+                                        spacing: 6,
+                                        children: [
+                                          Chip(
+                                            label: Text('ワード: ${r.pattern}'),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                          Chip(
+                                            label:
+                                                Text(_modeLabel(r.matchMode)),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                          Chip(
+                                            label: Text('優先度: ${r.priority}'),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              IconButton(
-                                tooltip: '編集',
-                                onPressed: () => _openEditor(context, r),
-                                icon: const Icon(Icons.edit_outlined),
-                              ),
-                              IconButton(
-                                tooltip: '削除',
-                                onPressed: () =>
-                                    controller.deleteHighlightRule(r.id),
-                                icon: const Icon(Icons.delete_outline,
-                                    color: AppTheme.accentRose),
-                              ),
-                            ],
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 9),
+                                    decoration: BoxDecoration(
+                                      color: bg,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border:
+                                          Border.all(color: bd, width: 1.5),
+                                    ),
+                                    child: Text(
+                                      'プレビュー: 「${r.pattern}」を含むコメント',
+                                      style: TextStyle(color: fg, fontSize: 13),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                IconButton(
+                                  tooltip: '編集',
+                                  onPressed: () => _openEditor(context, r),
+                                  icon: const Icon(Icons.edit_outlined,
+                                      size: 19),
+                                ),
+                                IconButton(
+                                  tooltip: '削除',
+                                  onPressed: () =>
+                                      controller.deleteHighlightRule(r.id),
+                                  icon: Icon(Icons.delete_outline,
+                                      size: 19, color: p.danger),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );

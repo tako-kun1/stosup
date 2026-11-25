@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 import '../widgets/feature_toggle_banner.dart';
 import '../widgets/user_avatar.dart';
 
-/// コメント表示 ＆ 配信接続画面
+/// コメント表示 ＆ 配信接続画面（ライト/ダーク両対応）
 class CommentsScreen extends StatefulWidget {
   const CommentsScreen({super.key, required this.controller});
 
@@ -61,19 +61,19 @@ class _CommentsScreenState extends State<CommentsScreen> {
   }
 
   Future<void> _confirmBan(CommentItem c) async {
+    final p = context.palette;
     final reasonCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surfaceDark,
         title: Text('${c.userName} をアプリ内BANしますか？'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'BANされたユーザーはユーザー抽選・コメント抽選・ワードカウントに一切参加できなくなります。',
-              style: TextStyle(fontSize: 13, color: Colors.white70),
+              style: TextStyle(fontSize: 13, color: p.textSecondary),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -91,7 +91,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
             child: const Text('キャンセル'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppTheme.accentRose),
+            style: FilledButton.styleFrom(backgroundColor: p.danger),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('BANする'),
           ),
@@ -111,6 +111,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final ctrl = widget.controller;
     final conn = ctrl.connectionState;
     final connected = conn.status == ConnectionStatus.connected;
@@ -118,12 +119,12 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
     return Column(
       children: [
-        // 配信接続コントロールバー
+        // 配信接続バー
         Container(
-          padding: const EdgeInsets.all(14),
-          decoration: const BoxDecoration(
-            color: AppTheme.surfaceDark,
-            border: Border(bottom: BorderSide(color: AppTheme.borderDark)),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: p.sidebarBg,
+            border: Border(bottom: BorderSide(color: p.border)),
           ),
           child: Column(
             children: [
@@ -132,25 +133,28 @@ class _CommentsScreenState extends State<CommentsScreen> {
                   Expanded(
                     child: TextField(
                       controller: _urlCtrl,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.live_tv, color: AppTheme.accentRose),
+                      decoration: InputDecoration(
+                        prefixIcon:
+                            Icon(Icons.live_tv, color: p.danger, size: 19),
                         labelText: 'YouTube Live 配信 URL または 動画 ID',
-                        hintText: '例: https://www.youtube.com/watch?v=XXXXXXXXXXX',
+                        hintText:
+                            '例: https://www.youtube.com/watch?v=XXXXXXXXXXX',
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   DropdownButtonHideUnderline(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.borderDark),
+                        color: p.inputBg,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: p.border),
                       ),
                       child: DropdownButton<ConnectionMode>(
                         value: _selectedMode,
-                        dropdownColor: AppTheme.cardDark,
+                        dropdownColor: p.cardBg,
+                        style: TextStyle(color: p.textPrimary, fontSize: 13),
                         items: const [
                           DropdownMenuItem(
                             value: ConnectionMode.youTubeInnerTube,
@@ -167,7 +171,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   FilledButton.icon(
                     onPressed: ctrl.isConnecting
                         ? null
@@ -177,71 +181,70 @@ class _CommentsScreenState extends State<CommentsScreen> {
                             ),
                     icon: ctrl.isConnecting
                         ? const SizedBox(
-                            width: 16,
-                            height: 16,
+                            width: 15,
+                            height: 15,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.play_arrow),
+                        : const Icon(Icons.play_arrow, size: 18),
                     label: const Text('接続'),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   OutlinedButton.icon(
                     onPressed: ctrl.isConnecting
                         ? null
                         : () => ctrl.connectDemo(autoGenerate: true),
-                    icon: const Icon(Icons.science_outlined),
+                    icon: const Icon(Icons.science_outlined, size: 17),
                     label: const Text('デモ配信'),
                   ),
                   if (connected) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.accentRose,
-                        side: const BorderSide(color: AppTheme.accentRose),
+                        foregroundColor: p.danger,
+                        side: BorderSide(color: p.danger),
                       ),
                       onPressed: ctrl.disconnect,
-                      icon: const Icon(Icons.stop),
+                      icon: const Icon(Icons.stop, size: 17),
                       label: const Text('切断'),
                     ),
                   ],
                 ],
               ),
-              const SizedBox(height: 10),
-              // 接続ステータスバー
+              const SizedBox(height: 8),
               Row(
                 children: [
                   _StatusChip(state: conn),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   if (conn.streamTitle.isNotEmpty)
                     Expanded(
                       child: Text(
                         conn.streamTitle,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, color: Colors.white),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, color: p.textPrimary),
                       ),
                     )
                   else
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        '未接続です。YouTube URL を入力するか「デモ配信」で全機能をお試しください。',
-                        style: TextStyle(color: Colors.white54, fontSize: 13),
+                        '未接続です。YouTube URL を入力するか「デモ配信」で動作を確認できます。',
+                        style: TextStyle(color: p.textSecondary, fontSize: 12.5),
                       ),
                     ),
                   if (connected)
                     Chip(
+                      visualDensity: VisualDensity.compact,
                       avatar: Icon(
-                        conn.canPostChat ? Icons.check_circle : Icons.info_outline,
-                        size: 16,
-                        color: conn.canPostChat
-                            ? AppTheme.accentEmerald
-                            : AppTheme.accentAmber,
+                        conn.canPostChat
+                            ? Icons.check_circle_outline
+                            : Icons.info_outline,
+                        size: 15,
+                        color: conn.canPostChat ? p.success : p.warning,
                       ),
                       label: Text(
                         conn.canPostChat
                             ? 'チャット投稿: 可能'
-                            : 'チャット投稿: OAuth未連携（閲覧専用）',
-                        style: const TextStyle(fontSize: 12),
+                            : 'チャット投稿: OAuth未連携',
                       ),
                     ),
                 ],
@@ -250,7 +253,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
           ),
         ),
 
-        // メイン領域（左: コメント一覧 / 右: サイドパネル）
+        // メイン領域
         Expanded(
           child: Row(
             children: [
@@ -261,16 +264,16 @@ class _CommentsScreenState extends State<CommentsScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
+                          horizontal: 14, vertical: 8),
                       child: Row(
                         children: [
-                          const Icon(Icons.chat_bubble_outline,
-                              size: 18, color: AppTheme.accentSky),
+                          Icon(Icons.chat_bubble_outline,
+                              size: 17, color: p.textSecondary),
                           const SizedBox(width: 8),
                           Text(
                             'コメント一覧 (${ctrl.comments.length}件)',
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 15),
+                                fontWeight: FontWeight.bold, fontSize: 14),
                           ),
                           const SizedBox(width: 12),
                           FeatureToggleSwitch(
@@ -282,23 +285,19 @@ class _CommentsScreenState extends State<CommentsScreen> {
                             ),
                           ),
                           const Spacer(),
-                          Row(
-                            children: [
-                              const Text('自動スクロール',
-                                  style: TextStyle(fontSize: 12.5)),
-                              Switch(
-                                value: _autoScroll,
-                                onChanged: (v) =>
-                                    setState(() => _autoScroll = v),
-                              ),
-                            ],
+                          Text('自動スクロール',
+                              style: TextStyle(
+                                  fontSize: 12, color: p.textSecondary)),
+                          Switch(
+                            value: _autoScroll,
+                            onChanged: (v) => setState(() => _autoScroll = v),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           TextButton.icon(
                             onPressed: ctrl.comments.isEmpty
                                 ? null
                                 : ctrl.clearComments,
-                            icon: const Icon(Icons.delete_sweep, size: 18),
+                            icon: const Icon(Icons.delete_sweep, size: 17),
                             label: const Text('クリア'),
                           ),
                         ],
@@ -320,30 +319,30 @@ class _CommentsScreenState extends State<CommentsScreen> {
                       ),
                     Expanded(
                       child: ctrl.comments.isEmpty
-                          ? const Center(
+                          ? Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.forum_outlined,
-                                      size: 56, color: Colors.white24),
-                                  SizedBox(height: 12),
+                                      size: 44, color: p.textMuted),
+                                  const SizedBox(height: 10),
                                   Text(
                                     'コメントがまだありません',
                                     style: TextStyle(
-                                        fontSize: 16, color: Colors.white54),
+                                        fontSize: 15, color: p.textSecondary),
                                   ),
-                                  SizedBox(height: 4),
+                                  const SizedBox(height: 4),
                                   Text(
-                                    'YouTube Live に接続するか、右上の「デモ配信」ボタンを押すとコメントが流れます。',
+                                    'YouTube Live に接続するか「デモ配信」ボタンを押すとコメントが表示されます。',
                                     style: TextStyle(
-                                        fontSize: 13, color: Colors.white38),
+                                        fontSize: 12.5, color: p.textMuted),
                                   ),
                                 ],
                               ),
                             )
                           : ListView.builder(
                               controller: _scrollCtrl,
-                              padding: const EdgeInsets.all(14),
+                              padding: const EdgeInsets.all(12),
                               itemCount: ctrl.comments.length,
                               itemBuilder: (context, idx) {
                                 final c = ctrl.comments[idx];
@@ -363,83 +362,84 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
               const VerticalDivider(width: 1),
 
-              // 右サイドパネル（カウンター速報 + コメント投稿 + テスト送信）
+              // 右サイドパネル
               SizedBox(
-                width: 320,
+                width: 310,
                 child: ListView(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(12),
                   children: [
                     Row(
                       children: [
                         const Text(
                           '稼働中ワードカウンター',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14),
+                              fontWeight: FontWeight.bold, fontSize: 13.5),
                         ),
                         if (!ctrl.featureFlags.wordCounterEnabled) ...[
                           const SizedBox(width: 8),
-                          const Text(
+                          Text(
                             '(機能OFF)',
-                            style: TextStyle(
-                                fontSize: 11.5, color: AppTheme.accentAmber),
+                            style: TextStyle(fontSize: 11.5, color: p.warning),
                           ),
                         ],
                       ],
                     ),
                     const SizedBox(height: 8),
                     if (ctrl.wordCounters.where((e) => e.enabled).isEmpty)
-                      const Card(
+                      Card(
                         child: Padding(
-                          padding: EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(12),
                           child: Text('有効なカウンターがありません',
-                              style: TextStyle(color: Colors.white54)),
+                              style: TextStyle(color: p.textSecondary)),
                         ),
                       )
                     else
                       ...ctrl.wordCounters.where((e) => e.enabled).map((wc) {
                         final accent = AppTheme.parseCssHex(wc.accentColor,
-                            fallback: AppTheme.accentSky);
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(wc.name,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 13)),
-                                      Text(
-                                        wc.maxPerAccount != null
-                                            ? '1人${wc.maxPerAccount}回まで'
-                                            : '上限なし',
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.white54),
-                                      ),
-                                    ],
+                            fallback: p.accent);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 9),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(wc.name,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13)),
+                                        Text(
+                                          wc.maxPerAccount != null
+                                              ? '1人${wc.maxPerAccount}回まで'
+                                              : '上限なし',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              color: p.textSecondary),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  wc.totalCount.toString(),
-                                  style: TextStyle(
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.w900,
-                                    color: accent,
+                                  Text(
+                                    wc.totalCount.toString(),
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w800,
+                                      color: accent,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         );
                       }),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
 
                     // 配信チャットへ直接投稿
                     Card(
@@ -448,16 +448,10 @@ class _CommentsScreenState extends State<CommentsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.send,
-                                    size: 16, color: AppTheme.accentSky),
-                                SizedBox(width: 6),
-                                Text('配信チャットへ投稿',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
-                              ],
-                            ),
+                            const Text('配信チャットへ投稿',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13.5)),
                             const SizedBox(height: 8),
                             TextField(
                               controller: _postChatCtrl,
@@ -479,7 +473,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
                                         }
                                       }
                                     : null,
-                                icon: const Icon(Icons.send, size: 16),
+                                icon: const Icon(Icons.send, size: 15),
                                 label: const Text('チャット送信'),
                               ),
                             ),
@@ -487,30 +481,24 @@ class _CommentsScreenState extends State<CommentsScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
-                    // デモ / テストコメント手動送信
+                    // テストコメント手動送信
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.bug_report_outlined,
-                                    size: 16, color: AppTheme.accentAmber),
-                                SizedBox(width: 6),
-                                Text('テストコメント手動送信',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
-                              ],
-                            ),
+                            const Text('テストコメント手動送信',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13.5)),
                             const SizedBox(height: 4),
-                            const Text(
-                              '接続中に任意の視聴者コメントをシミュレートして色変化や抽選をテストできます。',
+                            Text(
+                              '接続中に任意のコメントを流して色変化・カウント・抽選をテストできます。',
                               style: TextStyle(
-                                  fontSize: 11.5, color: Colors.white54),
+                                  fontSize: 11.5, color: p.textSecondary),
                             ),
                             const SizedBox(height: 8),
                             TextField(
@@ -534,8 +522,8 @@ class _CommentsScreenState extends State<CommentsScreen> {
                                 onPressed: connected
                                     ? () => _sendTestComment(ctrl)
                                     : null,
-                                icon: const Icon(Icons.add_comment, size: 16),
-                                label: const Text('テストコメントを流す'),
+                                icon: const Icon(Icons.add_comment, size: 15),
+                                label: const Text('テストコメント送信'),
                               ),
                             ),
                           ],
@@ -567,35 +555,36 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     late Color color;
     late String label;
     switch (state.status) {
       case ConnectionStatus.connected:
-        color = AppTheme.accentEmerald;
+        color = p.success;
         label = state.platform == PlatformKind.demo ? 'デモ配信中' : 'YouTube 接続中';
       case ConnectionStatus.connecting:
-        color = AppTheme.accentAmber;
+        color = p.warning;
         label = '接続中...';
       case ConnectionStatus.error:
-        color = AppTheme.accentRose;
+        color = p.danger;
         label = '接続エラー';
       case ConnectionStatus.disconnected:
-        color = Colors.white38;
+        color = p.textMuted;
         label = '未接続';
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color),
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 8,
-            height: 8,
+            width: 7,
+            height: 7,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
@@ -603,7 +592,7 @@ class _StatusChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: color,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
               fontSize: 12,
             ),
           ),
@@ -628,19 +617,20 @@ class _CommentBubbleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = comment.bubbleBgColor != null
-        ? AppTheme.parseCssHex(comment.bubbleBgColor)
-        : AppTheme.cardDark;
+    final p = context.palette;
+    final isHighlighted = comment.bubbleBgColor != null;
+    final bg = isHighlighted
+        ? AppTheme.parseCssHex(comment.bubbleBgColor, fallback: p.cardBg)
+        : p.cardBg;
     final fg = comment.bubbleTextColor != null
-        ? AppTheme.parseCssHex(comment.bubbleTextColor, fallback: Colors.white)
-        : Colors.white;
+        ? AppTheme.parseCssHex(comment.bubbleTextColor, fallback: p.textPrimary)
+        : p.textPrimary;
     final border = comment.bubbleBorderColor != null
-        ? AppTheme.parseCssHex(comment.bubbleBorderColor,
-            fallback: AppTheme.borderDark)
-        : AppTheme.borderDark;
+        ? AppTheme.parseCssHex(comment.bubbleBorderColor, fallback: p.border)
+        : p.border;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Opacity(
         opacity: comment.isBanned ? 0.45 : 1.0,
         child: Row(
@@ -649,24 +639,24 @@ class _CommentBubbleCard extends StatelessWidget {
             UserAvatar(
               name: comment.userName,
               iconUrl: comment.userIconUrl,
-              radius: 19,
+              radius: 17,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: bg,
                   borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    topRight: Radius.circular(14),
-                    bottomLeft: Radius.circular(14),
-                    bottomRight: Radius.circular(14),
+                    topLeft: Radius.circular(3),
+                    topRight: Radius.circular(8),
+                    bottomLeft: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
                   ),
                   border: Border.all(
-                    color: comment.isBanned ? AppTheme.accentRose : border,
-                    width: comment.bubbleBgColor != null ? 1.8 : 1.0,
+                    color: comment.isBanned ? p.danger : border,
+                    width: isHighlighted ? 1.5 : 1.0,
                   ),
                 ),
                 child: Column(
@@ -677,27 +667,26 @@ class _CommentBubbleCard extends StatelessWidget {
                         Text(
                           comment.userName,
                           style: TextStyle(
-                            color: fg.withValues(alpha: 0.92),
+                            color: fg.withValues(alpha: 0.88),
                             fontWeight: FontWeight.bold,
-                            fontSize: 12.5,
+                            fontSize: 12,
                           ),
                         ),
                         if (comment.isOwner) ...[
                           const SizedBox(width: 6),
-                          _MiniBadge('配信者', AppTheme.accentAmber, Colors.black),
+                          _MiniBadge('配信者', p.warning, Colors.black),
                         ],
                         if (comment.isModerator) ...[
                           const SizedBox(width: 6),
-                          _MiniBadge('MOD', AppTheme.accentSky, Colors.black),
+                          _MiniBadge('MOD', p.accent, Colors.white),
                         ],
                         if (comment.isMember) ...[
                           const SizedBox(width: 6),
-                          _MiniBadge(
-                              'メンバー', AppTheme.accentEmerald, Colors.black),
+                          _MiniBadge('メンバー', p.success, Colors.white),
                         ],
                         if (comment.isBanned) ...[
                           const SizedBox(width: 6),
-                          _MiniBadge('BAN', AppTheme.accentRose, Colors.white),
+                          _MiniBadge('BAN', p.danger, Colors.white),
                         ],
                         const Spacer(),
                         Text(
@@ -710,7 +699,7 @@ class _CommentBubbleCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         PopupMenuButton<String>(
                           icon: Icon(Icons.more_vert,
-                              size: 16, color: fg.withValues(alpha: 0.7)),
+                              size: 15, color: fg.withValues(alpha: 0.65)),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onSelected: (v) {
@@ -732,12 +721,12 @@ class _CommentBubbleCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       comment.message,
                       style: TextStyle(
                         color: fg,
-                        fontSize: 14.5,
+                        fontSize: 14,
                         height: 1.4,
                       ),
                     ),
@@ -761,10 +750,10 @@ class _MiniBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         text,

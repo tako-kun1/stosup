@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Stosup ワードカウンターオーバーレイ</title>
 <link rel="icon" href="/favicon.ico" />
-<style>
+<style id="stosup-base-css">
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     width: 100%;
@@ -17,23 +17,22 @@
   #counters {
     display: flex;
     flex-wrap: wrap;
-    gap: 14px;
-    padding: 16px;
+    gap: 12px;
+    padding: 14px;
   }
   .card {
-    background: rgba(15, 23, 42, 0.88);
-    border-radius: 16px;
-    border: 2px solid #38bdf8;
-    padding: 14px 22px;
+    background: rgba(24, 24, 27, 0.92);
+    border-radius: 10px;
+    border: 1.5px solid var(--accent, #2b7de9);
+    padding: 12px 18px;
     min-width: 210px;
-    color: #f8fafc;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(8px);
+    color: #f4f4f5;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   }
   .label {
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 700;
-    color: #cbd5e1;
+    color: #d4d4d8;
     margin-bottom: 4px;
     display: flex;
     align-items: center;
@@ -43,34 +42,96 @@
   .mode-tag {
     font-size: 11px;
     padding: 2px 7px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
-    color: #e2e8f0;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e4e4e7;
   }
   .value {
-    font-size: 42px;
+    font-size: 40px;
     font-weight: 900;
     line-height: 1.1;
+    color: var(--accent, #2b7de9);
     font-variant-numeric: tabular-nums;
     transition: transform 0.15s ease;
   }
-  .value.bump {
-    transform: scale(1.16);
-  }
+  .value.bump { transform: scale(1.14); }
   .sub {
     margin-top: 4px;
     font-size: 12px;
-    color: #94a3b8;
+    color: #a1a1aa;
   }
+
+  /* プリセット: compact (コンパクト・バッジ) */
+  body[data-theme="compact"] .card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: auto;
+    padding: 8px 16px;
+    border-radius: 999px;
+  }
+  body[data-theme="compact"] .label { margin-bottom: 0; font-size: 14px; }
+  body[data-theme="compact"] .mode-tag,
+  body[data-theme="compact"] .sub { display: none; }
+  body[data-theme="compact"] .value { font-size: 26px; }
+
+  /* プリセット: scoreboard (スコアボード・デジタル) */
+  body[data-theme="scoreboard"] .card {
+    background: #111214;
+    border: 2px solid #3f3f46;
+    border-top: 5px solid var(--accent, #2b7de9);
+    border-radius: 4px;
+    min-width: 220px;
+    text-align: center;
+    padding: 10px 18px 14px;
+  }
+  body[data-theme="scoreboard"] .label { justify-content: center; letter-spacing: 0.04em; }
+  body[data-theme="scoreboard"] .value {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 52px;
+    margin: 4px 0;
+  }
+
+  /* プリセット: neon (ネオン・フレーム) */
+  body[data-theme="neon"] .card {
+    background: rgba(9, 11, 20, 0.9);
+    border: 2px solid var(--accent, #22d3ee);
+    border-radius: 6px;
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.28);
+  }
+  body[data-theme="neon"] .value {
+    text-shadow: 0 0 14px var(--accent, #22d3ee);
+  }
+
+  /* プリセット: pastel (パステル・やわらか) */
+  body[data-theme="pastel"] .card {
+    background: rgba(255, 255, 255, 0.95);
+    color: #27272a;
+    border: 3px solid var(--accent, #f472b6);
+    border-radius: 20px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  }
+  body[data-theme="pastel"] .label { color: #3f3f46; }
+  body[data-theme="pastel"] .mode-tag { background: #f4f4f5; color: #52525b; }
+  body[data-theme="pastel"] .sub { color: #71717a; }
 </style>
+<style id="stosup-custom-css"></style>
 </head>
-<body>
+<body data-theme="default">
   <div id="counters"></div>
 <script>
   const container = document.getElementById('counters');
+  const customStyleEl = document.getElementById('stosup-custom-css');
   const params = new URLSearchParams(location.search);
   const filterId = params.get('id');
+  const urlThemeOverride = params.get('theme');
   const prevValues = new Map();
+  let config = { counter_theme: 'default', counter_custom_css: '' };
+
+  function applyDesign() {
+    document.body.dataset.theme = urlThemeOverride || config.counter_theme || 'default';
+    customStyleEl.textContent = config.counter_custom_css || '';
+  }
 
   function renderCounters(list) {
     const visible = (list || []).filter((c) => c.enabled && (!filterId || c.id === filterId));
@@ -79,7 +140,7 @@
     visible.forEach((c) => {
       const card = document.createElement('div');
       card.className = 'card';
-      card.style.borderColor = c.accent_color || '#38bdf8';
+      card.style.setProperty('--accent', c.accent_color || '#2b7de9');
 
       const label = document.createElement('div');
       label.className = 'label';
@@ -93,7 +154,6 @@
 
       const val = document.createElement('div');
       val.className = 'value';
-      val.style.color = c.accent_color || '#38bdf8';
       val.textContent = String(c.total_count);
       if (prevValues.has(c.id) && prevValues.get(c.id) !== c.total_count) {
         val.classList.add('bump');
@@ -118,14 +178,22 @@
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
-        if (data.type === 'snapshot' || data.type === 'counters') {
+        if (data.type === 'snapshot') {
+          config = Object.assign(config, data.config || {});
+          applyDesign();
           renderCounters(data.counters);
+        } else if (data.type === 'counters') {
+          renderCounters(data.counters);
+        } else if (data.type === 'config_updated') {
+          config = Object.assign(config, data.config || {});
+          applyDesign();
         }
       } catch (e) { console.error(e); }
     };
     ws.onclose = () => setTimeout(connect, 2000);
     ws.onerror = () => ws.close();
   }
+  applyDesign();
   connect();
 </script>
 </body>

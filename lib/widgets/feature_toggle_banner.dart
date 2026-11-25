@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_theme.dart';
 
-/// 各機能画面のヘッダーに配置するコンパクトな ON/OFF トグルチップ
+/// 各機能画面のヘッダーに配置するコンパクトな ON/OFF トグル（ライト/ダーク両対応）
 class FeatureToggleSwitch extends StatelessWidget {
   const FeatureToggleSwitch({
     super.key,
@@ -17,29 +17,35 @@ class FeatureToggleSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = enabled ? AppTheme.accentEmerald : Colors.white38;
+    final p = context.palette;
+    final statusColor = enabled ? p.success : p.textMuted;
     return Container(
-      padding: const EdgeInsets.only(left: 12, right: 6, top: 2, bottom: 2),
+      padding: const EdgeInsets.only(left: 10, right: 6, top: 2, bottom: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.65)),
+        color: p.cardBg,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: enabled ? p.success.withValues(alpha: 0.5) : p.border,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            enabled ? Icons.power_settings_new : Icons.power_off_outlined,
-            size: 16,
-            color: color,
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: statusColor,
+              shape: BoxShape.circle,
+            ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 7),
           Text(
             '$label: ${enabled ? "ON" : "OFF"}',
             style: TextStyle(
               fontSize: 12.5,
-              fontWeight: FontWeight.bold,
-              color: enabled ? AppTheme.accentEmerald : Colors.white70,
+              fontWeight: FontWeight.w600,
+              color: enabled ? p.textPrimary : p.textSecondary,
             ),
           ),
           const SizedBox(width: 4),
@@ -54,7 +60,7 @@ class FeatureToggleSwitch extends StatelessWidget {
   }
 }
 
-/// 機能が OFF のときに画面上部に表示する案内バナー（ワンクリックで ON に復帰可能）
+/// 機能が OFF のときに画面上部に表示する案内バナー（ライト/ダーク両対応）
 class FeatureDisabledBanner extends StatelessWidget {
   const FeatureDisabledBanner({
     super.key,
@@ -69,49 +75,44 @@ class FeatureDisabledBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.accentAmber.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.accentAmber.withValues(alpha: 0.7)),
+        color: p.warning.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: p.warning.withValues(alpha: 0.45)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.pause_circle_outline,
-              color: AppTheme.accentAmber, size: 22),
-          const SizedBox(width: 12),
+          Icon(Icons.pause_circle_outline, color: p.warning, size: 20),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '「$featureName」は現在オフになっています',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.accentAmber,
-                    fontSize: 13.5,
+                    color: p.textPrimary,
+                    fontSize: 13,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   description,
-                  style: const TextStyle(fontSize: 12.5, color: Colors.white70),
+                  style: TextStyle(fontSize: 12.5, color: p.textSecondary),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.accentEmerald,
-              foregroundColor: Colors.black,
-            ),
+          const SizedBox(width: 10),
+          FilledButton(
             onPressed: onEnable,
-            icon: const Icon(Icons.power_settings_new, size: 17),
-            label: const Text('オンにする'),
+            child: const Text('オンにする'),
           ),
         ],
       ),

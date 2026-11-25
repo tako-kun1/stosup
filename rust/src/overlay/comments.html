@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Stosup コメントオーバーレイ</title>
 <link rel="icon" href="/favicon.ico" />
-<style>
+<style id="stosup-base-css">
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     width: 100%;
@@ -27,83 +27,136 @@
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    animation: slideIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: slideIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     max-width: 100%;
   }
   @keyframes slideIn {
-    from { opacity: 0; transform: translateY(16px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
   .avatar {
-    width: 42px;
-    height: 42px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    border: 2px solid rgba(255, 255, 255, 0.25);
-    background: #334155;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    background: #3f3f46;
   }
   .bubble {
-    padding: 10px 16px;
-    border-radius: 16px;
-    border-top-left-radius: 4px;
-    border: 2px solid rgba(148, 163, 184, 0.35);
-    background: rgba(30, 41, 59, 0.9);
-    color: #f8fafc;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-    backdrop-filter: blur(6px);
-    max-width: calc(100% - 56px);
+    padding: 10px 15px;
+    border-radius: 10px;
+    border-top-left-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: var(--default-bg, rgba(32, 33, 36, 0.92));
+    color: var(--default-fg, #f4f4f5);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.28);
+    max-width: calc(100% - 54px);
     word-break: break-word;
-  }
-  .bubble.highlighted {
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.22), 0 4px 16px rgba(0, 0, 0, 0.45);
   }
   .header {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
     font-size: 0.78em;
-    opacity: 0.92;
+    opacity: 0.9;
   }
-  .author {
-    font-weight: 700;
-    letter-spacing: 0.02em;
-  }
+  .author { font-weight: 700; }
   .badge {
     font-size: 0.72em;
     padding: 1px 6px;
-    border-radius: 999px;
+    border-radius: 4px;
     font-weight: 700;
     line-height: 1.4;
   }
-  .badge-owner { background: #f59e0b; color: #111827; }
-  .badge-mod { background: #3b82f6; color: #ffffff; }
-  .badge-member { background: #10b981; color: #052e16; }
-  .timestamp {
-    margin-left: auto;
-    font-size: 0.72em;
-    opacity: 0.65;
+  .badge-owner { background: #eab308; color: #18181b; }
+  .badge-mod { background: #2563eb; color: #ffffff; }
+  .badge-member { background: #16a34a; color: #ffffff; }
+  .timestamp { margin-left: auto; font-size: 0.72em; opacity: 0.65; }
+  .message { line-height: 1.45; font-weight: 500; }
+
+  /* プリセット: minimal (ミニマル字幕風) */
+  body[data-theme="minimal"] .comment-row { gap: 8px; }
+  body[data-theme="minimal"] .avatar { width: 32px; height: 32px; border-width: 1px; }
+  body[data-theme="minimal"] .bubble {
+    background: rgba(15, 15, 18, 0.58);
+    border: none;
+    border-left: 3px solid rgba(255, 255, 255, 0.55);
+    border-radius: 0 6px 6px 0;
+    padding: 6px 12px;
+    box-shadow: none;
   }
-  .message {
-    line-height: 1.45;
-    font-weight: 500;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  body[data-theme="minimal"] .message {
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
   }
+
+  /* プリセット: pop (ポップ・コミック風) */
+  body[data-theme="pop"] .avatar {
+    border: 3px solid #18181b;
+    box-shadow: 2px 2px 0 #18181b;
+  }
+  body[data-theme="pop"] .bubble {
+    background: #ffffff;
+    color: #18181b;
+    border: 3px solid #18181b;
+    border-radius: 18px;
+    border-top-left-radius: 4px;
+    box-shadow: 4px 4px 0 #18181b;
+    padding: 10px 16px;
+  }
+  body[data-theme="pop"] .author { color: #2563eb; }
+
+  /* プリセット: neon (サイバー・ネオン) */
+  body[data-theme="neon"] .avatar {
+    border: 2px solid #22d3ee;
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.6);
+  }
+  body[data-theme="neon"] .bubble {
+    background: rgba(10, 12, 22, 0.88);
+    color: #ecfeff;
+    border: 1.5px solid #22d3ee;
+    border-radius: 6px;
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.28), inset 0 0 8px rgba(34, 211, 238, 0.08);
+  }
+  body[data-theme="neon"] .author { color: #67e8f9; }
+
+  /* プリセット: japanese (和モダン) */
+  body[data-theme="japanese"] {
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", "Yu Gothic UI", serif;
+  }
+  body[data-theme="japanese"] .avatar {
+    border-radius: 6px;
+    border: 2px solid #d4af37;
+  }
+  body[data-theme="japanese"] .bubble {
+    background: rgba(28, 25, 23, 0.92);
+    color: #faf5eb;
+    border: 1px solid #d4af37;
+    border-left: 5px solid #b91c1c;
+    border-radius: 3px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  }
+  body[data-theme="japanese"] .author { color: #f3d58d; }
 </style>
+<style id="stosup-custom-css"></style>
 </head>
-<body>
+<body data-theme="default">
   <div id="container"></div>
 <script>
   const container = document.getElementById('container');
+  const customStyleEl = document.getElementById('stosup-custom-css');
+  const urlThemeOverride = new URLSearchParams(location.search).get('theme');
+  let cachedComments = [];
   let config = {
     comment_font_size: 18,
     comment_max_items: 30,
     show_icons: true,
     show_timestamps: false,
-    default_bubble_bg: '#1E293BE6',
-    default_text_color: '#F8FAFC'
+    default_bubble_bg: '#202124E6',
+    default_text_color: '#F4F4F5',
+    comments_theme: 'default',
+    comments_custom_css: ''
   };
 
   function hexToCss(hex, fallback) {
@@ -113,6 +166,14 @@
     return fallback;
   }
 
+  function applyDesign() {
+    const theme = urlThemeOverride || config.comments_theme || 'default';
+    document.body.dataset.theme = theme;
+    document.documentElement.style.setProperty('--default-bg', hexToCss(config.default_bubble_bg, '#202124E6'));
+    document.documentElement.style.setProperty('--default-fg', hexToCss(config.default_text_color, '#F4F4F5'));
+    customStyleEl.textContent = config.comments_custom_css || '';
+  }
+
   function formatTime(ms) {
     const d = new Date(ms);
     return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
@@ -120,7 +181,7 @@
 
   function fallbackAvatar(name) {
     const ch = (name || '?').slice(0, 1);
-    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%23475569'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
+    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%2352525b'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
   }
 
   function createCommentEl(c) {
@@ -138,10 +199,14 @@
 
     const bubble = document.createElement('div');
     bubble.className = 'bubble' + (c.bubble_bg_color ? ' highlighted' : '');
-    bubble.style.background = hexToCss(c.bubble_bg_color, hexToCss(config.default_bubble_bg, '#1E293BE6'));
-    bubble.style.color = hexToCss(c.bubble_text_color, hexToCss(config.default_text_color, '#F8FAFC'));
+    if (c.bubble_bg_color) {
+      bubble.style.background = hexToCss(c.bubble_bg_color, '');
+    }
+    if (c.bubble_text_color) {
+      bubble.style.color = hexToCss(c.bubble_text_color, '');
+    }
     if (c.bubble_border_color) {
-      bubble.style.borderColor = hexToCss(c.bubble_border_color, 'rgba(148,163,184,0.35)');
+      bubble.style.borderColor = hexToCss(c.bubble_border_color, '');
     }
 
     const header = document.createElement('div');
@@ -186,10 +251,22 @@
     return row;
   }
 
+  function renderAll() {
+    container.innerHTML = '';
+    const maxItems = Math.max(5, config.comment_max_items || 30);
+    cachedComments.slice(-maxItems).forEach((c) => {
+      if (!c.is_banned) container.appendChild(createCommentEl(c));
+    });
+  }
+
   function appendComment(c) {
     if (c.is_banned) return;
-    container.appendChild(createCommentEl(c));
+    cachedComments.push(c);
     const maxItems = Math.max(5, config.comment_max_items || 30);
+    if (cachedComments.length > maxItems) {
+      cachedComments = cachedComments.slice(-maxItems);
+    }
+    container.appendChild(createCommentEl(c));
     while (container.children.length > maxItems) {
       container.removeChild(container.firstChild);
     }
@@ -203,18 +280,22 @@
         const data = JSON.parse(ev.data);
         if (data.type === 'snapshot') {
           config = Object.assign(config, data.config || {});
-          container.innerHTML = '';
-          (data.comments || []).forEach(appendComment);
+          applyDesign();
+          cachedComments = data.comments || [];
+          renderAll();
         } else if (data.type === 'comment') {
           appendComment(data.comment);
         } else if (data.type === 'config_updated') {
           config = Object.assign(config, data.config || {});
+          applyDesign();
+          renderAll();
         }
       } catch (e) { console.error(e); }
     };
     ws.onclose = () => setTimeout(connect, 2000);
     ws.onerror = () => ws.close();
   }
+  applyDesign();
   connect();
 </script>
 </body>

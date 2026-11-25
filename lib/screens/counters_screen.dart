@@ -15,6 +15,7 @@ class CountersScreen extends StatelessWidget {
 
   Future<void> _openEditor(BuildContext context,
       [WordCounterConfig? existing]) async {
+    final p = context.palette;
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final keywordsCtrl =
         TextEditingController(text: existing?.keywords.join(', ') ?? '');
@@ -25,17 +26,16 @@ class CountersScreen extends StatelessWidget {
     var matchMode = existing?.matchMode ?? MatchMode.contains;
     var caseSensitive = existing?.caseSensitive ?? false;
     var excludeBanned = existing?.excludeBanned ?? true;
-    var accentColor = existing?.accentColor ?? '#38BDF8';
+    var accentColor = existing?.accentColor ?? '#2563EB';
     var enabled = existing?.enabled ?? true;
 
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
-          backgroundColor: AppTheme.surfaceDark,
           title: Text(existing == null ? 'ワードカウンターを作成' : 'ワードカウンターを編集'),
           content: SizedBox(
-            width: 520,
+            width: 500,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -48,7 +48,7 @@ class CountersScreen extends StatelessWidget {
                       hintText: '例: 草カウンター / 参加表明カウント',
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   TextField(
                     controller: keywordsCtrl,
                     decoration: const InputDecoration(
@@ -56,10 +56,10 @@ class CountersScreen extends StatelessWidget {
                       hintText: '例: 草, www, ﾜﾛﾀ',
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   DropdownButtonFormField<MatchMode>(
                     initialValue: matchMode,
-                    dropdownColor: AppTheme.cardDark,
+                    dropdownColor: p.cardBg,
                     decoration: const InputDecoration(labelText: '一致方式'),
                     items: const [
                       DropdownMenuItem(
@@ -73,22 +73,22 @@ class CountersScreen extends StatelessWidget {
                       if (v != null) setState(() => matchMode = v);
                     },
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   const Text(
                     'アカウント毎のカウント回数制限',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   SegmentedButton<bool>(
                     segments: const [
                       ButtonSegment(
                         value: false,
-                        icon: Icon(Icons.all_inclusive),
+                        icon: Icon(Icons.all_inclusive, size: 17),
                         label: Text('回数上限なし'),
                       ),
                       ButtonSegment(
                         value: true,
-                        icon: Icon(Icons.person_outline),
+                        icon: Icon(Icons.person_outline, size: 17),
                         label: Text('アカウント毎に n 回まで'),
                       ),
                     ],
@@ -107,31 +107,33 @@ class CountersScreen extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   SwitchListTile(
+                    dense: true,
                     contentPadding: EdgeInsets.zero,
                     value: excludeBanned,
                     onChanged: (v) => setState(() => excludeBanned = v),
                     title: const Text('BAN 済みユーザーをカウントから除外する'),
                   ),
                   SwitchListTile(
+                    dense: true,
                     contentPadding: EdgeInsets.zero,
                     value: caseSensitive,
                     onChanged: (v) => setState(() => caseSensitive = v),
                     title: const Text('英字の大文字・小文字を区別する'),
                   ),
-                  const Divider(),
+                  const Divider(height: 18),
                   ColorPickerRow(
                     label: 'アクセントカラー',
                     hexValue: accentColor,
                     presets: const [
-                      '#38BDF8',
-                      '#22C55E',
-                      '#FBBF24',
-                      '#FB923C',
-                      '#F472B6',
-                      '#A78BFA',
-                      '#FB7185',
+                      '#2563EB',
+                      '#16A34A',
+                      '#D97706',
+                      '#EA580C',
+                      '#DB2777',
+                      '#7C3AED',
+                      '#DC2626',
                     ],
                     onChanged: (v) => setState(() => accentColor = v),
                   ),
@@ -168,9 +170,7 @@ class CountersScreen extends StatelessWidget {
 
       await controller.saveWordCounter(WordCounterConfig(
         id: existing?.id ?? '',
-        name: nameCtrl.text.trim().isEmpty
-            ? kws.first
-            : nameCtrl.text.trim(),
+        name: nameCtrl.text.trim().isEmpty ? kws.first : nameCtrl.text.trim(),
         keywords: kws,
         matchMode: matchMode,
         caseSensitive: caseSensitive,
@@ -190,6 +190,7 @@ class CountersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final counters = controller.wordCounters;
     final featureEnabled = controller.featureFlags.wordCounterEnabled;
 
@@ -200,19 +201,19 @@ class CountersScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       '特定ワードカウンター',
                       style:
-                          TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       '指定したワードを含むコメントを自動集計します。「アカウント毎に n 回まで」と「上限なし」をカウンターごとに選択できます。',
-                      style: TextStyle(color: Colors.white60),
+                      style: TextStyle(color: p.textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
@@ -225,15 +226,15 @@ class CountersScreen extends StatelessWidget {
                   featureLabel: '特定ワードカウント機能',
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               FilledButton.icon(
                 onPressed: () => _openEditor(context),
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add, size: 18),
                 label: const Text('新規カウンター作成'),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           if (!featureEnabled)
             FeatureDisabledBanner(
               featureName: '特定ワードカウント機能',
@@ -246,40 +247,40 @@ class CountersScreen extends StatelessWidget {
             ),
           Expanded(
             child: counters.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'カウンターがありません。「新規カウンター作成」から追加してください。',
-                      style: TextStyle(color: Colors.white54),
+                      style: TextStyle(color: p.textSecondary),
                     ),
                   )
                 : GridView.builder(
                     gridDelegate:
                         const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 420,
-                      mainAxisExtent: 255,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
+                      maxCrossAxisExtent: 410,
+                      mainAxisExtent: 235,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
                     ),
                     itemCount: counters.length,
                     itemBuilder: (context, idx) {
                       final c = counters[idx];
                       final accent = AppTheme.parseCssHex(c.accentColor,
-                          fallback: AppTheme.accentSky);
+                          fallback: p.accent);
                       final singleUrl =
                           '${controller.overlayBaseUrl}/overlay/counter?id=${c.id}';
 
                       return Card(
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(8),
                           side: BorderSide(
                             color: c.enabled
-                                ? accent.withValues(alpha: 0.7)
-                                : AppTheme.borderDark,
-                            width: c.enabled ? 1.8 : 1,
+                                ? accent.withValues(alpha: 0.65)
+                                : p.border,
+                            width: c.enabled ? 1.5 : 1,
                           ),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(14),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -290,7 +291,7 @@ class CountersScreen extends StatelessWidget {
                                       c.name,
                                       style: const TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 16),
+                                          fontSize: 15),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -322,8 +323,8 @@ class CountersScreen extends StatelessWidget {
                                   Text(
                                     c.totalCount.toString(),
                                     style: TextStyle(
-                                      fontSize: 44,
-                                      fontWeight: FontWeight.w900,
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.w800,
                                       color: accent,
                                     ),
                                   ),
@@ -334,11 +335,11 @@ class CountersScreen extends StatelessWidget {
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 2),
+                                            horizontal: 7, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: accent.withValues(alpha: 0.16),
+                                          color: accent.withValues(alpha: 0.14),
                                           borderRadius:
-                                              BorderRadius.circular(999),
+                                              BorderRadius.circular(4),
                                         ),
                                         child: Text(
                                           c.maxPerAccount != null
@@ -346,47 +347,52 @@ class CountersScreen extends StatelessWidget {
                                               : '回数上限なし',
                                           style: TextStyle(
                                               color: accent,
-                                              fontSize: 11.5,
+                                              fontSize: 11,
                                               fontWeight: FontWeight.bold),
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 3),
                                       Text(
                                         '参加アカウント: ${c.uniqueUserCount}人',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             fontSize: 12,
-                                            color: Colors.white60),
+                                            color: p.textSecondary),
                                       ),
                                     ],
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 4),
                               Text(
                                 '対象ワード: ${c.keywords.join(", ")}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontSize: 12.5, color: Colors.white70),
+                                style: TextStyle(
+                                    fontSize: 12, color: p.textSecondary),
                               ),
                               const Spacer(),
                               Row(
                                 children: [
                                   IconButton.outlined(
                                     tooltip: '-1',
+                                    visualDensity: VisualDensity.compact,
                                     onPressed: () =>
                                         controller.adjustWordCounter(c.id, -1),
-                                    icon: const Icon(Icons.remove, size: 16),
+                                    icon: const Icon(Icons.remove, size: 15),
                                   ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 4),
                                   IconButton.outlined(
                                     tooltip: '+1',
+                                    visualDensity: VisualDensity.compact,
                                     onPressed: () =>
                                         controller.adjustWordCounter(c.id, 1),
-                                    icon: const Icon(Icons.add, size: 16),
+                                    icon: const Icon(Icons.add, size: 15),
                                   ),
                                   const SizedBox(width: 6),
                                   OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                    ),
                                     onPressed: () =>
                                         controller.resetWordCounter(c.id),
                                     child: const Text('リセット'),
@@ -417,8 +423,8 @@ class CountersScreen extends StatelessWidget {
                                     tooltip: '削除',
                                     onPressed: () =>
                                         controller.deleteWordCounter(c.id),
-                                    icon: const Icon(Icons.delete_outline,
-                                        size: 18, color: AppTheme.accentRose),
+                                    icon: Icon(Icons.delete_outline,
+                                        size: 18, color: p.danger),
                                   ),
                                 ],
                               ),

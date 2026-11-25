@@ -71,6 +71,9 @@ enum AppEventKind {
   systemNotice,
 }
 
+/// アプリ外観テーマ（ライト / ダーク / システム設定）
+enum AppThemeMode { system, light, dark }
+
 /// 配信から受信し、ルール評価済みのコメント
 class CommentItem {
   final String id;
@@ -557,7 +560,7 @@ class LotteryWinner {
 /// ワードの一致判定方式
 enum MatchMode { contains, exact, regex }
 
-/// OBS ブラウザソースオーバーレイの設定
+/// OBS ブラウザソースオーバーレイの設定 ＆ 各機能デザインプリセット・カスタムCSS
 class OverlayConfig {
   final int port;
   final int commentFontSize;
@@ -567,6 +570,24 @@ class OverlayConfig {
   final String defaultBubbleBg;
   final String defaultTextColor;
 
+  /// コメント表示オーバーレイのデザインプリセット ("default" | "minimal" | "pop" | "neon" | "japanese")
+  final String commentsTheme;
+
+  /// 抽選結果オーバーレイのデザインプリセット ("default" | "festive" | "minimal" | "neon" | "cute")
+  final String lotteryTheme;
+
+  /// ワードカウンターオーバーレイのデザインプリセット ("default" | "compact" | "scoreboard" | "neon" | "pastel")
+  final String counterTheme;
+
+  /// コメント表示用ユーザーカスタム CSS
+  final String commentsCustomCss;
+
+  /// 抽選結果用ユーザーカスタム CSS
+  final String lotteryCustomCss;
+
+  /// ワードカウンター用ユーザーカスタム CSS
+  final String counterCustomCss;
+
   const OverlayConfig({
     required this.port,
     required this.commentFontSize,
@@ -575,6 +596,12 @@ class OverlayConfig {
     required this.showTimestamps,
     required this.defaultBubbleBg,
     required this.defaultTextColor,
+    required this.commentsTheme,
+    required this.lotteryTheme,
+    required this.counterTheme,
+    required this.commentsCustomCss,
+    required this.lotteryCustomCss,
+    required this.counterCustomCss,
   });
 
   @override
@@ -585,7 +612,13 @@ class OverlayConfig {
       showIcons.hashCode ^
       showTimestamps.hashCode ^
       defaultBubbleBg.hashCode ^
-      defaultTextColor.hashCode;
+      defaultTextColor.hashCode ^
+      commentsTheme.hashCode ^
+      lotteryTheme.hashCode ^
+      counterTheme.hashCode ^
+      commentsCustomCss.hashCode ^
+      lotteryCustomCss.hashCode ^
+      counterCustomCss.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -598,7 +631,13 @@ class OverlayConfig {
           showIcons == other.showIcons &&
           showTimestamps == other.showTimestamps &&
           defaultBubbleBg == other.defaultBubbleBg &&
-          defaultTextColor == other.defaultTextColor;
+          defaultTextColor == other.defaultTextColor &&
+          commentsTheme == other.commentsTheme &&
+          lotteryTheme == other.lotteryTheme &&
+          counterTheme == other.counterTheme &&
+          commentsCustomCss == other.commentsCustomCss &&
+          lotteryCustomCss == other.lotteryCustomCss &&
+          counterCustomCss == other.counterCustomCss;
 }
 
 /// 対応配信プラットフォーム（将来の拡張を前提とした列挙型）

@@ -386,6 +386,21 @@ pub async fn save_feature_flags(flags: FeatureFlags) -> Result<FeatureFlags, Str
         .map_err(|e| e.to_string())
 }
 
+// ==================== アプリ外観テーマ ====================
+
+pub async fn get_theme_mode() -> Result<AppThemeMode, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    let db = runtime.db.lock().await;
+    db.get_theme_mode().map_err(|e| e.to_string())
+}
+
+pub async fn save_theme_mode(mode: AppThemeMode) -> Result<AppThemeMode, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    let db = runtime.db.lock().await;
+    db.set_theme_mode(mode).map_err(|e| e.to_string())?;
+    Ok(mode)
+}
+
 // ==================== OBS オーバーレイ ====================
 
 pub async fn get_overlay_config() -> Result<OverlayConfig, String> {

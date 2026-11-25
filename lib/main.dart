@@ -19,48 +19,83 @@ void main(List<String> args) {
   runApp(StosupApp(afterUpdate: afterUpdate));
 }
 
-class StosupApp extends StatelessWidget {
+class StosupApp extends StatefulWidget {
   const StosupApp({super.key, this.afterUpdate = false});
 
   final bool afterUpdate;
+
+  @override
+  State<StosupApp> createState() => _StosupAppState();
+}
+
+class _StosupAppState extends State<StosupApp> {
+  final _controller = StosupController();
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onChanged);
+    _controller.initialize(afterUpdate: widget.afterUpdate);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  ThemeMode _mapThemeMode(AppThemeMode mode) {
+    switch (mode) {
+      case AppThemeMode.light:
+        return ThemeMode.light;
+      case AppThemeMode.dark:
+        return ThemeMode.dark;
+      case AppThemeMode.system:
+        return ThemeMode.system;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Stosup - 配信者補助ソフトウェア',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme(),
-      home: StosupShell(afterUpdate: afterUpdate),
+      theme: AppTheme.lightTheme(),
+      darkTheme: AppTheme.darkTheme(),
+      themeMode: _mapThemeMode(_controller.themeMode),
+      home: StosupShell(controller: _controller),
     );
   }
 }
 
 class StosupShell extends StatefulWidget {
-  const StosupShell({super.key, required this.afterUpdate});
+  const StosupShell({super.key, required this.controller});
 
-  final bool afterUpdate;
+  final StosupController controller;
 
   @override
   State<StosupShell> createState() => _StosupShellState();
 }
 
 class _StosupShellState extends State<StosupShell> {
-  final _controller = StosupController();
   int _selectedIndex = 0;
   bool _startupNotesShown = false;
 
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_onStateChanged);
-    _controller.onNotice = _showNotice;
-    _controller.initialize(afterUpdate: widget.afterUpdate);
+    widget.controller.addListener(_onStateChanged);
+    widget.controller.onNotice = _showNotice;
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_onStateChanged);
-    _controller.dispose();
+    widget.controller.removeListener(_onStateChanged);
     super.dispose();
   }
 
@@ -70,9 +105,9 @@ class _StosupShellState extends State<StosupShell> {
 
     // アップデート後の初回起動時に自動でリリースノートダイアログを表示
     if (!_startupNotesShown &&
-        _controller.pendingStartupReleaseNotes != null) {
+        widget.controller.pendingStartupReleaseNotes != null) {
       _startupNotesShown = true;
-      final notes = _controller.pendingStartupReleaseNotes!;
+      final notes = widget.controller.pendingStartupReleaseNotes!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         showDialog<void>(
@@ -80,7 +115,7 @@ class _StosupShellState extends State<StosupShell> {
           barrierDismissible: false,
           builder: (_) => ReleaseNotesDialog(
             info: notes,
-            onClose: () => _controller.dismissStartupReleaseNotes(),
+            onClose: () => widget.controller.dismissStartupReleaseNotes(),
           ),
         );
       });
@@ -89,18 +124,19 @@ class _StosupShellState extends State<StosupShell> {
 
   void _showNotice(String level, String message) {
     if (!mounted) return;
-    Color accent = AppTheme.accentSky;
-    if (level == 'error') accent = AppTheme.accentRose;
-    if (level == 'success') accent = AppTheme.accentEmerald;
-    if (level == 'warning') accent = AppTheme.accentAmber;
+    final p = context.palette;
+    Color accent = p.accent;
+    if (level == 'error') accent = p.danger;
+    if (level == 'success') accent = p.success;
+    if (level == 'warning') accent = p.warning;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Container(
-              width: 4,
-              height: 20,
+              width: 3,
+              height: 18,
               decoration: BoxDecoration(
                 color: accent,
                 borderRadius: BorderRadius.circular(2),
@@ -115,29 +151,33 @@ class _StosupShellState extends State<StosupShell> {
   }
 
   Widget _buildBody() {
+    final c = widget.controller;
     switch (_selectedIndex) {
       case 0:
-        return CommentsScreen(controller: _controller);
+        return CommentsScreen(controller: c);
       case 1:
-        return HighlightRulesScreen(controller: _controller);
+        return HighlightRulesScreen(controller: c);
       case 2:
-        return CountersScreen(controller: _controller);
+        return CountersScreen(controller: c);
       case 3:
-        return LotteryScreen(controller: _controller);
+        return LotteryScreen(controller: c);
       case 4:
-        return UsersScreen(controller: _controller);
+        return UsersScreen(controller: c);
       case 5:
-        return OverlayScreen(controller: _controller);
+        return OverlayScreen(controller: c);
       case 6:
-        return SettingsScreen(controller: _controller);
+        return SettingsScreen(controller: c);
       default:
-        return CommentsScreen(controller: _controller);
+        return CommentsScreen(controller: c);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_controller.initError != null) {
+    final ctrl = widget.controller;
+    final p = context.palette;
+
+    if (ctrl.initError != null) {
       return Scaffold(
         body: Center(
           child: Padding(
@@ -145,17 +185,16 @@ class _StosupShellState extends State<StosupShell> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline,
-                    size: 56, color: AppTheme.accentRose),
-                const SizedBox(height: 16),
+                Icon(Icons.error_outline, size: 48, color: p.danger),
+                const SizedBox(height: 14),
                 const Text(
                   'Stosup バックエンドの初期化に失敗しました',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 SelectableText(
-                  _controller.initError!,
-                  style: const TextStyle(color: Colors.white70),
+                  ctrl.initError!,
+                  style: TextStyle(color: p.textSecondary),
                 ),
               ],
             ),
@@ -164,14 +203,14 @@ class _StosupShellState extends State<StosupShell> {
       );
     }
 
-    if (!_controller.isInitialized) {
+    if (!ctrl.isInitialized) {
       return const Scaffold(
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
+              CircularProgressIndicator(strokeWidth: 2.5),
+              SizedBox(height: 14),
               Text('Stosup を起動しています...'),
             ],
           ),
@@ -179,59 +218,53 @@ class _StosupShellState extends State<StosupShell> {
       );
     }
 
-    final connected =
-        _controller.connectionState.status == ConnectionStatus.connected;
-    final updateInfo = _controller.availableUpdate;
-    final flags = _controller.featureFlags;
+    final connected = ctrl.connectionState.status == ConnectionStatus.connected;
+    final updateInfo = ctrl.availableUpdate;
+    final flags = ctrl.featureFlags;
     final allLotteryOff =
         !flags.userLotteryEnabled && !flags.commentLotteryEnabled;
+    final isDarkNow = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: Column(
         children: [
-          // 新バージョン通知バナー
+          // 新バージョン通知バー
           if (updateInfo != null && updateInfo.hasUpdate)
             Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
               decoration: BoxDecoration(
-                color: AppTheme.accentEmerald.withValues(alpha: 0.16),
-                border: const Border(
-                  bottom: BorderSide(color: AppTheme.accentEmerald, width: 1),
-                ),
+                color: p.accent.withValues(alpha: 0.12),
+                border: Border(bottom: BorderSide(color: p.border)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.system_update_alt,
-                      color: AppTheme.accentEmerald, size: 18),
+                  Icon(Icons.system_update_alt, color: p.accent, size: 17),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '新しいバージョン Stosup v${updateInfo.latestVersion} が公開されています！（現在: v${updateInfo.currentVersion}）',
-                      style: const TextStyle(
-                        color: AppTheme.accentEmerald,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                      '新しいバージョン Stosup v${updateInfo.latestVersion} が利用可能です（現在: v${updateInfo.currentVersion}）',
+                      style: TextStyle(
+                        color: p.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12.5,
                       ),
                     ),
                   ),
                   FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.accentEmerald,
-                      foregroundColor: Colors.black,
                       visualDensity: VisualDensity.compact,
                     ),
                     onPressed: () {
                       showDialog<void>(
                         context: context,
                         builder: (_) => UpdateDialog(
-                          controller: _controller,
+                          controller: ctrl,
                           info: updateInfo,
                         ),
                       );
                     },
-                    child: const Text('詳細・アップデート'),
+                    child: const Text('詳細・更新'),
                   ),
                 ],
               ),
@@ -240,52 +273,51 @@ class _StosupShellState extends State<StosupShell> {
           Expanded(
             child: Row(
               children: [
-                // 左ナビゲーションサイドバー
+                // 左サイドバー（落ち着いたデスクトップツール調）
                 Container(
-                  width: 215,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.surfaceDark,
-                    border:
-                        Border(right: BorderSide(color: AppTheme.borderDark)),
+                  width: 212,
+                  decoration: BoxDecoration(
+                    color: p.sidebarBg,
+                    border: Border(right: BorderSide(color: p.border)),
                   ),
                   child: Column(
                     children: [
-                      // ブランドヘッダー
+                      // ブランドヘッダー（統一ロゴ維持）
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                        padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
                         child: Row(
                           children: [
                             Container(
-                              width: 36,
-                              height: 36,
+                              width: 34,
+                              height: 34,
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [
-                                    AppTheme.accentSky,
-                                    AppTheme.accentIndigo
+                                    Color(0xFF38BDF8),
+                                    Color(0xFF818CF8),
                                   ],
                                 ),
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(9),
                               ),
                               child: const Icon(Icons.podcasts,
-                                  color: Colors.white, size: 22),
+                                  color: Colors.white, size: 20),
                             ),
                             const SizedBox(width: 10),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Stosup',
                                   style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.5,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: p.textPrimary,
                                   ),
                                 ),
                                 Text(
-                                  'v${_controller.appVersion}',
-                                  style: const TextStyle(
-                                      fontSize: 11, color: Colors.white54),
+                                  'v${ctrl.appVersion}',
+                                  style: TextStyle(
+                                      fontSize: 11, color: p.textMuted),
                                 ),
                               ],
                             ),
@@ -296,7 +328,7 @@ class _StosupShellState extends State<StosupShell> {
                       const SizedBox(height: 8),
                       Expanded(
                         child: ListView(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           children: [
                             _NavTile(
                               icon: Icons.chat_bubble_outline,
@@ -306,8 +338,8 @@ class _StosupShellState extends State<StosupShell> {
                                   ? 'OFF'
                                   : (connected ? 'LIVE' : null),
                               badgeColor: !flags.commentDisplayEnabled
-                                  ? Colors.white54
-                                  : AppTheme.accentEmerald,
+                                  ? p.textMuted
+                                  : p.success,
                               dimmed: !flags.commentDisplayEnabled,
                               onTap: () => setState(() => _selectedIndex = 0),
                             ),
@@ -316,7 +348,7 @@ class _StosupShellState extends State<StosupShell> {
                               label: 'ワード色反応',
                               selected: _selectedIndex == 1,
                               badge: !flags.wordHighlightEnabled ? 'OFF' : null,
-                              badgeColor: Colors.white54,
+                              badgeColor: p.textMuted,
                               dimmed: !flags.wordHighlightEnabled,
                               onTap: () => setState(() => _selectedIndex = 1),
                             ),
@@ -325,7 +357,7 @@ class _StosupShellState extends State<StosupShell> {
                               label: 'ワードカウント',
                               selected: _selectedIndex == 2,
                               badge: !flags.wordCounterEnabled ? 'OFF' : null,
-                              badgeColor: Colors.white54,
+                              badgeColor: p.textMuted,
                               dimmed: !flags.wordCounterEnabled,
                               onTap: () => setState(() => _selectedIndex = 2),
                             ),
@@ -335,12 +367,11 @@ class _StosupShellState extends State<StosupShell> {
                               selected: _selectedIndex == 3,
                               badge: allLotteryOff
                                   ? 'OFF'
-                                  : (_controller.commentLottery.isAccepting
+                                  : (ctrl.commentLottery.isAccepting
                                       ? '受付中'
                                       : null),
-                              badgeColor: allLotteryOff
-                                  ? Colors.white54
-                                  : AppTheme.accentAmber,
+                              badgeColor:
+                                  allLotteryOff ? p.textMuted : p.warning,
                               dimmed: allLotteryOff,
                               onTap: () => setState(() => _selectedIndex = 3),
                             ),
@@ -349,63 +380,90 @@ class _StosupShellState extends State<StosupShell> {
                               label: 'ユーザー / BAN',
                               selected: _selectedIndex == 4,
                               badge: !flags.userTrackingEnabled ? 'OFF' : null,
-                              badgeColor: Colors.white54,
+                              badgeColor: p.textMuted,
                               dimmed: !flags.userTrackingEnabled,
                               onTap: () => setState(() => _selectedIndex = 4),
                             ),
                             _NavTile(
-                              icon: Icons.layers_outlined,
-                              label: 'OBS オーバーレイ',
+                              icon: Icons.brush_outlined,
+                              label: 'OBS・デザイン',
                               selected: _selectedIndex == 5,
                               badge: !flags.obsOverlayEnabled ? 'OFF' : null,
-                              badgeColor: Colors.white54,
+                              badgeColor: p.textMuted,
                               dimmed: !flags.obsOverlayEnabled,
                               onTap: () => setState(() => _selectedIndex = 5),
                             ),
-                            const Divider(height: 20),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Divider(height: 1),
+                            ),
                             _NavTile(
                               icon: Icons.settings_outlined,
-                              label: '設定・機能ON/OFF',
+                              label: '設定・機能管理',
                               selected: _selectedIndex == 6,
-                              badge: updateInfo?.hasUpdate == true ? 'NEW' : null,
-                              badgeColor: AppTheme.accentEmerald,
+                              badge:
+                                  updateInfo?.hasUpdate == true ? 'NEW' : null,
+                              badgeColor: p.accent,
                               onTap: () => setState(() => _selectedIndex = 6),
                             ),
                           ],
                         ),
                       ),
-                      // 下部 OBS サーバー稼働表示
+                      // 下部ステータス ＆ クイックライト/ダーク切替
                       Container(
-                        margin: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.all(8),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AppTheme.bgDark,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppTheme.borderDark),
+                          color: p.cardBg,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: p.border),
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.circle,
-                              size: 8,
-                              color: flags.obsOverlayEnabled
-                                  ? AppTheme.accentEmerald
-                                  : Colors.white38,
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: flags.obsOverlayEnabled
+                                    ? p.success
+                                    : p.textMuted,
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 7),
                             Expanded(
                               child: Text(
                                 flags.obsOverlayEnabled
-                                    ? 'OBS :${_controller.overlayConfig.port}'
-                                    : 'OBS 停止中 (OFF)',
+                                    ? 'OBS :${ctrl.overlayConfig.port}'
+                                    : 'OBS 停止中',
                                 style: TextStyle(
                                   fontFamily: 'Consolas',
-                                  fontSize: 12,
-                                  color: flags.obsOverlayEnabled
-                                      ? Colors.white70
-                                      : Colors.white38,
+                                  fontSize: 11.5,
+                                  color: p.textSecondary,
                                 ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip:
+                                  isDarkNow ? 'ライトモードへ切替' : 'ダークモードへ切替',
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 28,
+                                minHeight: 28,
+                              ),
+                              onPressed: () => ctrl.setThemeMode(
+                                isDarkNow
+                                    ? AppThemeMode.light
+                                    : AppThemeMode.dark,
+                              ),
+                              icon: Icon(
+                                isDarkNow
+                                    ? Icons.light_mode_outlined
+                                    : Icons.dark_mode_outlined,
+                                size: 16,
+                                color: p.textSecondary,
                               ),
                             ),
                           ],
@@ -447,55 +505,60 @@ class _NavTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Material(
-        color: selected
-            ? AppTheme.accentSky.withValues(alpha: 0.16)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        color: selected ? p.cardBg : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: selected ? p.border : Colors.transparent,
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
             child: Row(
               children: [
                 Icon(
                   icon,
-                  size: 20,
+                  size: 18,
                   color: selected
-                      ? AppTheme.accentSky
-                      : (dimmed ? Colors.white38 : Colors.white70),
+                      ? p.accent
+                      : (dimmed ? p.textMuted : p.textSecondary),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 13,
                       fontWeight:
-                          selected ? FontWeight.bold : FontWeight.normal,
+                          selected ? FontWeight.w700 : FontWeight.w500,
                       color: selected
-                          ? Colors.white
-                          : (dimmed ? Colors.white38 : Colors.white70),
+                          ? p.textPrimary
+                          : (dimmed ? p.textMuted : p.textSecondary),
                     ),
                   ),
                 ),
                 if (badge != null)
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(
-                      color: badgeColor ?? AppTheme.accentSky,
-                      borderRadius: BorderRadius.circular(999),
+                      color: (badgeColor ?? p.accent).withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       badge!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        fontWeight: FontWeight.w700,
+                        color: badgeColor ?? p.accent,
                       ),
                     ),
                   ),

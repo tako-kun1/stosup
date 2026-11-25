@@ -91,4 +91,36 @@ void main() {
     expect(find.text('ワードカウント: ON'), findsOneWidget);
     expect(find.text('「ワードカウント」は現在オフになっています'), findsNothing);
   });
+
+  testWidgets('ライトテーマとダークテーマの両方で StosupPalette が取得できる',
+      (WidgetTester tester) async {
+    StosupPalette? lightPalette;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme(),
+        home: Builder(
+          builder: (ctx) {
+            lightPalette = ctx.palette;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+    expect(lightPalette?.windowBg, StosupPalette.light.windowBg);
+
+    StosupPalette? darkPalette;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Builder(
+          builder: (ctx) {
+            darkPalette = ctx.palette;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(darkPalette?.windowBg, StosupPalette.dark.windowBg);
+  });
 }

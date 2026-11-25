@@ -64,7 +64,6 @@ class _UpdateDialogState extends State<UpdateDialog> {
               p.filePath!,
               silent: _silentInstall,
             );
-            // インストーラーが安全に置き換えられるようアプリを終了
             exit(0);
           } catch (e) {
             if (!mounted) return;
@@ -92,38 +91,33 @@ class _UpdateDialogState extends State<UpdateDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final info = widget.info;
     double? fraction;
     if (_progress != null &&
         _progress!.totalBytes != null &&
         _progress!.totalBytes! > BigInt.zero) {
-      fraction =
-          _progress!.downloadedBytes.toDouble() / _progress!.totalBytes!.toDouble();
+      fraction = _progress!.downloadedBytes.toDouble() /
+          _progress!.totalBytes!.toDouble();
     }
 
     return AlertDialog(
-      backgroundColor: AppTheme.surfaceDark,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: AppTheme.accentEmerald, width: 1.5),
-      ),
       title: Row(
         children: [
-          const Icon(Icons.system_update_alt, color: AppTheme.accentEmerald),
+          Icon(Icons.system_update_alt, color: p.accent),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '新しいバージョンが利用可能です (${info.releaseName})',
+                  'アップデート利用可能 (${info.releaseName})',
                   style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.bold),
+                      fontSize: 16.5, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   'v${info.currentVersion} → v${info.latestVersion}',
-                  style: const TextStyle(
-                      fontSize: 13, color: AppTheme.accentEmerald),
+                  style: TextStyle(fontSize: 12.5, color: p.success),
                 ),
               ],
             ),
@@ -136,17 +130,17 @@ class _UpdateDialogState extends State<UpdateDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('変更内容（リリースノート）:',
+            const Text('変更内容（リリースノート）',
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Container(
-              height: 260,
+              height: 250,
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.bgDark,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.borderDark),
+                color: p.windowBg,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: p.border),
               ),
               child: SingleChildScrollView(
                 child: MarkdownNotesView(
@@ -156,7 +150,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             if (!_isDownloading)
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
@@ -174,12 +168,12 @@ class _UpdateDialogState extends State<UpdateDialog> {
                     ? 'SHA-256 チェックサムを検証中...'
                     : 'ダウンロード中: ${_formatBytes(_progress!.downloadedBytes)}'
                         '${_progress!.totalBytes != null ? " / ${_formatBytes(_progress!.totalBytes!)}" : ""}',
-                style: const TextStyle(fontSize: 12.5, color: Colors.white70),
+                style: TextStyle(fontSize: 12.5, color: p.textSecondary),
               ),
             ],
             if (_error != null) ...[
               const SizedBox(height: 8),
-              Text(_error!, style: const TextStyle(color: AppTheme.accentRose)),
+              Text(_error!, style: TextStyle(color: p.danger)),
             ],
           ],
         ),
@@ -197,9 +191,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
         ),
         FilledButton.icon(
           onPressed: _isDownloading ? null : _startDownload,
-          icon: const Icon(Icons.download),
+          icon: const Icon(Icons.download, size: 18),
           label: Text(
-            info.installerUrl != null ? 'ダウンロードしてアップデート' : 'リリースページを開く',
+            info.installerUrl != null ? 'ダウンロードして更新' : 'リリースページを開く',
           ),
         ),
       ],

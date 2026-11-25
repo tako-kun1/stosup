@@ -17,23 +17,12 @@ class ReleaseNotesDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     return AlertDialog(
-      backgroundColor: AppTheme.surfaceDark,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: AppTheme.accentSky, width: 1.5),
-      ),
       title: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.accentSky.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.auto_awesome, color: AppTheme.accentSky),
-          ),
-          const SizedBox(width: 12),
+          Icon(Icons.article_outlined, color: p.accent),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,16 +30,13 @@ class ReleaseNotesDialog extends StatelessWidget {
                 Text(
                   info.title,
                   style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
+                      fontSize: 17, fontWeight: FontWeight.bold),
                 ),
                 if (info.previousVersion != null &&
                     info.previousVersion != info.version)
                   Text(
                     'v${info.previousVersion} → v${info.version} にアップデートされました',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AppTheme.accentEmerald,
-                    ),
+                    style: TextStyle(fontSize: 12.5, color: p.success),
                   ),
               ],
             ),
@@ -59,13 +45,13 @@ class ReleaseNotesDialog extends StatelessWidget {
       ),
       content: SizedBox(
         width: 580,
-        height: 380,
+        height: 360,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppTheme.bgDark,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.borderDark),
+            color: p.windowBg,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: p.border),
           ),
           child: SingleChildScrollView(
             child: MarkdownNotesView(markdown: info.markdownBody),
@@ -73,13 +59,12 @@ class ReleaseNotesDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        FilledButton.icon(
+        FilledButton(
           onPressed: () {
             onClose();
             Navigator.of(context).pop();
           },
-          icon: const Icon(Icons.check),
-          label: const Text('確認しました'),
+          child: const Text('閉じる'),
         ),
       ],
     );

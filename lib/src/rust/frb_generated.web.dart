@@ -44,6 +44,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppEventKind dco_decode_app_event_kind(dynamic raw);
 
   @protected
+  AppThemeMode dco_decode_app_theme_mode(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
@@ -257,6 +260,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AppEventKind sse_decode_app_event_kind(SseDeserializer deserializer);
+
+  @protected
+  AppThemeMode sse_decode_app_theme_mode(SseDeserializer deserializer);
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
@@ -528,6 +534,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_app_event_kind(AppEventKind self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_app_theme_mode(AppThemeMode self, SseSerializer serializer);
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);

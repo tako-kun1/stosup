@@ -1,11 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/release_notes_dialog.dart';
 import '../widgets/update_dialog.dart';
 
-/// 設定画面（YouTube OAuth 2.0 連携 / GitHub 自動アップデート / リリースノート）
+/// 設定画面（外観テーマ切替 / 各機能 ON・OFF 管理 / YouTube OAuth 連携 / 自動アップデート）
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.controller});
 
@@ -63,6 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final ctrl = widget.controller;
+    final p = context.palette;
     final oauth = ctrl.oauthStatus;
     final flags = ctrl.featureFlags;
 
@@ -72,52 +74,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '設定・機能ON/OFF・アップデート',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            '設定・外観・機能管理',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
 
-          // 各機能の ON/OFF 一括管理カード
+          // 外観テーマ（ライト / ダーク / システム）切替カード
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.tune,
-                          color: AppTheme.accentSky, size: 24),
+                      Icon(Icons.contrast, color: p.accent, size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        '外観テーマ',
+                        style: TextStyle(
+                            fontSize: 15.5, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'ソフトウェア本体の配色をライトモード / ダークモード / Windows のシステム設定から選択できます。',
+                    style: TextStyle(fontSize: 12.5, color: p.textSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<AppThemeMode>(
+                    segments: const [
+                      ButtonSegment(
+                        value: AppThemeMode.light,
+                        icon: Icon(Icons.light_mode_outlined, size: 17),
+                        label: Text('ライトモード'),
+                      ),
+                      ButtonSegment(
+                        value: AppThemeMode.dark,
+                        icon: Icon(Icons.dark_mode_outlined, size: 17),
+                        label: Text('ダークモード'),
+                      ),
+                      ButtonSegment(
+                        value: AppThemeMode.system,
+                        icon: Icon(Icons.desktop_windows_outlined, size: 17),
+                        label: Text('システムに従う'),
+                      ),
+                    ],
+                    selected: {ctrl.themeMode},
+                    onSelectionChanged: (s) => ctrl.setThemeMode(s.first),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 各機能の ON/OFF 一括管理カード
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.tune, color: p.accent, size: 20),
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
                           '各機能の有効 / 無効（ON / OFF 管理）',
                           style: TextStyle(
-                              fontSize: 17, fontWeight: FontWeight.bold),
+                              fontSize: 15.5, fontWeight: FontWeight.bold),
                         ),
                       ),
-                      OutlinedButton.icon(
+                      OutlinedButton(
                         onPressed: () => ctrl.setAllFeaturesEnabled(true),
-                        icon: const Icon(Icons.check_circle_outline, size: 16),
-                        label: const Text('すべて ON'),
+                        child: const Text('すべて ON'),
                       ),
                       const SizedBox(width: 8),
-                      OutlinedButton.icon(
+                      OutlinedButton(
                         onPressed: () => ctrl.setAllFeaturesEnabled(false),
-                        icon: const Icon(Icons.power_off_outlined, size: 16),
-                        label: const Text('すべて OFF'),
+                        child: const Text('すべて OFF'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    '配信スタイルに合わせて使用する機能だけをオンにできます。設定は自動で保存され、各機能画面の右上スイッチとも連動します。',
-                    style: TextStyle(fontSize: 13, color: Colors.white60),
+                  Text(
+                    '配信スタイルに合わせて使用する機能だけをオンにできます。各機能画面の右上スイッチとも連動し、自動で保存されます。',
+                    style: TextStyle(fontSize: 12.5, color: p.textSecondary),
                   ),
                   const SizedBox(height: 10),
                   const Divider(height: 1),
                   SwitchListTile(
-                    secondary: const Icon(Icons.chat_bubble_outline),
+                    dense: true,
+                    secondary: const Icon(Icons.chat_bubble_outline, size: 20),
                     title: const Text('コメント表示機能'),
                     subtitle: const Text('アプリ内コメント一覧および OBS コメント表示への反映'),
                     value: flags.commentDisplayEnabled,
@@ -128,7 +179,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
-                    secondary: const Icon(Icons.palette_outlined),
+                    dense: true,
+                    secondary: const Icon(Icons.palette_outlined, size: 20),
                     title: const Text('特定ワード反応（吹き出し色変更）'),
                     subtitle: const Text('指定ワードを含むコメントの吹き出し背景色・文字色の変更'),
                     value: flags.wordHighlightEnabled,
@@ -139,7 +191,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
-                    secondary: const Icon(Icons.pin_outlined),
+                    dense: true,
+                    secondary: const Icon(Icons.pin_outlined, size: 20),
                     title: const Text('特定ワードカウント機能'),
                     subtitle: const Text('アカウント毎上限あり / 上限なしの自動ワードカウント'),
                     value: flags.wordCounterEnabled,
@@ -150,7 +203,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
-                    secondary: const Icon(Icons.people_alt_outlined),
+                    dense: true,
+                    secondary: const Icon(Icons.people_alt_outlined, size: 20),
                     title: const Text('ユーザー抽選システム'),
                     subtitle: const Text('参加ユーザーリストからの抽選（1度のみ / 複数回）'),
                     value: flags.userLotteryEnabled,
@@ -161,7 +215,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
-                    secondary: const Icon(Icons.mark_chat_unread_outlined),
+                    dense: true,
+                    secondary:
+                        const Icon(Icons.mark_chat_unread_outlined, size: 20),
                     title: const Text('コメント抽選システム'),
                     subtitle: const Text('開始〜終了コメント間の特定ワード収集と抽選'),
                     value: flags.commentLotteryEnabled,
@@ -172,7 +228,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
-                    secondary: const Icon(Icons.people_outline),
+                    dense: true,
+                    secondary: const Icon(Icons.people_outline, size: 20),
                     title: const Text('参加ユーザーリスト自動記録'),
                     subtitle: const Text('1配信1コメントで視聴回数+1・累計コメント数の自動記録'),
                     value: flags.userTrackingEnabled,
@@ -183,7 +240,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
-                    secondary: const Icon(Icons.layers_outlined),
+                    dense: true,
+                    secondary: const Icon(Icons.brush_outlined, size: 20),
                     title: const Text('OBS オーバーレイローカルサーバー'),
                     subtitle: const Text('OBS ブラウザソース用の HTTP / WebSocket サーバー稼働'),
                     value: flags.obsOverlayEnabled,
@@ -194,7 +252,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
-                    secondary: const Icon(Icons.system_update_alt),
+                    dense: true,
+                    secondary: const Icon(Icons.system_update_alt, size: 20),
                     title: const Text('起動時の自動アップデート確認'),
                     subtitle: const Text('アプリ起動時に GitHub Releases の最新版を自動チェック'),
                     value: flags.autoUpdateCheckEnabled,
@@ -207,35 +266,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // YouTube OAuth 2.0 連携カード
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.account_circle,
-                          color: AppTheme.accentRose, size: 24),
+                      Icon(Icons.account_circle_outlined,
+                          color: p.danger, size: 21),
                       const SizedBox(width: 8),
                       const Text(
                         'YouTube アカウント連携 (OAuth 2.0)',
                         style: TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.bold),
+                            fontSize: 15.5, fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: (oauth.isAuthenticated
-                                  ? AppTheme.accentEmerald
-                                  : Colors.white24)
-                              .withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(999),
+                          color: (oauth.isAuthenticated ? p.success : p.textMuted)
+                              .withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           oauth.isAuthenticated
@@ -243,26 +300,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               : '未連携',
                           style: TextStyle(
                             color: oauth.isAuthenticated
-                                ? AppTheme.accentEmerald
-                                : Colors.white60,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12.5,
+                                ? p.success
+                                : p.textSecondary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'コメント抽選の「開始コメント」「終了コメント」を YouTube ライブチャットへ自動投稿する場合、または公式 Data API v3 モードを利用する場合に設定します。',
-                    style: TextStyle(fontSize: 13, color: Colors.white60),
+                  const SizedBox(height: 6),
+                  Text(
+                    'コメント抽選の開始・終了コメントを YouTube チャットへ自動投稿する場合や、公式 Data API v3 モードを利用する場合に設定します。',
+                    style: TextStyle(fontSize: 12.5, color: p.textSecondary),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: _clientIdCtrl,
                     decoration: const InputDecoration(
                       labelText: 'Google OAuth クライアント ID（デスクトップアプリ用）',
-                      hintText: 'xxxxxxxxxxxx-xxxxxxxxxxxxxxxx.apps.googleusercontent.com',
+                      hintText:
+                          'xxxxxxxxxxxx-xxxxxxxxxxxxxxxx.apps.googleusercontent.com',
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -282,17 +340,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       OutlinedButton.icon(
                         onPressed: () => ctrl.saveOAuthClient(
                           _clientIdCtrl.text.trim(),
                           _clientSecretCtrl.text.trim(),
                         ),
-                        icon: const Icon(Icons.save_outlined),
+                        icon: const Icon(Icons.save_outlined, size: 17),
                         label: const Text('クライアント設定を保存'),
                       ),
                       FilledButton.icon(
@@ -309,22 +367,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               },
                         icon: ctrl.isOAuthInProgress
                             ? const SizedBox(
-                                width: 16,
-                                height: 16,
+                                width: 15,
+                                height: 15,
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Icon(Icons.login),
+                            : const Icon(Icons.login, size: 17),
                         label: Text(ctrl.isOAuthInProgress
                             ? 'ブラウザで認証待機中...'
                             : 'Google アカウントで連携'),
                       ),
                       if (oauth.isAuthenticated)
                         TextButton.icon(
-                          style: TextButton.styleFrom(
-                              foregroundColor: AppTheme.accentRose),
+                          style:
+                              TextButton.styleFrom(foregroundColor: p.danger),
                           onPressed: ctrl.disconnectOAuth,
-                          icon: const Icon(Icons.logout),
+                          icon: const Icon(Icons.logout, size: 17),
                           label: const Text('連携を解除'),
                         ),
                     ],
@@ -333,78 +391,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // 自動アップデート & バージョン情報カード
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.system_update_alt,
-                          color: AppTheme.accentSky, size: 24),
-                      SizedBox(width: 8),
-                      Text(
+                      Icon(Icons.system_update_alt, color: p.accent, size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
                         'ソフトウェア情報 ＆ GitHub 自動アップデート',
                         style: TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.bold),
+                            fontSize: 15.5, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Text(
                         'Stosup v${ctrl.appVersion}',
-                        style: const TextStyle(
-                          fontSize: 20,
+                        style: TextStyle(
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.accentSky,
+                          color: p.textPrimary,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       const Chip(
                         label: Text('Windows 64bit / Flutter + Rust'),
                         visualDensity: VisualDensity.compact,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
+                  const SizedBox(height: 4),
+                  Text(
                     '更新元リポジトリ: https://github.com/tako-kun1/stosup',
-                    style: TextStyle(fontSize: 13, color: Colors.white60),
+                    style: TextStyle(fontSize: 12.5, color: p.textSecondary),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       FilledButton.icon(
                         onPressed:
                             ctrl.isCheckingUpdate ? null : _checkUpdatesNow,
                         icon: ctrl.isCheckingUpdate
                             ? const SizedBox(
-                                width: 16,
-                                height: 16,
+                                width: 15,
+                                height: 15,
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Icon(Icons.refresh),
-                        label: const Text('GitHub でアップデートを確認'),
+                            : const Icon(Icons.refresh, size: 17),
+                        label: const Text('アップデートを確認'),
                       ),
                       OutlinedButton.icon(
                         onPressed: _showCurrentReleaseNotes,
-                        icon: const Icon(Icons.article_outlined),
-                        label: const Text('現在のリリースノートを見る'),
+                        icon: const Icon(Icons.article_outlined, size: 17),
+                        label: const Text('リリースノートを見る'),
                       ),
                       OutlinedButton.icon(
                         onPressed: () => ctrl.openUrl(
                             'https://github.com/tako-kun1/stosup/releases'),
-                        icon: const Icon(Icons.open_in_new),
-                        label: const Text('GitHub Releases を開く'),
+                        icon: const Icon(Icons.open_in_new, size: 17),
+                        label: const Text('GitHub Releases'),
                       ),
                     ],
                   ),
@@ -412,56 +469,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
-          // プラットフォーム拡張ロードマップカード
-          const Card(
+          // 対応プラットフォーム状況カード
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(18),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.extension,
-                          color: AppTheme.accentIndigo, size: 22),
-                      SizedBox(width: 8),
-                      Text(
-                        '対応配信プラットフォーム状況',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                  const Text(
+                    '対応配信プラットフォーム',
+                    style:
+                        TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
                       Chip(
                         avatar: Icon(Icons.check_circle,
-                            color: AppTheme.accentEmerald, size: 18),
-                        label: Text('YouTube Live（対応済み）'),
+                            color: p.success, size: 16),
+                        label: const Text('YouTube Live（対応済み）'),
                       ),
                       Chip(
-                        avatar: Icon(Icons.science,
-                            color: AppTheme.accentSky, size: 18),
-                        label: Text('デモ配信モード（対応済み）'),
-                      ),
-                      Chip(
-                        avatar: Icon(Icons.schedule,
-                            color: Colors.white54, size: 18),
-                        label: Text('Twitch（今後対応予定）'),
+                        avatar:
+                            Icon(Icons.science, color: p.accent, size: 16),
+                        label: const Text('デモ配信モード（対応済み）'),
                       ),
                       Chip(
                         avatar: Icon(Icons.schedule,
-                            color: Colors.white54, size: 18),
-                        label: Text('ニコニコ生放送（今後対応予定）'),
+                            color: p.textMuted, size: 16),
+                        label: const Text('Twitch（今後対応予定）'),
                       ),
                       Chip(
                         avatar: Icon(Icons.schedule,
-                            color: Colors.white54, size: 18),
-                        label: Text('ツイキャス（今後対応予定）'),
+                            color: p.textMuted, size: 16),
+                        label: const Text('ニコニコ生放送（今後対応予定）'),
+                      ),
+                      Chip(
+                        avatar: Icon(Icons.schedule,
+                            color: p.textMuted, size: 16),
+                        label: const Text('ツイキャス（今後対応予定）'),
                       ),
                     ],
                   ),

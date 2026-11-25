@@ -53,9 +53,17 @@ class StosupController extends ChangeNotifier {
     commentMaxItems: 30,
     showIcons: true,
     showTimestamps: false,
-    defaultBubbleBg: '#1E293BE6',
-    defaultTextColor: '#F8FAFC',
+    defaultBubbleBg: '#202124E6',
+    defaultTextColor: '#F4F4F5',
+    commentsTheme: 'default',
+    lotteryTheme: 'default',
+    counterTheme: 'default',
+    commentsCustomCss: '',
+    lotteryCustomCss: '',
+    counterCustomCss: '',
   );
+
+  AppThemeMode themeMode = AppThemeMode.dark;
 
   FeatureFlags featureFlags = const FeatureFlags(
     commentDisplayEnabled: true,
@@ -126,6 +134,7 @@ class StosupController extends ChangeNotifier {
       api.getOverlayConfig(),
       api.getYoutubeOauthStatus(),
       api.getFeatureFlags(),
+      api.getThemeMode(),
     ]);
 
     connectionState = results[0] as ConnectionStateDto;
@@ -139,6 +148,7 @@ class StosupController extends ChangeNotifier {
     overlayConfig = results[8] as OverlayConfig;
     oauthStatus = results[9] as YouTubeOAuthStatus;
     featureFlags = results[10] as FeatureFlags;
+    themeMode = results[11] as AppThemeMode;
     notifyListeners();
   }
 
@@ -554,6 +564,17 @@ class StosupController extends ChangeNotifier {
       next,
       noticeMessage: enabled ? 'すべての機能をオンにしました' : 'すべての機能をオフにしました',
     );
+  }
+
+  // ==================== 外観テーマ（ライト / ダーク / システム） ====================
+
+  Future<void> setThemeMode(AppThemeMode mode) async {
+    try {
+      themeMode = await api.saveThemeMode(mode: mode);
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
   }
 
   // ==================== OBS オーバーレイ ====================

@@ -161,6 +161,12 @@ Future<FeatureFlags> getFeatureFlags() =>
 Future<FeatureFlags> saveFeatureFlags({required FeatureFlags flags}) =>
     RustLib.instance.api.crateApiSaveFeatureFlags(flags: flags);
 
+Future<AppThemeMode> getThemeMode() =>
+    RustLib.instance.api.crateApiGetThemeMode();
+
+Future<AppThemeMode> saveThemeMode({required AppThemeMode mode}) =>
+    RustLib.instance.api.crateApiSaveThemeMode(mode: mode);
+
 Future<OverlayConfig> getOverlayConfig() =>
     RustLib.instance.api.crateApiGetOverlayConfig();
 

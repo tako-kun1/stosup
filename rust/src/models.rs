@@ -276,28 +276,109 @@ impl Default for CommentLotteryState {
     }
 }
 
-/// OBS ブラウザソースオーバーレイの設定
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// アプリ外観テーマ（ライト / ダーク / システム設定）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AppThemeMode {
+    System,
+    Light,
+    Dark,
+}
+
+impl AppThemeMode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AppThemeMode::System => "system",
+            AppThemeMode::Light => "light",
+            AppThemeMode::Dark => "dark",
+        }
+    }
+
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "light" => AppThemeMode::Light,
+            "dark" => AppThemeMode::Dark,
+            _ => AppThemeMode::System,
+        }
+    }
+}
+
+fn default_theme_name() -> String {
+    "default".to_string()
+}
+
+fn default_overlay_port() -> u16 {
+    18765
+}
+
+fn default_comment_font_size() -> u32 {
+    18
+}
+
+fn default_comment_max_items() -> u32 {
+    30
+}
+
+fn default_bubble_bg() -> String {
+    "#202124E6".to_string()
+}
+
+fn default_text_color() -> String {
+    "#F4F4F5".to_string()
+}
+
+/// OBS ブラウザソースオーバーレイの設定 ＆ 各機能デザインプリセット・カスタムCSS
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OverlayConfig {
+    #[serde(default = "default_overlay_port")]
     pub port: u16,
+    #[serde(default = "default_comment_font_size")]
     pub comment_font_size: u32,
+    #[serde(default = "default_comment_max_items")]
     pub comment_max_items: u32,
+    #[serde(default = "default_true")]
     pub show_icons: bool,
+    #[serde(default)]
     pub show_timestamps: bool,
+    #[serde(default = "default_bubble_bg")]
     pub default_bubble_bg: String,
+    #[serde(default = "default_text_color")]
     pub default_text_color: String,
+    /// コメント表示オーバーレイのデザインプリセット ("default" | "minimal" | "pop" | "neon" | "japanese")
+    #[serde(default = "default_theme_name")]
+    pub comments_theme: String,
+    /// 抽選結果オーバーレイのデザインプリセット ("default" | "festive" | "minimal" | "neon" | "cute")
+    #[serde(default = "default_theme_name")]
+    pub lottery_theme: String,
+    /// ワードカウンターオーバーレイのデザインプリセット ("default" | "compact" | "scoreboard" | "neon" | "pastel")
+    #[serde(default = "default_theme_name")]
+    pub counter_theme: String,
+    /// コメント表示用ユーザーカスタム CSS
+    #[serde(default)]
+    pub comments_custom_css: String,
+    /// 抽選結果用ユーザーカスタム CSS
+    #[serde(default)]
+    pub lottery_custom_css: String,
+    /// ワードカウンター用ユーザーカスタム CSS
+    #[serde(default)]
+    pub counter_custom_css: String,
 }
 
 impl Default for OverlayConfig {
     fn default() -> Self {
         Self {
-            port: 18765,
-            comment_font_size: 18,
-            comment_max_items: 30,
+            port: default_overlay_port(),
+            comment_font_size: default_comment_font_size(),
+            comment_max_items: default_comment_max_items(),
             show_icons: true,
             show_timestamps: false,
-            default_bubble_bg: "#1E293BE6".to_string(),
-            default_text_color: "#F8FAFC".to_string(),
+            default_bubble_bg: default_bubble_bg(),
+            default_text_color: default_text_color(),
+            comments_theme: default_theme_name(),
+            lottery_theme: default_theme_name(),
+            counter_theme: default_theme_name(),
+            comments_custom_css: String::new(),
+            lottery_custom_css: String::new(),
+            counter_custom_css: String::new(),
         }
     }
 }

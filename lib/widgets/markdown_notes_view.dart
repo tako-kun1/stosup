@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_theme.dart';
 
-/// リリースノート用の軽量 Markdown 表示ウィジェット（外部依存ゼロ）
+/// リリースノート用の軽量 Markdown 表示ウィジェット（ライト/ダーク両対応）
 class MarkdownNotesView extends StatelessWidget {
   const MarkdownNotesView({super.key, required this.markdown});
 
@@ -10,6 +10,7 @@ class MarkdownNotesView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final lines = markdown.replaceAll('\r\n', '\n').split('\n');
     final widgets = <Widget>[];
 
@@ -22,10 +23,10 @@ class MarkdownNotesView extends StatelessWidget {
           padding: const EdgeInsets.only(top: 10, bottom: 4),
           child: Text(
             line.substring(4),
-            style: const TextStyle(
-              fontSize: 15,
+            style: TextStyle(
+              fontSize: 14.5,
               fontWeight: FontWeight.bold,
-              color: AppTheme.accentSky,
+              color: p.accent,
             ),
           ),
         ));
@@ -34,10 +35,10 @@ class MarkdownNotesView extends StatelessWidget {
           padding: const EdgeInsets.only(top: 12, bottom: 6),
           child: Text(
             line.substring(3),
-            style: const TextStyle(
-              fontSize: 17,
+            style: TextStyle(
+              fontSize: 16.5,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: p.textPrimary,
             ),
           ),
         ));
@@ -46,10 +47,10 @@ class MarkdownNotesView extends StatelessWidget {
           padding: const EdgeInsets.only(top: 12, bottom: 6),
           child: Text(
             line.substring(2),
-            style: const TextStyle(
-              fontSize: 19,
+            style: TextStyle(
+              fontSize: 18.5,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: p.textPrimary,
             ),
           ),
         ));
@@ -66,17 +67,17 @@ class MarkdownNotesView extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('•  ',
-                  style: TextStyle(
-                      color: AppTheme.accentSky, fontWeight: FontWeight.bold)),
-              Expanded(child: _buildInlineRichText(content)),
+              Text('•  ',
+                  style:
+                      TextStyle(color: p.accent, fontWeight: FontWeight.bold)),
+              Expanded(child: _buildInlineRichText(content, p)),
             ],
           ),
         ));
       } else {
         widgets.add(Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
-          child: _buildInlineRichText(line),
+          child: _buildInlineRichText(line, p),
         ));
       }
     }
@@ -87,7 +88,7 @@ class MarkdownNotesView extends StatelessWidget {
     );
   }
 
-  Widget _buildInlineRichText(String text) {
+  Widget _buildInlineRichText(String text, StosupPalette p) {
     final spans = <InlineSpan>[];
     final pattern = RegExp(r'(\*\*.*?\*\*|`[^`]+`)');
     var lastEnd = 0;
@@ -100,18 +101,18 @@ class MarkdownNotesView extends StatelessWidget {
       if (token.startsWith('**') && token.endsWith('**')) {
         spans.add(TextSpan(
           text: token.substring(2, token.length - 2),
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: p.textPrimary,
           ),
         ));
       } else if (token.startsWith('`') && token.endsWith('`')) {
         spans.add(TextSpan(
           text: token.substring(1, token.length - 1),
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Consolas',
-            backgroundColor: Color(0xFF0F172A),
-            color: AppTheme.accentAmber,
+            backgroundColor: p.subtleBg,
+            color: p.accent,
           ),
         ));
       }
@@ -124,10 +125,10 @@ class MarkdownNotesView extends StatelessWidget {
 
     return Text.rich(
       TextSpan(
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13.5,
           height: 1.5,
-          color: Color(0xFFE2E8F0),
+          color: p.textSecondary,
         ),
         children: spans,
       ),

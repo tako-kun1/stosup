@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::models::{
-    FeatureFlags, HighlightRule, LotteryResult, LotteryWinner, MatchMode, OverlayConfig,
-    PlatformKind, RawIncomingComment, UserRecord, WordCounterConfig,
+    AppThemeMode, FeatureFlags, HighlightRule, LotteryResult, LotteryWinner, MatchMode,
+    OverlayConfig, PlatformKind, RawIncomingComment, UserRecord, WordCounterConfig,
 };
 
 /// SQLite 永続化データベース
@@ -255,6 +255,17 @@ impl Database {
     pub fn set_feature_flags(&self, flags: &FeatureFlags) -> Result<()> {
         let json = serde_json::to_string(flags)?;
         self.set_setting("feature_flags", &json)
+    }
+
+    pub fn get_theme_mode(&self) -> Result<AppThemeMode> {
+        if let Some(val) = self.get_setting("theme_mode")? {
+            return Ok(AppThemeMode::from_str_lossy(&val));
+        }
+        Ok(AppThemeMode::Dark)
+    }
+
+    pub fn set_theme_mode(&self, mode: AppThemeMode) -> Result<()> {
+        self.set_setting("theme_mode", mode.as_str())
     }
 
     // ==================== 配信セッション ====================
@@ -867,5 +878,35 @@ mod tests {
         };
         db.set_feature_flags(&custom).unwrap();
         assert_eq!(db.get_feature_flags().unwrap(), custom);
+    }
+
+    #[test]
+    fn test_theme_mode_and_overlay_custom_css_persistence() {
+        let db = Database::open_in_memory().unwrap();
+        assert_eq!(db.get_theme_mode().unwrap(), AppThemeMode::Dark);
+        db.set_theme_mode(AppThemeMode::Light).unwrap();
+        assert_eq!(db.get_theme_mode().unwrap(), AppThemeMode::Light);
+        db.set_theme_mode(AppThemeMode::System).unwrap();
+        assert_eq!(db.get_theme_mode().unwrap(), AppThemeMode::System);
+
+        // 旧バージョンの OverlayConfig JSON からの後方互換読み込みを確認
+        db.set_setting(
+            "overlay_config",
+            r##"{"port":18765,"comment_font_size":20,"comment_max_items":25,"show_icons":true,"show_timestamps":false,"default_bubble_bg":"#111111E6","default_text_color":"#FFFFFF"}"##,
+        )
+        .unwrap();
+        let migrated = db.get_overlay_config().unwrap();
+        assert_eq!(migrated.comment_font_size, 20);
+        assert_eq!(migrated.comments_theme, "default");
+        assert_eq!(migrated.comments_custom_css, "");
+
+        // プリセット＆カスタムCSSの保存・復元
+        let mut updated = migrated;
+        updated.comments_theme = "pop".to_string();
+        updated.lottery_theme = "festive".to_string();
+        updated.counter_theme = "scoreboard".to_string();
+        updated.comments_custom_css = ".bubble { border-radius: 0px; }".to_string();
+        db.set_overlay_config(&updated).unwrap();
+        assert_eq!(db.get_overlay_config().unwrap(), updated);
     }
 }

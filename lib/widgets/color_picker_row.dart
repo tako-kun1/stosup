@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_theme.dart';
 
-/// プリセットカラー選択 ＋ HEX直接入力できる軽量カラーピッカー行
+/// プリセットカラー選択 ＋ HEX 表示するカラーピッカー行（ライト/ダーク両対応）
 class ColorPickerRow extends StatelessWidget {
   const ColorPickerRow({
     super.key,
@@ -18,24 +18,25 @@ class ColorPickerRow extends StatelessWidget {
   final List<String> presets;
 
   static const List<String> defaultPresets = [
+    '#202124E6',
     '#065F46E6',
     '#1E3A8AE6',
     '#7C2D12E6',
     '#701A75E6',
     '#881337E6',
     '#3F3F46E6',
-    '#1E293BE6',
-    '#38BDF8',
-    '#34D399',
-    '#FBBF24',
-    '#FB923C',
-    '#F472B6',
-    '#A78BFA',
-    '#F8FAFC',
+    '#2563EB',
+    '#16A34A',
+    '#D97706',
+    '#EA580C',
+    '#DB2777',
+    '#7C3AED',
+    '#F4F4F5',
   ];
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final current = AppTheme.parseCssHex(hexValue);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,21 +46,21 @@ class ColorPickerRow extends StatelessWidget {
             Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(width: 10),
             Container(
-              width: 22,
-              height: 22,
+              width: 20,
+              height: 20,
               decoration: BoxDecoration(
                 color: current,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.white38),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: p.border),
               ),
             ),
             const SizedBox(width: 8),
             Text(
               hexValue,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Consolas',
                 fontSize: 12,
-                color: Colors.white70,
+                color: p.textSecondary,
               ),
             ),
           ],
@@ -71,22 +72,27 @@ class ColorPickerRow extends StatelessWidget {
           children: presets.map((hex) {
             final color = AppTheme.parseCssHex(hex);
             final selected = hex.toUpperCase() == hexValue.toUpperCase();
+            final isLightSwatch = color.computeLuminance() > 0.6;
             return InkWell(
               onTap: () => onChanged(hex),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(5),
               child: Container(
-                width: 28,
-                height: 28,
+                width: 26,
+                height: 26,
                 decoration: BoxDecoration(
                   color: color,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(5),
                   border: Border.all(
-                    color: selected ? Colors.white : Colors.white24,
-                    width: selected ? 2.5 : 1,
+                    color: selected ? p.accent : p.border,
+                    width: selected ? 2.2 : 1,
                   ),
                 ),
                 child: selected
-                    ? const Icon(Icons.check, size: 15, color: Colors.white)
+                    ? Icon(
+                        Icons.check,
+                        size: 14,
+                        color: isLightSwatch ? Colors.black : Colors.white,
+                      )
                     : null,
               ),
             );
