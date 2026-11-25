@@ -766,6 +766,64 @@ class ImportedMediaFile {
           fileSizeBytes == other.fileSizeBytes;
 }
 
+/// 利用規約（ライセンス）の取得・同意状態
+class LicenseAgreementStatus {
+  final String title;
+  final String markdownBody;
+  final String revisionLabel;
+  final String contentHash;
+
+  /// "online" | "cached" | "bundled"
+  final String source;
+  final String? acceptedHash;
+  final String? acceptedRevision;
+  final PlatformInt64? acceptedAtMs;
+  final bool needsAcceptance;
+  final bool isUpdatedLicense;
+
+  const LicenseAgreementStatus({
+    required this.title,
+    required this.markdownBody,
+    required this.revisionLabel,
+    required this.contentHash,
+    required this.source,
+    this.acceptedHash,
+    this.acceptedRevision,
+    this.acceptedAtMs,
+    required this.needsAcceptance,
+    required this.isUpdatedLicense,
+  });
+
+  @override
+  int get hashCode =>
+      title.hashCode ^
+      markdownBody.hashCode ^
+      revisionLabel.hashCode ^
+      contentHash.hashCode ^
+      source.hashCode ^
+      acceptedHash.hashCode ^
+      acceptedRevision.hashCode ^
+      acceptedAtMs.hashCode ^
+      needsAcceptance.hashCode ^
+      isUpdatedLicense.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LicenseAgreementStatus &&
+          runtimeType == other.runtimeType &&
+          title == other.title &&
+          markdownBody == other.markdownBody &&
+          revisionLabel == other.revisionLabel &&
+          contentHash == other.contentHash &&
+          source == other.source &&
+          acceptedHash == other.acceptedHash &&
+          acceptedRevision == other.acceptedRevision &&
+          acceptedAtMs == other.acceptedAtMs &&
+          needsAcceptance == other.needsAcceptance &&
+          isUpdatedLicense == other.isUpdatedLicense;
+}
+
 /// 抽選の重複許可設定
 enum LotteryRepeatMode {
   /// 1度のみ（一度当選したユーザーはリセットまで除外）

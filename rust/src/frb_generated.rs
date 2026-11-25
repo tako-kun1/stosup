@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1739352562;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 72590036;
 
 // Section: executor
 
@@ -47,6 +47,47 @@ flutter_rust_bridge::frb_generated_default_handler!();
 
 // Section: wire_funcs
 
+fn wire__crate__api__accept_license_agreement_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "accept_license_agreement",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_content_hash = <String>::sse_decode(&mut deserializer);
+            let api_revision_label = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::accept_license_agreement(
+                            api_content_hash,
+                            api_revision_label,
+                        )
+                        .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__adjust_first_time_count_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -147,6 +188,42 @@ fn wire__crate__api__check_for_updates_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::check_for_updates().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__check_license_status_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "check_license_status",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_check_online = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::check_license_status(api_check_online).await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -3396,6 +3473,37 @@ fn wire__crate__api__subscribe_events_impl(
         },
     )
 }
+fn wire__crate__api__terminate_app_process_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "terminate_app_process",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Ok::<_, ()>({
+                    crate::api::terminate_app_process();
+                })?;
+                std::result::Result::Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__test_media_reaction_rule_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -3943,6 +4051,34 @@ impl SseDecode for crate::models::ImportedMediaFile {
             original_file_name: var_originalFileName,
             media_kind: var_mediaKind,
             file_size_bytes: var_fileSizeBytes,
+        };
+    }
+}
+
+impl SseDecode for crate::models::LicenseAgreementStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_title = <String>::sse_decode(deserializer);
+        let mut var_markdownBody = <String>::sse_decode(deserializer);
+        let mut var_revisionLabel = <String>::sse_decode(deserializer);
+        let mut var_contentHash = <String>::sse_decode(deserializer);
+        let mut var_source = <String>::sse_decode(deserializer);
+        let mut var_acceptedHash = <Option<String>>::sse_decode(deserializer);
+        let mut var_acceptedRevision = <Option<String>>::sse_decode(deserializer);
+        let mut var_acceptedAtMs = <Option<i64>>::sse_decode(deserializer);
+        let mut var_needsAcceptance = <bool>::sse_decode(deserializer);
+        let mut var_isUpdatedLicense = <bool>::sse_decode(deserializer);
+        return crate::models::LicenseAgreementStatus {
+            title: var_title,
+            markdown_body: var_markdownBody,
+            revision_label: var_revisionLabel,
+            content_hash: var_contentHash,
+            source: var_source,
+            accepted_hash: var_acceptedHash,
+            accepted_revision: var_acceptedRevision,
+            accepted_at_ms: var_acceptedAtMs,
+            needs_acceptance: var_needsAcceptance,
+            is_updated_license: var_isUpdatedLicense,
         };
     }
 }
@@ -5277,106 +5413,108 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        1 => wire__crate__api__adjust_first_time_count_impl(port, ptr, rust_vec_len, data_len),
-        2 => wire__crate__api__adjust_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        3 => wire__crate__api__check_for_updates_impl(port, ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__clear_monetization_events_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__clear_overlay_lottery_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__clear_overlay_media_impl(port, ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__clear_overlay_poll_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__clear_picked_comment_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__clear_recent_comments_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__connect_demo_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__connect_youtube_impl(port, ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__delete_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__delete_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__delete_monetization_event_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__delete_user_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__delete_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__disconnect_stream_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__disconnect_youtube_oauth_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__download_update_installer_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__draw_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__draw_user_lottery_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__get_comment_lottery_state_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__get_connection_state_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__get_current_release_notes_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__get_feature_flags_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__get_first_time_state_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__get_media_reaction_config_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__get_overlay_config_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__get_picked_comment_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__get_poll_state_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__get_queue_state_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__get_recent_comments_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__get_remote_access_status_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__get_startup_release_notes_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__get_theme_mode_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__get_user_lottery_won_ids_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__get_youtube_oauth_status_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__import_media_file_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__launch_update_installer_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__list_highlight_rules_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__list_lottery_history_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__list_media_reaction_rules_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__list_monetization_events_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__list_system_fonts_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__list_users_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__list_word_counters_impl(port, ptr, rust_vec_len, data_len),
-        49 => {
+        1 => wire__crate__api__accept_license_agreement_impl(port, ptr, rust_vec_len, data_len),
+        2 => wire__crate__api__adjust_first_time_count_impl(port, ptr, rust_vec_len, data_len),
+        3 => wire__crate__api__adjust_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        4 => wire__crate__api__check_for_updates_impl(port, ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__check_license_status_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__clear_monetization_events_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__clear_overlay_lottery_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__clear_overlay_media_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__clear_overlay_poll_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__clear_picked_comment_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__clear_recent_comments_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__connect_demo_impl(port, ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__connect_youtube_impl(port, ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__delete_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__delete_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__delete_monetization_event_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__delete_user_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__delete_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__disconnect_stream_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__disconnect_youtube_oauth_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__download_update_installer_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__draw_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__draw_user_lottery_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__get_comment_lottery_state_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__get_connection_state_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__get_current_release_notes_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__get_feature_flags_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__get_first_time_state_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__get_media_reaction_config_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__get_overlay_config_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__get_picked_comment_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__get_poll_state_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__get_queue_state_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__get_recent_comments_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__get_remote_access_status_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__get_startup_release_notes_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__get_theme_mode_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__get_user_lottery_won_ids_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__get_youtube_oauth_status_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__import_media_file_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__launch_update_installer_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__list_highlight_rules_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__list_lottery_history_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__list_media_reaction_rules_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__list_monetization_events_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__list_system_fonts_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__list_users_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__list_word_counters_impl(port, ptr, rust_vec_len, data_len),
+        51 => {
             wire__crate__api__mark_all_monetization_checked_impl(port, ptr, rust_vec_len, data_len)
         }
-        50 => wire__crate__api__mark_release_notes_seen_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__open_external_url_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__pick_comment_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__pick_media_file_dialog_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__pick_sound_file_dialog_impl(port, ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__post_chat_message_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__queue_add_manual_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__queue_move_entry_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__queue_promote_next_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__queue_remove_entry_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__queue_reset_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__queue_rotate_active_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__queue_set_status_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__regenerate_remote_pin_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__reset_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        65 => {
+        52 => wire__crate__api__mark_release_notes_seen_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__open_external_url_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__pick_comment_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__pick_media_file_dialog_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__pick_sound_file_dialog_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__post_chat_message_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__queue_add_manual_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__queue_move_entry_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__queue_promote_next_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__queue_remove_entry_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__queue_reset_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__queue_rotate_active_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__queue_set_status_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__regenerate_remote_pin_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__reset_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        67 => {
             wire__crate__api__reset_first_time_all_history_impl(port, ptr, rust_vec_len, data_len)
         }
-        66 => {
+        68 => {
             wire__crate__api__reset_first_time_session_count_impl(port, ptr, rust_vec_len, data_len)
         }
-        67 => wire__crate__api__reset_poll_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__api__reset_user_lottery_winners_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__reset_users_impl(port, ptr, rust_vec_len, data_len),
-        70 => wire__crate__api__reset_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        71 => wire__crate__api__save_feature_flags_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__save_first_time_config_impl(port, ptr, rust_vec_len, data_len),
-        73 => wire__crate__api__save_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
-        74 => wire__crate__api__save_media_reaction_config_impl(port, ptr, rust_vec_len, data_len),
-        75 => wire__crate__api__save_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
-        76 => wire__crate__api__save_overlay_config_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__save_poll_config_impl(port, ptr, rust_vec_len, data_len),
-        78 => wire__crate__api__save_queue_config_impl(port, ptr, rust_vec_len, data_len),
-        79 => wire__crate__api__save_remote_access_config_impl(port, ptr, rust_vec_len, data_len),
-        80 => wire__crate__api__save_theme_mode_impl(port, ptr, rust_vec_len, data_len),
-        81 => wire__crate__api__save_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__save_youtube_oauth_client_impl(port, ptr, rust_vec_len, data_len),
-        83 => wire__crate__api__send_demo_comment_impl(port, ptr, rust_vec_len, data_len),
-        84 => wire__crate__api__send_demo_monetization_impl(port, ptr, rust_vec_len, data_len),
-        85 => wire__crate__api__set_monetization_checked_impl(port, ptr, rust_vec_len, data_len),
-        86 => wire__crate__api__set_user_ban_impl(port, ptr, rust_vec_len, data_len),
-        87 => wire__crate__api__set_user_memo_impl(port, ptr, rust_vec_len, data_len),
-        88 => wire__crate__api__start_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        89 => wire__crate__api__start_poll_impl(port, ptr, rust_vec_len, data_len),
-        90 => wire__crate__api__start_youtube_oauth_login_impl(port, ptr, rust_vec_len, data_len),
-        91 => wire__crate__api__stop_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        92 => wire__crate__api__stop_poll_impl(port, ptr, rust_vec_len, data_len),
-        93 => wire__crate__api__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
-        94 => wire__crate__api__test_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
-        95 => {
+        69 => wire__crate__api__reset_poll_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__reset_user_lottery_winners_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__reset_users_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__reset_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__save_feature_flags_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__save_first_time_config_impl(port, ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__save_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__save_media_reaction_config_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__save_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__save_overlay_config_impl(port, ptr, rust_vec_len, data_len),
+        79 => wire__crate__api__save_poll_config_impl(port, ptr, rust_vec_len, data_len),
+        80 => wire__crate__api__save_queue_config_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__save_remote_access_config_impl(port, ptr, rust_vec_len, data_len),
+        82 => wire__crate__api__save_theme_mode_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__save_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__save_youtube_oauth_client_impl(port, ptr, rust_vec_len, data_len),
+        85 => wire__crate__api__send_demo_comment_impl(port, ptr, rust_vec_len, data_len),
+        86 => wire__crate__api__send_demo_monetization_impl(port, ptr, rust_vec_len, data_len),
+        87 => wire__crate__api__set_monetization_checked_impl(port, ptr, rust_vec_len, data_len),
+        88 => wire__crate__api__set_user_ban_impl(port, ptr, rust_vec_len, data_len),
+        89 => wire__crate__api__set_user_memo_impl(port, ptr, rust_vec_len, data_len),
+        90 => wire__crate__api__start_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        91 => wire__crate__api__start_poll_impl(port, ptr, rust_vec_len, data_len),
+        92 => wire__crate__api__start_youtube_oauth_login_impl(port, ptr, rust_vec_len, data_len),
+        93 => wire__crate__api__stop_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        94 => wire__crate__api__stop_poll_impl(port, ptr, rust_vec_len, data_len),
+        95 => wire__crate__api__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
+        97 => wire__crate__api__test_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
+        98 => {
             wire__crate__api__update_comment_lottery_config_impl(port, ptr, rust_vec_len, data_len)
         }
         _ => unreachable!(),
@@ -5391,7 +5529,8 @@ fn pde_ffi_dispatcher_sync_impl(
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        22 => wire__crate__api__get_app_version_impl(ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__get_app_version_impl(ptr, rust_vec_len, data_len),
+        96 => wire__crate__api__terminate_app_process_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -5819,6 +5958,35 @@ impl flutter_rust_bridge::IntoIntoDart<crate::models::ImportedMediaFile>
     for crate::models::ImportedMediaFile
 {
     fn into_into_dart(self) -> crate::models::ImportedMediaFile {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::LicenseAgreementStatus {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.title.into_into_dart().into_dart(),
+            self.markdown_body.into_into_dart().into_dart(),
+            self.revision_label.into_into_dart().into_dart(),
+            self.content_hash.into_into_dart().into_dart(),
+            self.source.into_into_dart().into_dart(),
+            self.accepted_hash.into_into_dart().into_dart(),
+            self.accepted_revision.into_into_dart().into_dart(),
+            self.accepted_at_ms.into_into_dart().into_dart(),
+            self.needs_acceptance.into_into_dart().into_dart(),
+            self.is_updated_license.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::LicenseAgreementStatus
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::LicenseAgreementStatus>
+    for crate::models::LicenseAgreementStatus
+{
+    fn into_into_dart(self) -> crate::models::LicenseAgreementStatus {
         self
     }
 }
@@ -7052,6 +7220,22 @@ impl SseEncode for crate::models::ImportedMediaFile {
         <String>::sse_encode(self.original_file_name, serializer);
         <crate::models::MediaKind>::sse_encode(self.media_kind, serializer);
         <u64>::sse_encode(self.file_size_bytes, serializer);
+    }
+}
+
+impl SseEncode for crate::models::LicenseAgreementStatus {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.title, serializer);
+        <String>::sse_encode(self.markdown_body, serializer);
+        <String>::sse_encode(self.revision_label, serializer);
+        <String>::sse_encode(self.content_hash, serializer);
+        <String>::sse_encode(self.source, serializer);
+        <Option<String>>::sse_encode(self.accepted_hash, serializer);
+        <Option<String>>::sse_encode(self.accepted_revision, serializer);
+        <Option<i64>>::sse_encode(self.accepted_at_ms, serializer);
+        <bool>::sse_encode(self.needs_acceptance, serializer);
+        <bool>::sse_encode(self.is_updated_license, serializer);
     }
 }
 

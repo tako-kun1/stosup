@@ -887,3 +887,30 @@ pub async fn regenerate_remote_pin() -> Result<RemoteAccessStatus, String> {
         .await
         .map_err(|e| e.to_string())
 }
+
+// ==================== 利用規約（ライセンス）確認・同意・オンライン更新 ====================
+
+pub async fn check_license_status(check_online: bool) -> Result<LicenseAgreementStatus, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .check_license_status(check_online)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn accept_license_agreement(
+    content_hash: String,
+    revision_label: String,
+) -> Result<LicenseAgreementStatus, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .accept_license_agreement(&content_hash, &revision_label)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 利用規約に不同意の場合などにアプリケーションプロセスを即座に終了（タスクキル）する
+#[frb(sync)]
+pub fn terminate_app_process() {
+    std::process::exit(0);
+}

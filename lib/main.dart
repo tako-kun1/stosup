@@ -15,6 +15,7 @@ import 'screens/users_screen.dart';
 import 'src/rust/models.dart';
 import 'state/stosup_controller.dart';
 import 'theme/app_theme.dart';
+import 'widgets/license_agreement_screen.dart';
 import 'widgets/release_notes_dialog.dart';
 import 'widgets/update_dialog.dart';
 
@@ -108,8 +109,9 @@ class _StosupShellState extends State<StosupShell> {
     if (!mounted) return;
     setState(() {});
 
-    // アップデート後の初回起動時に自動でリリースノートダイアログを表示
-    if (!_startupNotesShown &&
+    // アップデート後の初回起動時に自動でリリースノートダイアログを表示（規約同意完了後のみ）
+    if (!widget.controller.needsLicenseAcceptance &&
+        !_startupNotesShown &&
         widget.controller.pendingStartupReleaseNotes != null) {
       _startupNotesShown = true;
       final notes = widget.controller.pendingStartupReleaseNotes!;
@@ -231,6 +233,11 @@ class _StosupShellState extends State<StosupShell> {
           ),
         ),
       );
+    }
+
+    // 利用規約に未同意、または規約が更新された場合は同意ボタンを押すまでメイン画面へ進ませない
+    if (ctrl.needsLicenseAcceptance) {
+      return LicenseAgreementScreen(controller: ctrl);
     }
 
     final connected = ctrl.connectionState.status == ConnectionStatus.connected;

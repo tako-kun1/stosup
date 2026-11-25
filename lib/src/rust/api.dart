@@ -388,3 +388,19 @@ Future<RemoteAccessStatus> saveRemoteAccessConfig({
 
 Future<RemoteAccessStatus> regenerateRemotePin() =>
     RustLib.instance.api.crateApiRegenerateRemotePin();
+
+Future<LicenseAgreementStatus> checkLicenseStatus({
+  required bool checkOnline,
+}) => RustLib.instance.api.crateApiCheckLicenseStatus(checkOnline: checkOnline);
+
+Future<LicenseAgreementStatus> acceptLicenseAgreement({
+  required String contentHash,
+  required String revisionLabel,
+}) => RustLib.instance.api.crateApiAcceptLicenseAgreement(
+  contentHash: contentHash,
+  revisionLabel: revisionLabel,
+);
+
+/// 利用規約に不同意の場合などにアプリケーションプロセスを即座に終了（タスクキル）する
+void terminateAppProcess() =>
+    RustLib.instance.api.crateApiTerminateAppProcess();

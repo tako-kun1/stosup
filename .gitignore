@@ -28,6 +28,7 @@ oauth_secrets.json
 
 # インストーラー・ビルド成果物
 /dist/
+/.wix/
 /rust/target/
 /build/
 /coverage/

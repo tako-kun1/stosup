@@ -14,6 +14,7 @@ use crate::engine::media_reaction::{
 use crate::engine::poll::PollRuntime;
 use crate::engine::queue::QueueRuntime;
 use crate::engine::{counter, highlight, lottery, matches_pattern};
+use crate::license;
 use crate::media;
 use crate::models::{
     AppEvent, CommentItem, CommentLotteryConfig, CommentLotteryState, ConnectionMode,
@@ -1143,6 +1144,26 @@ impl AppRuntime {
             p
         };
         Ok(updater::get_startup_release_notes(prev, after_update).await)
+    }
+
+    pub async fn check_license_status(&self, check_online: bool) -> Result<crate::models::LicenseAgreementStatus> {
+        let remote = if check_online {
+            license::fetch_remote_license_md().await
+        } else {
+            None
+        };
+        let db = self.db.lock().await;
+        license::build_license_status_with_remote(&db, remote)
+    }
+
+    pub async fn accept_license_agreement(
+        &self,
+        content_hash: &str,
+        revision_label: &str,
+    ) -> Result<crate::models::LicenseAgreementStatus> {
+        let db = self.db.lock().await;
+        license::record_license_acceptance(&db, content_hash, revision_label)?;
+        license::build_license_status_with_remote(&db, None)
     }
 
     // ユーティリティメソッド（API層から委譲）

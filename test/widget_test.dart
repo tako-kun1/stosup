@@ -10,6 +10,7 @@ import 'package:stosup/src/rust/models.dart';
 import 'package:stosup/state/stosup_controller.dart';
 import 'package:stosup/theme/app_theme.dart';
 import 'package:stosup/widgets/feature_toggle_banner.dart';
+import 'package:stosup/widgets/license_agreement_screen.dart';
 import 'package:stosup/widgets/markdown_notes_view.dart';
 import 'package:stosup/widgets/overlay_bg_picker.dart';
 import 'package:stosup/widgets/qr_code_view.dart';
@@ -353,6 +354,7 @@ void main() {
     expect(find.text('Stosup：v0.4.0'), findsOneWidget);
     expect(find.text('アップデートチェック'), findsOneWidget);
     expect(find.text('リリースノートを表示'), findsOneWidget);
+    expect(find.text('利用規約を表示'), findsOneWidget);
     expect(find.text('GitHub リポジトリを開く'), findsOneWidget);
     expect(find.text('ローカルネットワーク (LAN) 接続 ＆ Web リモコン'), findsOneWidget);
     expect(find.text('ローカルネットワーク内の他端末からの接続を許可する'), findsOneWidget);
@@ -389,5 +391,59 @@ void main() {
     expect(find.text('http://192.168.1.50:18765/remote'), findsOneWidget);
     expect(find.text('許可コマンドをコピー'), findsOneWidget);
     expect(find.byType(QrCodeView), findsOneWidget);
+  });
+
+  testWidgets('LicenseAgreementScreen で規約同意・不同意操作が正しく機能する',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 860);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final ctrl = StosupController();
+    addTearDown(ctrl.dispose);
+    ctrl.licenseStatus = const LicenseAgreementStatus(
+      title: 'Stosup ソフトウェア利用規約（使用許諾契約書）',
+      markdownBody: '# Stosup 規約\n\n## 第1条（定義）\nテスト条文です。',
+      revisionLabel: 'v1.0 (2026-11-26)',
+      contentHash: 'abc123',
+      source: 'bundled',
+      acceptedHash: 'oldhash',
+      acceptedRevision: 'v0.9',
+      needsAcceptance: true,
+      isUpdatedLicense: true,
+    );
+
+    var declined = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: LicenseAgreementScreen(
+          controller: ctrl,
+          onDecline: () => declined = true,
+        ),
+      ),
+    );
+
+    expect(find.textContaining('利用規約が更新されました'), findsOneWidget);
+    expect(find.text('v1.0 (2026-11-26)'), findsOneWidget);
+    expect(find.text('第1条（定義）'), findsOneWidget);
+
+    // チェック前は「同意して Stosup を起動する」ボタンが無効
+    final acceptBtnFinder = find.widgetWithText(
+      FilledButton,
+      '同意して Stosup を起動する',
+    );
+    expect(tester.widget<FilledButton>(acceptBtnFinder).onPressed, isNull);
+
+    // チェックボックスを ON にするとボタンが有効化される
+    await tester.tap(find.byType(CheckboxListTile));
+    await tester.pump();
+    expect(tester.widget<FilledButton>(acceptBtnFinder).onPressed, isNotNull);
+
+    // 不同意ボタンで終了コールバックが呼ばれる
+    await tester.tap(find.text('同意しない（アプリを終了）'));
+    await tester.pump();
+    expect(declined, isTrue);
   });
 }

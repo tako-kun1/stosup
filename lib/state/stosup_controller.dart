@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show exit;
 
 import 'package:flutter/foundation.dart';
 
@@ -11,6 +12,9 @@ class StosupController extends ChangeNotifier {
   bool isInitialized = false;
   String? initError;
   String appVersion = '0.1.0';
+  LicenseAgreementStatus? licenseStatus;
+  bool get needsLicenseAcceptance => licenseStatus?.needsAcceptance ?? false;
+  bool _postLicenseStartupDone = false;
 
   ConnectionStateDto connectionState = const ConnectionStateDto(
     status: ConnectionStatus.disconnected,
@@ -233,6 +237,11 @@ class StosupController extends ChangeNotifier {
       appVersion = api.getAppVersion();
 
       await refreshAll();
+      try {
+        licenseStatus = await api.checkLicenseStatus(checkOnline: true);
+      } catch (_) {
+        licenseStatus = await api.checkLicenseStatus(checkOnline: false);
+      }
 
       _eventSub?.cancel();
       _eventSub = api.subscribeEvents().listen(_handleEvent);
@@ -240,16 +249,78 @@ class StosupController extends ChangeNotifier {
       isInitialized = true;
       notifyListeners();
 
-      // アップデート後初回起動時のリリースノート判定
-      unawaited(_checkStartupReleaseNotes());
-      // 自動アップデート確認機能が ON の場合のみバックグラウンドで最新版チェック
-      if (featureFlags.autoUpdateCheckEnabled) {
-        unawaited(checkUpdates(silent: true));
+      // 利用規約に同意済みの場合のみ通常の起動後処理（リリースノート・更新確認）を実行
+      if (!needsLicenseAcceptance) {
+        _runPostLicenseStartup();
       }
     } catch (e) {
       initError = e.toString();
       notifyListeners();
     }
+  }
+
+  void _runPostLicenseStartup() {
+    if (_postLicenseStartupDone) return;
+    _postLicenseStartupDone = true;
+    // アップデート後初回起動時のリリースノート判定
+    unawaited(_checkStartupReleaseNotes());
+    // 自動アップデート確認機能が ON の場合のみバックグラウンドで最新版チェック
+    if (featureFlags.autoUpdateCheckEnabled) {
+      unawaited(checkUpdates(silent: true));
+    }
+  }
+
+  /// 利用規約の最新状態を確認する（GitHub 上の最新 License.md のオンライン取得に対応）
+  Future<void> refreshLicenseStatus({
+    bool checkOnline = true,
+    bool notifyResult = false,
+  }) async {
+    try {
+      final prevHash = licenseStatus?.contentHash;
+      licenseStatus = await api.checkLicenseStatus(checkOnline: checkOnline);
+      notifyListeners();
+      if (notifyResult) {
+        if (needsLicenseAcceptance) {
+          onNotice?.call(
+            'warning',
+            '利用規約が更新されています。内容をご確認のうえ再度同意してください。',
+          );
+        } else if (prevHash != null &&
+            prevHash == licenseStatus?.contentHash) {
+          onNotice?.call(
+            'info',
+            '利用規約は最新版（${licenseStatus?.revisionLabel ?? ""}）に同意済みです',
+          );
+        }
+      }
+    } catch (e) {
+      onNotice?.call('error', '利用規約の確認に失敗しました: $e');
+    }
+  }
+
+  /// 現在の利用規約への同意を記録して通常起動へ進む
+  Future<void> acceptLicenseAgreement() async {
+    final status = licenseStatus;
+    if (status == null) return;
+    try {
+      licenseStatus = await api.acceptLicenseAgreement(
+        contentHash: status.contentHash,
+        revisionLabel: status.revisionLabel,
+      );
+      notifyListeners();
+      _runPostLicenseStartup();
+      onNotice?.call('success', '利用規約（${status.revisionLabel}）に同意しました');
+    } catch (e) {
+      onNotice?.call('error', '利用規約の同意保存に失敗しました: $e');
+    }
+  }
+
+  /// 利用規約に不同意の場合、同意を保存せず即座にプロセスを終了（タスクキル）する
+  void declineLicenseAndExit() {
+    try {
+      api.terminateAppProcess();
+    } catch (_) {}
+    exit(0);
   }
 
   Future<void> refreshAll() async {

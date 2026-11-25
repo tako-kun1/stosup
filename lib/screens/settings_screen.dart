@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
+import '../widgets/license_agreement_screen.dart';
 import '../widgets/qr_code_view.dart';
 import '../widgets/release_notes_dialog.dart';
 import '../widgets/update_dialog.dart';
@@ -68,6 +69,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         info: notes,
         onClose: () {},
       ),
+    );
+  }
+
+  Future<void> _showLicenseViewer() async {
+    if (widget.controller.licenseStatus == null) {
+      await widget.controller.refreshLicenseStatus(checkOnline: false);
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => LicenseViewerDialog(controller: widget.controller),
     );
   }
 
@@ -557,6 +569,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onPressed: _showCurrentReleaseNotes,
                         icon: const Icon(Icons.article_outlined, size: 17),
                         label: const Text('リリースノートを表示'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _showLicenseViewer,
+                        icon: const Icon(Icons.gavel_rounded, size: 17),
+                        label: const Text('利用規約を表示'),
                       ),
                       OutlinedButton.icon(
                         onPressed: () => ctrl

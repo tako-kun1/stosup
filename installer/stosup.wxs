@@ -1,4 +1,5 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package
     Name="Stosup"
     Manufacturer="tako-kun1"
@@ -24,7 +25,40 @@
     <Property Id="ARPHELPLINK" Value="https://github.com/tako-kun1/stosup" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/tako-kun1/stosup" />
 
-    <!-- インストール先: %LOCALAPPDATA%\Stosup（管理者権限不要・サイレント自動更新対応） -->
+    <!-- 以前のカスタムインストール先があればアップグレード時に自動引き継ぎ -->
+    <Property Id="INSTALLFOLDER" Secure="yes">
+      <RegistrySearch
+        Id="RememberInstallFolder"
+        Root="HKCU"
+        Key="Software\tako-kun1\Stosup"
+        Name="InstallFolder"
+        Type="raw" />
+    </Property>
+
+    <!-- 日本語ウィザード UI（利用規約の同意 ＋ インストール先フォルダの自由設定） -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtfPath)" />
+
+    <!-- 完了画面に「Stosup を起動する」チェックボックスを表示（サイレント更新時は非表示） -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="インストール完了後に Stosup を起動する" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <CustomAction
+      Id="LaunchStosupAfterInstall"
+      Execute="immediate"
+      Impersonate="yes"
+      FileRef="StosupExe"
+      ExeCommand=""
+      Return="asyncNoWait" />
+    <UI>
+      <Publish
+        Dialog="ExitDialog"
+        Control="Finish"
+        Event="DoAction"
+        Value="LaunchStosupAfterInstall"
+        Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
+
+    <!-- 既定インストール先: %LOCALAPPDATA%\Stosup（インストール画面で任意フォルダへ変更可能） -->
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="INSTALLFOLDER" Name="Stosup" />
     </StandardDirectory>
@@ -37,8 +71,9 @@
     <!-- デスクトップ -->
     <StandardDirectory Id="DesktopFolder" />
 
-    <Feature Id="MainFeature" Title="Stosup" Level="1">
+    <Feature Id="MainFeature" Title="Stosup 本体" Level="1">
       <ComponentRef Id="MainExecutableComponent" />
+      <ComponentRef Id="InstallFolderRegistryComponent" />
       <ComponentRef Id="StartMenuShortcutComponent" />
       <ComponentRef Id="DesktopShortcutComponent" />
       <ComponentGroupRef Id="AppPayloadFiles" />
@@ -47,6 +82,17 @@
     <!-- メイン実行ファイル -->
     <Component Id="MainExecutableComponent" Directory="INSTALLFOLDER" Guid="D1E63B59-9B87-4D62-A233-4A6A4E341D11">
       <File Id="StosupExe" Source="$(var.BuildDir)\stosup.exe" KeyPath="yes" />
+    </Component>
+
+    <!-- ユーザーが選択したインストール先フォルダを記憶（次回アップグレード・自動更新で維持） -->
+    <Component Id="InstallFolderRegistryComponent" Directory="INSTALLFOLDER" Guid="B87C14E5-2A3D-4D88-9F1E-5B7C8D9E0F12">
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\tako-kun1\Stosup"
+        Name="InstallFolder"
+        Type="string"
+        Value="[INSTALLFOLDER]"
+        KeyPath="yes" />
     </Component>
 
     <!-- スタートメニューショートカット -->

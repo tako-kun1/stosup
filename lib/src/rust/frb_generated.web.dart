@@ -181,6 +181,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImportedMediaFile dco_decode_imported_media_file(dynamic raw);
 
   @protected
+  LicenseAgreementStatus dco_decode_license_agreement_status(dynamic raw);
+
+  @protected
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
@@ -633,6 +636,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImportedMediaFile sse_decode_imported_media_file(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LicenseAgreementStatus sse_decode_license_agreement_status(
     SseDeserializer deserializer,
   );
 
@@ -1210,6 +1218,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_imported_media_file(
     ImportedMediaFile self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_license_agreement_status(
+    LicenseAgreementStatus self,
     SseSerializer serializer,
   );
 

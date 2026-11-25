@@ -267,14 +267,14 @@ pub fn launch_installer(installer_path: &str, silent: bool) -> Result<()> {
                 "@echo off\r\n\
                  timeout /t 2 /nobreak >nul\r\n\
                  msiexec /i \"{msi}\" /qn /norestart\r\n\
-                 if exist \"%LOCALAPPDATA%\\Stosup\\stosup.exe\" (\r\n\
+                 if exist \"{current}\" (\r\n\
+                   start \"\" \"{current}\" --after-update\r\n\
+                 ) else if exist \"%LOCALAPPDATA%\\Stosup\\stosup.exe\" (\r\n\
                    start \"\" \"%LOCALAPPDATA%\\Stosup\\stosup.exe\" --after-update\r\n\
-                 ) else if exist \"{fallback}\" (\r\n\
-                   start \"\" \"{fallback}\" --after-update\r\n\
                  )\r\n\
                  del \"%~f0\" >nul 2>&1\r\n",
                 msi = msi_str,
-                fallback = exe_after.replace('"', ""),
+                current = exe_after.replace('"', ""),
             );
             std::fs::write(&script_path, script)
                 .context("自動アップデートスクリプトの作成に失敗しました")?;

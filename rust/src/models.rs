@@ -1238,6 +1238,22 @@ pub struct ReleaseNotesInfo {
     pub previous_version: Option<String>,
 }
 
+/// 利用規約（ライセンス）の取得・同意状態
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LicenseAgreementStatus {
+    pub title: String,
+    pub markdown_body: String,
+    pub revision_label: String,
+    pub content_hash: String,
+    /// "online" | "cached" | "bundled"
+    pub source: String,
+    pub accepted_hash: Option<String>,
+    pub accepted_revision: Option<String>,
+    pub accepted_at_ms: Option<i64>,
+    pub needs_acceptance: bool,
+    pub is_updated_license: bool,
+}
+
 /// プラットフォームから受信する生のコメントデータ
 #[derive(Debug, Clone)]
 pub struct RawIncomingComment {
