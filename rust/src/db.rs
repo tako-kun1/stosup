@@ -5,9 +5,19 @@ use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::models::{
-    AppThemeMode, FeatureFlags, HighlightRule, LotteryResult, LotteryWinner, MatchMode,
-    OverlayConfig, PlatformKind, RawIncomingComment, UserRecord, WordCounterConfig,
+    AppThemeMode, FeatureFlags, FirstTimeCounterConfig, HighlightRule, LotteryResult,
+    LotteryWinner, MatchMode, OverlayConfig, PlatformKind, RawIncomingComment, UserRecord,
+    WordCounterConfig,
 };
+
+/// コメント処理時に DB から取得するユーザーメタ情報
+#[derive(Debug, Clone)]
+pub struct UserCommentMeta {
+    pub is_banned: bool,
+    pub memo: String,
+    pub was_unregistered: bool,
+    pub already_first_time_detected: bool,
+}
 
 /// SQLite 永続化データベース
 pub struct Database {
@@ -66,6 +76,7 @@ impl Database {
                 is_banned INTEGER NOT NULL DEFAULT 0,
                 ban_reason TEXT NOT NULL DEFAULT '',
                 memo TEXT NOT NULL DEFAULT '',
+                first_time_detected INTEGER NOT NULL DEFAULT 0,
                 first_seen_ms INTEGER NOT NULL,
                 last_seen_ms INTEGER NOT NULL,
                 PRIMARY KEY (user_id, platform)
@@ -122,6 +133,12 @@ impl Database {
             );
             ",
         )?;
+
+        // 既存DB向けの安全マイグレーション（カラム未存在時のみ追加）
+        let _ = self.conn.execute(
+            "ALTER TABLE users ADD COLUMN first_time_detected INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
 
         self.seed_defaults_if_empty()?;
         Ok(())
@@ -268,6 +285,20 @@ impl Database {
         self.set_setting("theme_mode", mode.as_str())
     }
 
+    pub fn get_first_time_config(&self) -> Result<FirstTimeCounterConfig> {
+        if let Some(json) = self.get_setting("first_time_config")? {
+            if let Ok(cfg) = serde_json::from_str(&json) {
+                return Ok(cfg);
+            }
+        }
+        Ok(FirstTimeCounterConfig::default())
+    }
+
+    pub fn set_first_time_config(&self, cfg: &FirstTimeCounterConfig) -> Result<()> {
+        let json = serde_json::to_string(cfg)?;
+        self.set_setting("first_time_config", &json)
+    }
+
     // ==================== 配信セッション ====================
 
     /// 同一プラットフォーム・同一 stream_id の既存セッションがあれば再利用し、
@@ -311,21 +342,32 @@ impl Database {
 
     /// コメント受信時にユーザーを記録・更新する。
     /// 1配信セッションにつき初回コメント時のみ watch_count を +1 する。
-    /// 戻り値: 最新の is_banned 状態
+    /// 戻り値: BAN状態・名前メモ・未登録だったか・すでに初見検知済みか
     pub fn record_user_comment(
         &self,
         session_id: &str,
         raw: &RawIncomingComment,
-    ) -> Result<bool> {
+    ) -> Result<UserCommentMeta> {
         let platform_str = raw.platform.as_str();
+
+        // 登録前に既存ユーザーかを確認（未登録ユーザー検知のため）
+        let existed: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT first_time_detected FROM users WHERE user_id = ?1 AND platform = ?2",
+                params![raw.user_id, platform_str],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let was_unregistered = existed.is_none();
 
         // ユーザーテーブルへ UPSERT
         self.conn.execute(
             "INSERT INTO users (
                 user_id, platform, display_name, icon_url,
                 watch_count, total_comment_count, is_banned, ban_reason, memo,
-                first_seen_ms, last_seen_ms
-            ) VALUES (?1, ?2, ?3, ?4, 0, 1, 0, '', '', ?5, ?5)
+                first_time_detected, first_seen_ms, last_seen_ms
+            ) VALUES (?1, ?2, ?3, ?4, 0, 1, 0, '', '', 0, ?5, ?5)
             ON CONFLICT(user_id, platform) DO UPDATE SET
                 display_name = excluded.display_name,
                 icon_url = CASE WHEN excluded.icon_url != '' THEN excluded.icon_url ELSE users.icon_url END,
@@ -371,13 +413,88 @@ impl Database {
             )?;
         }
 
-        let is_banned: i64 = self.conn.query_row(
-            "SELECT is_banned FROM users WHERE user_id = ?1 AND platform = ?2",
+        let (is_banned, memo, detected): (i64, String, i64) = self.conn.query_row(
+            "SELECT is_banned, memo, first_time_detected FROM users WHERE user_id = ?1 AND platform = ?2",
             params![raw.user_id, platform_str],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )?;
 
-        Ok(is_banned != 0)
+        Ok(UserCommentMeta {
+            is_banned: is_banned != 0,
+            memo,
+            was_unregistered,
+            already_first_time_detected: detected != 0,
+        })
+    }
+
+    /// ユーザー自動記録OFF時に既存のユーザー情報だけを参照する
+    pub fn get_user_comment_meta(
+        &self,
+        user_id: &str,
+        platform: PlatformKind,
+    ) -> Result<UserCommentMeta> {
+        let row: Option<(i64, String, i64)> = self
+            .conn
+            .query_row(
+                "SELECT is_banned, memo, first_time_detected FROM users WHERE user_id = ?1 AND platform = ?2",
+                params![user_id, platform.as_str()],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .optional()?;
+        match row {
+            Some((b, memo, det)) => Ok(UserCommentMeta {
+                is_banned: b != 0,
+                memo,
+                was_unregistered: false,
+                already_first_time_detected: det != 0,
+            }),
+            None => Ok(UserCommentMeta {
+                is_banned: false,
+                memo: String::new(),
+                was_unregistered: true,
+                already_first_time_detected: false,
+            }),
+        }
+    }
+
+    /// ユーザーを「初見検知済み」として永続マークする（未登録の場合は軽量レコードを作成）
+    pub fn mark_user_first_time_detected(
+        &self,
+        raw: &RawIncomingComment,
+    ) -> Result<u64> {
+        let platform_str = raw.platform.as_str();
+        self.conn.execute(
+            "INSERT INTO users (
+                user_id, platform, display_name, icon_url,
+                watch_count, total_comment_count, is_banned, ban_reason, memo,
+                first_time_detected, first_seen_ms, last_seen_ms
+            ) VALUES (?1, ?2, ?3, ?4, 0, 0, 0, '', '', 1, ?5, ?5)
+            ON CONFLICT(user_id, platform) DO UPDATE SET
+                first_time_detected = 1",
+            params![
+                raw.user_id,
+                platform_str,
+                raw.user_name,
+                raw.user_icon_url,
+                raw.timestamp_ms
+            ],
+        )?;
+        self.count_all_time_first_timers()
+    }
+
+    pub fn count_all_time_first_timers(&self) -> Result<u64> {
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM users WHERE first_time_detected = 1",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(count.max(0) as u64)
+    }
+
+    pub fn reset_all_first_time_history(&self) -> Result<()> {
+        self.conn
+            .execute("UPDATE users SET first_time_detected = 0", [])?;
+        Ok(())
     }
 
     pub fn is_user_banned(&self, user_id: &str) -> Result<bool> {
@@ -873,6 +990,8 @@ mod tests {
             user_lottery_enabled: false,
             comment_lottery_enabled: true,
             user_tracking_enabled: false,
+            user_memo_display_enabled: false,
+            first_time_counter_enabled: false,
             obs_overlay_enabled: false,
             auto_update_check_enabled: false,
         };
@@ -898,15 +1017,51 @@ mod tests {
         let migrated = db.get_overlay_config().unwrap();
         assert_eq!(migrated.comment_font_size, 20);
         assert_eq!(migrated.comments_theme, "default");
+        assert_eq!(migrated.comments_bg_color, "transparent");
         assert_eq!(migrated.comments_custom_css, "");
 
-        // プリセット＆カスタムCSSの保存・復元
+        // プリセット・背景色・カスタムCSSの保存・復元
         let mut updated = migrated;
         updated.comments_theme = "pop".to_string();
         updated.lottery_theme = "festive".to_string();
         updated.counter_theme = "scoreboard".to_string();
+        updated.first_time_theme = "pastel".to_string();
+        updated.comments_bg_color = "#00FF00".to_string();
+        updated.first_time_bg_color = "#18181B".to_string();
         updated.comments_custom_css = ".bubble { border-radius: 0px; }".to_string();
         db.set_overlay_config(&updated).unwrap();
         assert_eq!(db.get_overlay_config().unwrap(), updated);
+    }
+
+    #[test]
+    fn test_first_time_detection_and_memo_persistence() {
+        let db = Database::open_in_memory().unwrap();
+        let s1 = db
+            .get_or_create_session(PlatformKind::YouTube, "stream-ft-1", "初見テスト", 1000)
+            .unwrap();
+
+        // 初回コメントは未登録(was_unregistered = true)かつ未検知
+        let c1 = sample_comment("m1", "u_new", "こんばんは", 1001);
+        let meta1 = db.record_user_comment(&s1, &c1).unwrap();
+        assert!(meta1.was_unregistered);
+        assert!(!meta1.already_first_time_detected);
+        assert_eq!(meta1.memo, "");
+
+        // 初見検知済みとしてマーク
+        let total = db.mark_user_first_time_detected(&c1).unwrap();
+        assert_eq!(total, 1);
+
+        // 名前メモを設定すると次回コメントから即座に返る
+        db.set_user_memo("u_new", PlatformKind::YouTube, "常連イラストレーター")
+            .unwrap();
+        let c2 = sample_comment("m2", "u_new", "初見です！", 1002);
+        let meta2 = db.record_user_comment(&s1, &c2).unwrap();
+        assert!(!meta2.was_unregistered);
+        assert!(meta2.already_first_time_detected);
+        assert_eq!(meta2.memo, "常連イラストレーター");
+
+        // デフォルトでは初見プロフィール表示はOFF
+        let ft_cfg = db.get_first_time_config().unwrap();
+        assert!(!ft_cfg.show_first_timer_profile);
     }
 }

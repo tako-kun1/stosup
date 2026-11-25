@@ -58,12 +58,33 @@ class StosupController extends ChangeNotifier {
     commentsTheme: 'default',
     lotteryTheme: 'default',
     counterTheme: 'default',
+    firstTimeTheme: 'default',
+    commentsBgColor: 'transparent',
+    lotteryBgColor: 'transparent',
+    counterBgColor: 'transparent',
+    firstTimeBgColor: 'transparent',
     commentsCustomCss: '',
     lotteryCustomCss: '',
     counterCustomCss: '',
+    firstTimeCustomCss: '',
   );
 
   AppThemeMode themeMode = AppThemeMode.dark;
+
+  FirstTimeCounterState firstTimeState = FirstTimeCounterState(
+    count: BigInt.zero,
+    totalDetectedAllTime: BigInt.zero,
+    recentUsers: const [],
+    config: const FirstTimeCounterConfig(
+      detectUnregistered: true,
+      detectKeyword: true,
+      keywords: ['初見', 'しょけん'],
+      autoResetOnNewStream: true,
+      showFirstTimerProfile: false,
+      excludeBanned: true,
+      accentColor: '#16A34A',
+    ),
+  );
 
   FeatureFlags featureFlags = const FeatureFlags(
     commentDisplayEnabled: true,
@@ -72,6 +93,8 @@ class StosupController extends ChangeNotifier {
     userLotteryEnabled: true,
     commentLotteryEnabled: true,
     userTrackingEnabled: true,
+    userMemoDisplayEnabled: true,
+    firstTimeCounterEnabled: true,
     obsOverlayEnabled: true,
     autoUpdateCheckEnabled: true,
   );
@@ -135,6 +158,7 @@ class StosupController extends ChangeNotifier {
       api.getYoutubeOauthStatus(),
       api.getFeatureFlags(),
       api.getThemeMode(),
+      api.getFirstTimeState(),
     ]);
 
     connectionState = results[0] as ConnectionStateDto;
@@ -149,6 +173,7 @@ class StosupController extends ChangeNotifier {
     oauthStatus = results[9] as YouTubeOAuthStatus;
     featureFlags = results[10] as FeatureFlags;
     themeMode = results[11] as AppThemeMode;
+    firstTimeState = results[12] as FirstTimeCounterState;
     notifyListeners();
   }
 
@@ -162,6 +187,11 @@ class StosupController extends ChangeNotifier {
           }
           notifyListeners();
         }
+      case AppEventKind.commentsReplaced:
+        if (ev.comments != null) {
+          comments = List<CommentItem>.from(ev.comments!);
+          notifyListeners();
+        }
       case AppEventKind.connectionChanged:
         if (ev.connection != null) {
           connectionState = ev.connection!;
@@ -171,6 +201,11 @@ class StosupController extends ChangeNotifier {
       case AppEventKind.countersUpdated:
         if (ev.counters != null) {
           wordCounters = ev.counters!;
+          notifyListeners();
+        }
+      case AppEventKind.firstTimeUpdated:
+        if (ev.firstTimeState != null) {
+          firstTimeState = ev.firstTimeState!;
           notifyListeners();
         }
       case AppEventKind.usersUpdated:
@@ -518,6 +553,8 @@ class StosupController extends ChangeNotifier {
     bool? userLottery,
     bool? commentLottery,
     bool? userTracking,
+    bool? userMemoDisplay,
+    bool? firstTimeCounter,
     bool? obsOverlay,
     bool? autoUpdateCheck,
     String? featureLabel,
@@ -531,6 +568,10 @@ class StosupController extends ChangeNotifier {
       commentLotteryEnabled:
           commentLottery ?? featureFlags.commentLotteryEnabled,
       userTrackingEnabled: userTracking ?? featureFlags.userTrackingEnabled,
+      userMemoDisplayEnabled:
+          userMemoDisplay ?? featureFlags.userMemoDisplayEnabled,
+      firstTimeCounterEnabled:
+          firstTimeCounter ?? featureFlags.firstTimeCounterEnabled,
       obsOverlayEnabled: obsOverlay ?? featureFlags.obsOverlayEnabled,
       autoUpdateCheckEnabled:
           autoUpdateCheck ?? featureFlags.autoUpdateCheckEnabled,
@@ -541,6 +582,8 @@ class StosupController extends ChangeNotifier {
         userLottery ??
         commentLottery ??
         userTracking ??
+        userMemoDisplay ??
+        firstTimeCounter ??
         obsOverlay ??
         autoUpdateCheck;
     final msg = (featureLabel != null && switchedValue != null)
@@ -557,6 +600,8 @@ class StosupController extends ChangeNotifier {
       userLotteryEnabled: enabled,
       commentLotteryEnabled: enabled,
       userTrackingEnabled: enabled,
+      userMemoDisplayEnabled: enabled,
+      firstTimeCounterEnabled: enabled,
       obsOverlayEnabled: enabled,
       autoUpdateCheckEnabled: enabled,
     );
@@ -564,6 +609,47 @@ class StosupController extends ChangeNotifier {
       next,
       noticeMessage: enabled ? 'すべての機能をオンにしました' : 'すべての機能をオフにしました',
     );
+  }
+
+  // ==================== 初見カウンター ====================
+
+  Future<void> saveFirstTimeConfig(FirstTimeCounterConfig config) async {
+    try {
+      firstTimeState = await api.saveFirstTimeConfig(config: config);
+      notifyListeners();
+      onNotice?.call('success', '初見カウンター設定を保存しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> resetFirstTimeSessionCount() async {
+    try {
+      firstTimeState = await api.resetFirstTimeSessionCount();
+      notifyListeners();
+      onNotice?.call('info', '配信の初見カウントを 0 にリセットしました（過去検知履歴は維持）');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> resetFirstTimeAllHistory() async {
+    try {
+      firstTimeState = await api.resetFirstTimeAllHistory();
+      notifyListeners();
+      onNotice?.call('warning', '全ユーザーの初見検知履歴をリセットしました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> adjustFirstTimeCount(int delta) async {
+    try {
+      firstTimeState = await api.adjustFirstTimeCount(delta: delta);
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
   }
 
   // ==================== 外観テーマ（ライト / ダーク / システム） ====================

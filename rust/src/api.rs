@@ -265,8 +265,53 @@ pub async fn set_user_memo(
         db.set_user_memo(&user_id, platform, &memo)
             .map_err(|e| e.to_string())?;
     }
+    runtime
+        .refresh_memo_in_recent_comments(&user_id, &memo)
+        .await;
     runtime.emit(AppEvent::users_updated());
     runtime.list_users().await.map_err(|e| e.to_string())
+}
+
+// ==================== 初見カウンター ====================
+
+pub async fn get_first_time_state() -> Result<FirstTimeCounterState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    let state = runtime.first_time_state.lock().await.clone();
+    Ok(state)
+}
+
+pub async fn save_first_time_config(
+    config: FirstTimeCounterConfig,
+) -> Result<FirstTimeCounterState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .save_first_time_config(config)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn reset_first_time_session_count() -> Result<FirstTimeCounterState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .reset_first_time_session_count()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn reset_first_time_all_history() -> Result<FirstTimeCounterState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .reset_first_time_all_history()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn adjust_first_time_count(delta: i64) -> Result<FirstTimeCounterState, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .adjust_first_time_count(delta)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 // ==================== ユーザー抽選 ====================

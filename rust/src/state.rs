@@ -8,12 +8,13 @@ use once_cell::sync::OnceCell;
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 
 use crate::db::Database;
-use crate::engine::{counter, highlight, lottery};
+use crate::engine::{counter, highlight, lottery, matches_pattern};
 use crate::models::{
     AppEvent, CommentItem, CommentLotteryConfig, CommentLotteryState, ConnectionMode,
-    ConnectionStateDto, ConnectionStatus, FeatureFlags, HighlightRule, LotteryResult,
-    OverlayConfig, PlatformKind, RawIncomingComment, ReleaseNotesInfo, UserLotteryRequest,
-    UserRecord, WordCounterConfig,
+    ConnectionStateDto, ConnectionStatus, FeatureFlags, FirstTimeCounterConfig,
+    FirstTimeCounterState, FirstTimeUser, HighlightRule, LotteryResult, MatchMode, OverlayConfig,
+    PlatformKind, RawIncomingComment, ReleaseNotesInfo, UserLotteryRequest, UserRecord,
+    WordCounterConfig,
 };
 use crate::overlay::{start_overlay_server, OverlayServerHandle, OverlaySharedState};
 use crate::platform::{demo, extract_youtube_video_id, youtube, ProviderConnection};
@@ -31,6 +32,8 @@ pub struct AppRuntime {
     pub recent_comments: RwLock<Vec<CommentItem>>,
     pub user_lottery_won_ids: Mutex<HashSet<String>>,
     pub comment_lottery: Mutex<CommentLotteryState>,
+    pub first_time_state: Mutex<FirstTimeCounterState>,
+    pub last_session_id: Mutex<String>,
     pub event_tx: broadcast::Sender<AppEvent>,
     pub comment_tx: mpsc::UnboundedSender<RawIncomingComment>,
     pub launched_after_update: RwLock<bool>,
@@ -61,6 +64,14 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
     let db = Database::open(&db_path)?;
     let overlay_config = db.get_overlay_config()?;
     let feature_flags = db.get_feature_flags()?;
+    let first_time_config = db.get_first_time_config()?;
+    let total_first_timers = db.count_all_time_first_timers()?;
+    let first_time_state = FirstTimeCounterState {
+        count: 0,
+        total_detected_all_time: total_first_timers,
+        recent_users: Vec::new(),
+        config: first_time_config,
+    };
     let counters = if feature_flags.word_counter_enabled {
         db.list_word_counters()?
     } else {
@@ -68,7 +79,12 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
     };
 
     let db_arc = Arc::new(Mutex::new(db));
-    let overlay_state = Arc::new(OverlaySharedState::new(overlay_config.clone(), counters));
+    let overlay_state = Arc::new(OverlaySharedState::new(
+        overlay_config.clone(),
+        counters,
+        first_time_state.clone(),
+        feature_flags.first_time_counter_enabled,
+    ));
     let (event_tx, _) = broadcast::channel::<AppEvent>(512);
     let (comment_tx, comment_rx) = mpsc::unbounded_channel::<RawIncomingComment>();
 
@@ -104,6 +120,8 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
         recent_comments: RwLock::new(Vec::new()),
         user_lottery_won_ids: Mutex::new(HashSet::new()),
         comment_lottery: Mutex::new(CommentLotteryState::default()),
+        first_time_state: Mutex::new(first_time_state),
+        last_session_id: Mutex::new(String::new()),
         event_tx,
         comment_tx,
         launched_after_update: RwLock::new(after_update),
@@ -144,13 +162,14 @@ impl AppRuntime {
         }
 
         let flags = self.feature_flags.read().await.clone();
+        let ft_config = self.first_time_state.lock().await.config.clone();
 
-        let (is_banned, rules, counters_changed, updated_counters) = {
+        let (user_meta, rules, counters_changed, updated_counters, first_time_trigger, new_all_time_ft) = {
             let db = self.db.lock().await;
-            let is_banned = if flags.user_tracking_enabled {
+            let meta = if flags.user_tracking_enabled {
                 db.record_user_comment(&session_id, &raw)?
             } else {
-                db.is_user_banned(&raw.user_id)?
+                db.get_user_comment_meta(&raw.user_id, raw.platform)?
             };
             let rules = if flags.word_highlight_enabled {
                 db.list_highlight_rules()?
@@ -158,7 +177,7 @@ impl AppRuntime {
                 Vec::new()
             };
             let counters_changed = if flags.word_counter_enabled {
-                counter::process_counters_for_comment(&db, &raw.user_id, is_banned, &raw.message)?
+                counter::process_counters_for_comment(&db, &raw.user_id, meta.is_banned, &raw.message)?
             } else {
                 false
             };
@@ -167,7 +186,67 @@ impl AppRuntime {
             } else {
                 None
             };
-            (is_banned, rules, counters_changed, updated_counters)
+
+            // 初見検知（生涯でまだ未検知のユーザーかつ BAN 除外条件を満たす場合）
+            let mut trigger_reason: Option<&'static str> = None;
+            if flags.first_time_counter_enabled
+                && !meta.already_first_time_detected
+                && (!ft_config.exclude_banned || !meta.is_banned)
+            {
+                let kw_matched = ft_config.detect_keyword
+                    && ft_config
+                        .keywords
+                        .iter()
+                        .any(|kw| matches_pattern(&raw.message, kw, MatchMode::Contains, false));
+                if kw_matched {
+                    trigger_reason = Some("初見ワード");
+                } else if ft_config.detect_unregistered && meta.was_unregistered {
+                    trigger_reason = Some("未登録ユーザー");
+                }
+            }
+
+            let new_all_time = if trigger_reason.is_some() {
+                Some(db.mark_user_first_time_detected(&raw)?)
+            } else {
+                None
+            };
+
+            (
+                meta,
+                rules,
+                counters_changed,
+                updated_counters,
+                trigger_reason,
+                new_all_time,
+            )
+        };
+
+        let is_banned = user_meta.is_banned;
+        let is_first_time = first_time_trigger.is_some();
+
+        // 初見カウンター状態更新
+        let updated_ft_state = if let Some(reason) = first_time_trigger {
+            let mut ft = self.first_time_state.lock().await;
+            ft.count += 1;
+            if let Some(total) = new_all_time_ft {
+                ft.total_detected_all_time = total;
+            }
+            ft.recent_users.insert(
+                0,
+                FirstTimeUser {
+                    user_id: raw.user_id.clone(),
+                    user_name: raw.user_name.clone(),
+                    user_icon_url: raw.user_icon_url.clone(),
+                    trigger_reason: reason.to_string(),
+                    detected_at_ms: raw.timestamp_ms,
+                },
+            );
+            if ft.recent_users.len() > 100 {
+                ft.recent_users.truncate(100);
+            }
+            Some(ft.clone())
+        } else {
+            None
         };
 
         // 特定ワード反応ルールを評価（機能が有効な場合のみ吹き出し色を適用）
@@ -184,6 +263,12 @@ impl AppRuntime {
             user_id: raw.user_id,
             user_name: raw.user_name,
             user_icon_url: raw.user_icon_url,
+            user_memo: if flags.user_memo_display_enabled {
+                user_meta.memo
+            } else {
+                String::new()
+            },
+            is_first_time,
             message: raw.message,
             timestamp_ms: raw.timestamp_ms,
             is_owner: raw.is_owner,
@@ -228,6 +313,13 @@ impl AppRuntime {
             self.emit(AppEvent::users_updated());
         }
 
+        if let Some(ft_state) = updated_ft_state {
+            self.overlay_state
+                .update_first_time(ft_state.clone(), flags.first_time_counter_enabled)
+                .await;
+            self.emit(AppEvent::first_time_updated(ft_state));
+        }
+
         if counters_changed {
             if let Some(counters) = updated_counters {
                 if flags.obs_overlay_enabled {
@@ -242,6 +334,129 @@ impl AppRuntime {
         }
 
         Ok(())
+    }
+
+    /// 新しい配信セッションへ切り替わった際の初見カウンター自動リセット判定
+    async fn maybe_auto_reset_first_time_for_session(&self, session_id: &str) {
+        let mut last = self.last_session_id.lock().await;
+        if *last != session_id {
+            let is_switch = !last.is_empty();
+            *last = session_id.to_string();
+            drop(last);
+
+            if is_switch {
+                let mut ft = self.first_time_state.lock().await;
+                if ft.config.auto_reset_on_new_stream {
+                    ft.count = 0;
+                    ft.recent_users.clear();
+                    let snapshot = ft.clone();
+                    drop(ft);
+                    let enabled = self.feature_flags.read().await.first_time_counter_enabled;
+                    self.overlay_state
+                        .update_first_time(snapshot.clone(), enabled)
+                        .await;
+                    self.emit(AppEvent::first_time_updated(snapshot));
+                }
+            }
+        }
+    }
+
+    pub async fn save_first_time_config(
+        &self,
+        config: FirstTimeCounterConfig,
+    ) -> Result<FirstTimeCounterState> {
+        {
+            let db = self.db.lock().await;
+            db.set_first_time_config(&config)?;
+        }
+        let snapshot = {
+            let mut ft = self.first_time_state.lock().await;
+            ft.config = config;
+            ft.clone()
+        };
+        let enabled = self.feature_flags.read().await.first_time_counter_enabled;
+        self.overlay_state
+            .update_first_time(snapshot.clone(), enabled)
+            .await;
+        self.emit(AppEvent::first_time_updated(snapshot.clone()));
+        Ok(snapshot)
+    }
+
+    pub async fn reset_first_time_session_count(&self) -> Result<FirstTimeCounterState> {
+        let snapshot = {
+            let mut ft = self.first_time_state.lock().await;
+            ft.count = 0;
+            ft.recent_users.clear();
+            ft.clone()
+        };
+        let enabled = self.feature_flags.read().await.first_time_counter_enabled;
+        self.overlay_state
+            .update_first_time(snapshot.clone(), enabled)
+            .await;
+        self.emit(AppEvent::first_time_updated(snapshot.clone()));
+        Ok(snapshot)
+    }
+
+    pub async fn reset_first_time_all_history(&self) -> Result<FirstTimeCounterState> {
+        {
+            let db = self.db.lock().await;
+            db.reset_all_first_time_history()?;
+        }
+        let snapshot = {
+            let mut ft = self.first_time_state.lock().await;
+            ft.count = 0;
+            ft.total_detected_all_time = 0;
+            ft.recent_users.clear();
+            ft.clone()
+        };
+        let enabled = self.feature_flags.read().await.first_time_counter_enabled;
+        self.overlay_state
+            .update_first_time(snapshot.clone(), enabled)
+            .await;
+        self.emit(AppEvent::first_time_updated(snapshot.clone()));
+        Ok(snapshot)
+    }
+
+    pub async fn adjust_first_time_count(&self, delta: i64) -> Result<FirstTimeCounterState> {
+        let snapshot = {
+            let mut ft = self.first_time_state.lock().await;
+            let next = (ft.count as i64 + delta).max(0) as u64;
+            ft.count = next;
+            ft.clone()
+        };
+        let enabled = self.feature_flags.read().await.first_time_counter_enabled;
+        self.overlay_state
+            .update_first_time(snapshot.clone(), enabled)
+            .await;
+        self.emit(AppEvent::first_time_updated(snapshot.clone()));
+        Ok(snapshot)
+    }
+
+    /// 既存コメント一覧上のユーザーメモも即時更新する
+    pub async fn refresh_memo_in_recent_comments(&self, user_id: &str, memo: &str) {
+        let show_memo = self.feature_flags.read().await.user_memo_display_enabled;
+        let updated = {
+            let mut list = self.recent_comments.write().await;
+            let mut changed = false;
+            for c in list.iter_mut() {
+                if c.user_id == user_id {
+                    c.user_memo = if show_memo {
+                        memo.to_string()
+                    } else {
+                        String::new()
+                    };
+                    changed = true;
+                }
+            }
+            if changed {
+                Some(list.clone())
+            } else {
+                None
+            }
+        };
+        if let Some(comments) = updated {
+            self.emit(AppEvent::comments_replaced(comments));
+        }
     }
 
     /// 各機能の ON/OFF 設定を更新・永続化し、OBS サーバー起動停止や受付停止を即時反映する
@@ -284,6 +499,14 @@ impl AppRuntime {
             }
         } else {
             self.overlay_state.update_counters(Vec::new()).await;
+        }
+
+        // 初見カウンター ON/OFF を OBS オーバーレイへ即時同期
+        {
+            let ft = self.first_time_state.lock().await.clone();
+            self.overlay_state
+                .update_first_time(ft, new_flags.first_time_counter_enabled)
+                .await;
         }
 
         // コメント抽選を OFF にしたら進行中の受付も停止
@@ -381,6 +604,8 @@ impl AppRuntime {
                 };
                 *self.active_provider.lock().await = Some(conn);
                 *self.connection_state.write().await = dto.clone();
+                self.maybe_auto_reset_first_time_for_session(&dto.session_id)
+                    .await;
                 self.emit(AppEvent::connection_changed(dto.clone()));
                 self.emit(AppEvent::users_updated());
                 Ok(dto)
@@ -430,6 +655,8 @@ impl AppRuntime {
         };
         *self.active_provider.lock().await = Some(conn);
         *self.connection_state.write().await = dto.clone();
+        self.maybe_auto_reset_first_time_for_session(&dto.session_id)
+            .await;
         self.emit(AppEvent::connection_changed(dto.clone()));
         self.emit(AppEvent::users_updated());
         Ok(dto)

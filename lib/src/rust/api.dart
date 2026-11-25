@@ -117,6 +117,23 @@ Future<List<UserRecord>> setUserMemo({
   memo: memo,
 );
 
+Future<FirstTimeCounterState> getFirstTimeState() =>
+    RustLib.instance.api.crateApiGetFirstTimeState();
+
+Future<FirstTimeCounterState> saveFirstTimeConfig({
+  required FirstTimeCounterConfig config,
+}) => RustLib.instance.api.crateApiSaveFirstTimeConfig(config: config);
+
+Future<FirstTimeCounterState> resetFirstTimeSessionCount() =>
+    RustLib.instance.api.crateApiResetFirstTimeSessionCount();
+
+Future<FirstTimeCounterState> resetFirstTimeAllHistory() =>
+    RustLib.instance.api.crateApiResetFirstTimeAllHistory();
+
+Future<FirstTimeCounterState> adjustFirstTimeCount({
+  required PlatformInt64 delta,
+}) => RustLib.instance.api.crateApiAdjustFirstTimeCount(delta: delta);
+
 Future<LotteryResult> drawUserLottery({required UserLotteryRequest req}) =>
     RustLib.instance.api.crateApiDrawUserLottery(req: req);
 

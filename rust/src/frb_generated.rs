@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 2133865614;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -68477525;
 
 // Section: executor
 
@@ -47,6 +47,42 @@ flutter_rust_bridge::frb_generated_default_handler!();
 
 // Section: wire_funcs
 
+fn wire__crate__api__adjust_first_time_count_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "adjust_first_time_count",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_delta = <i64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::adjust_first_time_count(api_delta).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__adjust_word_counter_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -695,6 +731,41 @@ fn wire__crate__api__get_feature_flags_impl(
         },
     )
 }
+fn wire__crate__api__get_first_time_state_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_first_time_state",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::get_first_time_state().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__get_overlay_config_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1258,6 +1329,76 @@ fn wire__crate__api__reset_comment_lottery_impl(
         },
     )
 }
+fn wire__crate__api__reset_first_time_all_history_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "reset_first_time_all_history",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::reset_first_time_all_history().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__reset_first_time_session_count_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "reset_first_time_session_count",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::reset_first_time_session_count().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__reset_user_lottery_winners_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1357,6 +1498,42 @@ fn wire__crate__api__save_feature_flags_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::save_feature_flags(api_flags).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__save_first_time_config_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "save_first_time_config",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_config = <crate::models::FirstTimeCounterConfig>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::save_first_time_config(api_config).await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -1901,10 +2078,13 @@ impl SseDecode for crate::models::AppEvent {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_kind = <crate::models::AppEventKind>::sse_decode(deserializer);
         let mut var_comment = <Option<crate::models::CommentItem>>::sse_decode(deserializer);
+        let mut var_comments = <Option<Vec<crate::models::CommentItem>>>::sse_decode(deserializer);
         let mut var_connection =
             <Option<crate::models::ConnectionStateDto>>::sse_decode(deserializer);
         let mut var_counters =
             <Option<Vec<crate::models::WordCounterConfig>>>::sse_decode(deserializer);
+        let mut var_firstTimeState =
+            <Option<crate::models::FirstTimeCounterState>>::sse_decode(deserializer);
         let mut var_commentLottery =
             <Option<crate::models::CommentLotteryState>>::sse_decode(deserializer);
         let mut var_lotteryResult =
@@ -1915,8 +2095,10 @@ impl SseDecode for crate::models::AppEvent {
         return crate::models::AppEvent {
             kind: var_kind,
             comment: var_comment,
+            comments: var_comments,
             connection: var_connection,
             counters: var_counters,
+            first_time_state: var_firstTimeState,
             comment_lottery: var_commentLottery,
             lottery_result: var_lotteryResult,
             feature_flags: var_featureFlags,
@@ -1932,13 +2114,15 @@ impl SseDecode for crate::models::AppEventKind {
         let mut inner = <i32>::sse_decode(deserializer);
         return match inner {
             0 => crate::models::AppEventKind::CommentReceived,
-            1 => crate::models::AppEventKind::ConnectionChanged,
-            2 => crate::models::AppEventKind::CountersUpdated,
-            3 => crate::models::AppEventKind::UsersUpdated,
-            4 => crate::models::AppEventKind::CommentLotteryUpdated,
-            5 => crate::models::AppEventKind::LotteryDrawn,
-            6 => crate::models::AppEventKind::FeatureFlagsUpdated,
-            7 => crate::models::AppEventKind::SystemNotice,
+            1 => crate::models::AppEventKind::CommentsReplaced,
+            2 => crate::models::AppEventKind::ConnectionChanged,
+            3 => crate::models::AppEventKind::CountersUpdated,
+            4 => crate::models::AppEventKind::FirstTimeUpdated,
+            5 => crate::models::AppEventKind::UsersUpdated,
+            6 => crate::models::AppEventKind::CommentLotteryUpdated,
+            7 => crate::models::AppEventKind::LotteryDrawn,
+            8 => crate::models::AppEventKind::FeatureFlagsUpdated,
+            9 => crate::models::AppEventKind::SystemNotice,
             _ => unreachable!("Invalid variant for AppEventKind: {}", inner),
         };
     }
@@ -1973,6 +2157,8 @@ impl SseDecode for crate::models::CommentItem {
         let mut var_userId = <String>::sse_decode(deserializer);
         let mut var_userName = <String>::sse_decode(deserializer);
         let mut var_userIconUrl = <String>::sse_decode(deserializer);
+        let mut var_userMemo = <String>::sse_decode(deserializer);
+        let mut var_isFirstTime = <bool>::sse_decode(deserializer);
         let mut var_message = <String>::sse_decode(deserializer);
         let mut var_timestampMs = <i64>::sse_decode(deserializer);
         let mut var_isOwner = <bool>::sse_decode(deserializer);
@@ -1990,6 +2176,8 @@ impl SseDecode for crate::models::CommentItem {
             user_id: var_userId,
             user_name: var_userName,
             user_icon_url: var_userIconUrl,
+            user_memo: var_userMemo,
+            is_first_time: var_isFirstTime,
             message: var_message,
             timestamp_ms: var_timestampMs,
             is_owner: var_isOwner,
@@ -2134,6 +2322,8 @@ impl SseDecode for crate::models::FeatureFlags {
         let mut var_userLotteryEnabled = <bool>::sse_decode(deserializer);
         let mut var_commentLotteryEnabled = <bool>::sse_decode(deserializer);
         let mut var_userTrackingEnabled = <bool>::sse_decode(deserializer);
+        let mut var_userMemoDisplayEnabled = <bool>::sse_decode(deserializer);
+        let mut var_firstTimeCounterEnabled = <bool>::sse_decode(deserializer);
         let mut var_obsOverlayEnabled = <bool>::sse_decode(deserializer);
         let mut var_autoUpdateCheckEnabled = <bool>::sse_decode(deserializer);
         return crate::models::FeatureFlags {
@@ -2143,8 +2333,66 @@ impl SseDecode for crate::models::FeatureFlags {
             user_lottery_enabled: var_userLotteryEnabled,
             comment_lottery_enabled: var_commentLotteryEnabled,
             user_tracking_enabled: var_userTrackingEnabled,
+            user_memo_display_enabled: var_userMemoDisplayEnabled,
+            first_time_counter_enabled: var_firstTimeCounterEnabled,
             obs_overlay_enabled: var_obsOverlayEnabled,
             auto_update_check_enabled: var_autoUpdateCheckEnabled,
+        };
+    }
+}
+
+impl SseDecode for crate::models::FirstTimeCounterConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_detectUnregistered = <bool>::sse_decode(deserializer);
+        let mut var_detectKeyword = <bool>::sse_decode(deserializer);
+        let mut var_keywords = <Vec<String>>::sse_decode(deserializer);
+        let mut var_autoResetOnNewStream = <bool>::sse_decode(deserializer);
+        let mut var_showFirstTimerProfile = <bool>::sse_decode(deserializer);
+        let mut var_excludeBanned = <bool>::sse_decode(deserializer);
+        let mut var_accentColor = <String>::sse_decode(deserializer);
+        return crate::models::FirstTimeCounterConfig {
+            detect_unregistered: var_detectUnregistered,
+            detect_keyword: var_detectKeyword,
+            keywords: var_keywords,
+            auto_reset_on_new_stream: var_autoResetOnNewStream,
+            show_first_timer_profile: var_showFirstTimerProfile,
+            exclude_banned: var_excludeBanned,
+            accent_color: var_accentColor,
+        };
+    }
+}
+
+impl SseDecode for crate::models::FirstTimeCounterState {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_count = <u64>::sse_decode(deserializer);
+        let mut var_totalDetectedAllTime = <u64>::sse_decode(deserializer);
+        let mut var_recentUsers = <Vec<crate::models::FirstTimeUser>>::sse_decode(deserializer);
+        let mut var_config = <crate::models::FirstTimeCounterConfig>::sse_decode(deserializer);
+        return crate::models::FirstTimeCounterState {
+            count: var_count,
+            total_detected_all_time: var_totalDetectedAllTime,
+            recent_users: var_recentUsers,
+            config: var_config,
+        };
+    }
+}
+
+impl SseDecode for crate::models::FirstTimeUser {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_userId = <String>::sse_decode(deserializer);
+        let mut var_userName = <String>::sse_decode(deserializer);
+        let mut var_userIconUrl = <String>::sse_decode(deserializer);
+        let mut var_triggerReason = <String>::sse_decode(deserializer);
+        let mut var_detectedAtMs = <i64>::sse_decode(deserializer);
+        return crate::models::FirstTimeUser {
+            user_id: var_userId,
+            user_name: var_userName,
+            user_icon_url: var_userIconUrl,
+            trigger_reason: var_triggerReason,
+            detected_at_ms: var_detectedAtMs,
         };
     }
 }
@@ -2224,6 +2472,18 @@ impl SseDecode for Vec<crate::models::CommentLotteryEntry> {
             ans_.push(<crate::models::CommentLotteryEntry>::sse_decode(
                 deserializer,
             ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::FirstTimeUser> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::FirstTimeUser>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -2421,6 +2681,19 @@ impl SseDecode for Option<crate::models::FeatureFlags> {
     }
 }
 
+impl SseDecode for Option<crate::models::FirstTimeCounterState> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::models::FirstTimeCounterState>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<i64> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2465,6 +2738,17 @@ impl SseDecode for Option<u64> {
     }
 }
 
+impl SseDecode for Option<Vec<crate::models::CommentItem>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<Vec<crate::models::CommentItem>>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<Vec<crate::models::WordCounterConfig>> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2491,9 +2775,15 @@ impl SseDecode for crate::models::OverlayConfig {
         let mut var_commentsTheme = <String>::sse_decode(deserializer);
         let mut var_lotteryTheme = <String>::sse_decode(deserializer);
         let mut var_counterTheme = <String>::sse_decode(deserializer);
+        let mut var_firstTimeTheme = <String>::sse_decode(deserializer);
+        let mut var_commentsBgColor = <String>::sse_decode(deserializer);
+        let mut var_lotteryBgColor = <String>::sse_decode(deserializer);
+        let mut var_counterBgColor = <String>::sse_decode(deserializer);
+        let mut var_firstTimeBgColor = <String>::sse_decode(deserializer);
         let mut var_commentsCustomCss = <String>::sse_decode(deserializer);
         let mut var_lotteryCustomCss = <String>::sse_decode(deserializer);
         let mut var_counterCustomCss = <String>::sse_decode(deserializer);
+        let mut var_firstTimeCustomCss = <String>::sse_decode(deserializer);
         return crate::models::OverlayConfig {
             port: var_port,
             comment_font_size: var_commentFontSize,
@@ -2505,9 +2795,15 @@ impl SseDecode for crate::models::OverlayConfig {
             comments_theme: var_commentsTheme,
             lottery_theme: var_lotteryTheme,
             counter_theme: var_counterTheme,
+            first_time_theme: var_firstTimeTheme,
+            comments_bg_color: var_commentsBgColor,
+            lottery_bg_color: var_lotteryBgColor,
+            counter_bg_color: var_counterBgColor,
+            first_time_bg_color: var_firstTimeBgColor,
             comments_custom_css: var_commentsCustomCss,
             lottery_custom_css: var_lotteryCustomCss,
             counter_custom_css: var_counterCustomCss,
+            first_time_custom_css: var_firstTimeCustomCss,
         };
     }
 }
@@ -2730,55 +3026,64 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        1 => wire__crate__api__adjust_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        2 => wire__crate__api__check_for_updates_impl(port, ptr, rust_vec_len, data_len),
-        3 => wire__crate__api__clear_overlay_lottery_impl(port, ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__clear_recent_comments_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__connect_demo_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__connect_youtube_impl(port, ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__delete_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__delete_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__disconnect_stream_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__disconnect_youtube_oauth_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__download_update_installer_impl(port, ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__draw_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__draw_user_lottery_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__get_comment_lottery_state_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__get_connection_state_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__get_current_release_notes_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__get_feature_flags_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__get_overlay_config_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__get_recent_comments_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__get_startup_release_notes_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__get_theme_mode_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__get_user_lottery_won_ids_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__get_youtube_oauth_status_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__launch_update_installer_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__list_highlight_rules_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__list_lottery_history_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__list_users_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__list_word_counters_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__mark_release_notes_seen_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__open_external_url_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__post_chat_message_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__reset_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__reset_user_lottery_winners_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__reset_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__save_feature_flags_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__save_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__save_overlay_config_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__save_theme_mode_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__save_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__save_youtube_oauth_client_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__send_demo_comment_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__set_user_ban_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__set_user_memo_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__start_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__start_youtube_oauth_login_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__stop_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
-        50 => {
+        1 => wire__crate__api__adjust_first_time_count_impl(port, ptr, rust_vec_len, data_len),
+        2 => wire__crate__api__adjust_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        3 => wire__crate__api__check_for_updates_impl(port, ptr, rust_vec_len, data_len),
+        4 => wire__crate__api__clear_overlay_lottery_impl(port, ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__clear_recent_comments_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__connect_demo_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__connect_youtube_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__delete_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__delete_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__disconnect_stream_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__disconnect_youtube_oauth_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__download_update_installer_impl(port, ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__draw_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__draw_user_lottery_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__get_comment_lottery_state_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__get_connection_state_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__get_current_release_notes_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__get_feature_flags_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__get_first_time_state_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__get_overlay_config_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__get_recent_comments_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__get_startup_release_notes_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__get_theme_mode_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__get_user_lottery_won_ids_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__get_youtube_oauth_status_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__launch_update_installer_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__list_highlight_rules_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__list_lottery_history_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__list_users_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__list_word_counters_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__mark_release_notes_seen_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__open_external_url_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__post_chat_message_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__reset_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        37 => {
+            wire__crate__api__reset_first_time_all_history_impl(port, ptr, rust_vec_len, data_len)
+        }
+        38 => {
+            wire__crate__api__reset_first_time_session_count_impl(port, ptr, rust_vec_len, data_len)
+        }
+        39 => wire__crate__api__reset_user_lottery_winners_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__reset_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__save_feature_flags_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__save_first_time_config_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__save_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__save_overlay_config_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__save_theme_mode_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__save_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__save_youtube_oauth_client_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__send_demo_comment_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__set_user_ban_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__set_user_memo_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__start_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__start_youtube_oauth_login_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__stop_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
+        55 => {
             wire__crate__api__update_comment_lottery_config_impl(port, ptr, rust_vec_len, data_len)
         }
         _ => unreachable!(),
@@ -2793,7 +3098,7 @@ fn pde_ffi_dispatcher_sync_impl(
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        14 => wire__crate__api__get_app_version_impl(ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__get_app_version_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2806,8 +3111,10 @@ impl flutter_rust_bridge::IntoDart for crate::models::AppEvent {
         [
             self.kind.into_into_dart().into_dart(),
             self.comment.into_into_dart().into_dart(),
+            self.comments.into_into_dart().into_dart(),
             self.connection.into_into_dart().into_dart(),
             self.counters.into_into_dart().into_dart(),
+            self.first_time_state.into_into_dart().into_dart(),
             self.comment_lottery.into_into_dart().into_dart(),
             self.lottery_result.into_into_dart().into_dart(),
             self.feature_flags.into_into_dart().into_dart(),
@@ -2828,13 +3135,15 @@ impl flutter_rust_bridge::IntoDart for crate::models::AppEventKind {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
             Self::CommentReceived => 0.into_dart(),
-            Self::ConnectionChanged => 1.into_dart(),
-            Self::CountersUpdated => 2.into_dart(),
-            Self::UsersUpdated => 3.into_dart(),
-            Self::CommentLotteryUpdated => 4.into_dart(),
-            Self::LotteryDrawn => 5.into_dart(),
-            Self::FeatureFlagsUpdated => 6.into_dart(),
-            Self::SystemNotice => 7.into_dart(),
+            Self::CommentsReplaced => 1.into_dart(),
+            Self::ConnectionChanged => 2.into_dart(),
+            Self::CountersUpdated => 3.into_dart(),
+            Self::FirstTimeUpdated => 4.into_dart(),
+            Self::UsersUpdated => 5.into_dart(),
+            Self::CommentLotteryUpdated => 6.into_dart(),
+            Self::LotteryDrawn => 7.into_dart(),
+            Self::FeatureFlagsUpdated => 8.into_dart(),
+            Self::SystemNotice => 9.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -2876,6 +3185,8 @@ impl flutter_rust_bridge::IntoDart for crate::models::CommentItem {
             self.user_id.into_into_dart().into_dart(),
             self.user_name.into_into_dart().into_dart(),
             self.user_icon_url.into_into_dart().into_dart(),
+            self.user_memo.into_into_dart().into_dart(),
+            self.is_first_time.into_into_dart().into_dart(),
             self.message.into_into_dart().into_dart(),
             self.timestamp_ms.into_into_dart().into_dart(),
             self.is_owner.into_into_dart().into_dart(),
@@ -3055,6 +3366,8 @@ impl flutter_rust_bridge::IntoDart for crate::models::FeatureFlags {
             self.user_lottery_enabled.into_into_dart().into_dart(),
             self.comment_lottery_enabled.into_into_dart().into_dart(),
             self.user_tracking_enabled.into_into_dart().into_dart(),
+            self.user_memo_display_enabled.into_into_dart().into_dart(),
+            self.first_time_counter_enabled.into_into_dart().into_dart(),
             self.obs_overlay_enabled.into_into_dart().into_dart(),
             self.auto_update_check_enabled.into_into_dart().into_dart(),
         ]
@@ -3066,6 +3379,76 @@ impl flutter_rust_bridge::IntoIntoDart<crate::models::FeatureFlags>
     for crate::models::FeatureFlags
 {
     fn into_into_dart(self) -> crate::models::FeatureFlags {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::FirstTimeCounterConfig {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.detect_unregistered.into_into_dart().into_dart(),
+            self.detect_keyword.into_into_dart().into_dart(),
+            self.keywords.into_into_dart().into_dart(),
+            self.auto_reset_on_new_stream.into_into_dart().into_dart(),
+            self.show_first_timer_profile.into_into_dart().into_dart(),
+            self.exclude_banned.into_into_dart().into_dart(),
+            self.accent_color.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::FirstTimeCounterConfig
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::FirstTimeCounterConfig>
+    for crate::models::FirstTimeCounterConfig
+{
+    fn into_into_dart(self) -> crate::models::FirstTimeCounterConfig {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::FirstTimeCounterState {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.count.into_into_dart().into_dart(),
+            self.total_detected_all_time.into_into_dart().into_dart(),
+            self.recent_users.into_into_dart().into_dart(),
+            self.config.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::FirstTimeCounterState
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::FirstTimeCounterState>
+    for crate::models::FirstTimeCounterState
+{
+    fn into_into_dart(self) -> crate::models::FirstTimeCounterState {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::FirstTimeUser {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.user_id.into_into_dart().into_dart(),
+            self.user_name.into_into_dart().into_dart(),
+            self.user_icon_url.into_into_dart().into_dart(),
+            self.trigger_reason.into_into_dart().into_dart(),
+            self.detected_at_ms.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::FirstTimeUser {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::FirstTimeUser>
+    for crate::models::FirstTimeUser
+{
+    fn into_into_dart(self) -> crate::models::FirstTimeUser {
         self
     }
 }
@@ -3189,9 +3572,15 @@ impl flutter_rust_bridge::IntoDart for crate::models::OverlayConfig {
             self.comments_theme.into_into_dart().into_dart(),
             self.lottery_theme.into_into_dart().into_dart(),
             self.counter_theme.into_into_dart().into_dart(),
+            self.first_time_theme.into_into_dart().into_dart(),
+            self.comments_bg_color.into_into_dart().into_dart(),
+            self.lottery_bg_color.into_into_dart().into_dart(),
+            self.counter_bg_color.into_into_dart().into_dart(),
+            self.first_time_bg_color.into_into_dart().into_dart(),
             self.comments_custom_css.into_into_dart().into_dart(),
             self.lottery_custom_css.into_into_dart().into_dart(),
             self.counter_custom_css.into_into_dart().into_dart(),
+            self.first_time_custom_css.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3440,8 +3829,13 @@ impl SseEncode for crate::models::AppEvent {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <crate::models::AppEventKind>::sse_encode(self.kind, serializer);
         <Option<crate::models::CommentItem>>::sse_encode(self.comment, serializer);
+        <Option<Vec<crate::models::CommentItem>>>::sse_encode(self.comments, serializer);
         <Option<crate::models::ConnectionStateDto>>::sse_encode(self.connection, serializer);
         <Option<Vec<crate::models::WordCounterConfig>>>::sse_encode(self.counters, serializer);
+        <Option<crate::models::FirstTimeCounterState>>::sse_encode(
+            self.first_time_state,
+            serializer,
+        );
         <Option<crate::models::CommentLotteryState>>::sse_encode(self.comment_lottery, serializer);
         <Option<crate::models::LotteryResult>>::sse_encode(self.lottery_result, serializer);
         <Option<crate::models::FeatureFlags>>::sse_encode(self.feature_flags, serializer);
@@ -3456,13 +3850,15 @@ impl SseEncode for crate::models::AppEventKind {
         <i32>::sse_encode(
             match self {
                 crate::models::AppEventKind::CommentReceived => 0,
-                crate::models::AppEventKind::ConnectionChanged => 1,
-                crate::models::AppEventKind::CountersUpdated => 2,
-                crate::models::AppEventKind::UsersUpdated => 3,
-                crate::models::AppEventKind::CommentLotteryUpdated => 4,
-                crate::models::AppEventKind::LotteryDrawn => 5,
-                crate::models::AppEventKind::FeatureFlagsUpdated => 6,
-                crate::models::AppEventKind::SystemNotice => 7,
+                crate::models::AppEventKind::CommentsReplaced => 1,
+                crate::models::AppEventKind::ConnectionChanged => 2,
+                crate::models::AppEventKind::CountersUpdated => 3,
+                crate::models::AppEventKind::FirstTimeUpdated => 4,
+                crate::models::AppEventKind::UsersUpdated => 5,
+                crate::models::AppEventKind::CommentLotteryUpdated => 6,
+                crate::models::AppEventKind::LotteryDrawn => 7,
+                crate::models::AppEventKind::FeatureFlagsUpdated => 8,
+                crate::models::AppEventKind::SystemNotice => 9,
                 _ => {
                     unimplemented!("");
                 }
@@ -3505,6 +3901,8 @@ impl SseEncode for crate::models::CommentItem {
         <String>::sse_encode(self.user_id, serializer);
         <String>::sse_encode(self.user_name, serializer);
         <String>::sse_encode(self.user_icon_url, serializer);
+        <String>::sse_encode(self.user_memo, serializer);
+        <bool>::sse_encode(self.is_first_time, serializer);
         <String>::sse_encode(self.message, serializer);
         <i64>::sse_encode(self.timestamp_ms, serializer);
         <bool>::sse_encode(self.is_owner, serializer);
@@ -3617,8 +4015,44 @@ impl SseEncode for crate::models::FeatureFlags {
         <bool>::sse_encode(self.user_lottery_enabled, serializer);
         <bool>::sse_encode(self.comment_lottery_enabled, serializer);
         <bool>::sse_encode(self.user_tracking_enabled, serializer);
+        <bool>::sse_encode(self.user_memo_display_enabled, serializer);
+        <bool>::sse_encode(self.first_time_counter_enabled, serializer);
         <bool>::sse_encode(self.obs_overlay_enabled, serializer);
         <bool>::sse_encode(self.auto_update_check_enabled, serializer);
+    }
+}
+
+impl SseEncode for crate::models::FirstTimeCounterConfig {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.detect_unregistered, serializer);
+        <bool>::sse_encode(self.detect_keyword, serializer);
+        <Vec<String>>::sse_encode(self.keywords, serializer);
+        <bool>::sse_encode(self.auto_reset_on_new_stream, serializer);
+        <bool>::sse_encode(self.show_first_timer_profile, serializer);
+        <bool>::sse_encode(self.exclude_banned, serializer);
+        <String>::sse_encode(self.accent_color, serializer);
+    }
+}
+
+impl SseEncode for crate::models::FirstTimeCounterState {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u64>::sse_encode(self.count, serializer);
+        <u64>::sse_encode(self.total_detected_all_time, serializer);
+        <Vec<crate::models::FirstTimeUser>>::sse_encode(self.recent_users, serializer);
+        <crate::models::FirstTimeCounterConfig>::sse_encode(self.config, serializer);
+    }
+}
+
+impl SseEncode for crate::models::FirstTimeUser {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.user_id, serializer);
+        <String>::sse_encode(self.user_name, serializer);
+        <String>::sse_encode(self.user_icon_url, serializer);
+        <String>::sse_encode(self.trigger_reason, serializer);
+        <i64>::sse_encode(self.detected_at_ms, serializer);
     }
 }
 
@@ -3678,6 +4112,16 @@ impl SseEncode for Vec<crate::models::CommentLotteryEntry> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::models::CommentLotteryEntry>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::FirstTimeUser> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::FirstTimeUser>::sse_encode(item, serializer);
         }
     }
 }
@@ -3847,6 +4291,16 @@ impl SseEncode for Option<crate::models::FeatureFlags> {
     }
 }
 
+impl SseEncode for Option<crate::models::FirstTimeCounterState> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::models::FirstTimeCounterState>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<i64> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3887,6 +4341,16 @@ impl SseEncode for Option<u64> {
     }
 }
 
+impl SseEncode for Option<Vec<crate::models::CommentItem>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <Vec<crate::models::CommentItem>>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<Vec<crate::models::WordCounterConfig>> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3910,9 +4374,15 @@ impl SseEncode for crate::models::OverlayConfig {
         <String>::sse_encode(self.comments_theme, serializer);
         <String>::sse_encode(self.lottery_theme, serializer);
         <String>::sse_encode(self.counter_theme, serializer);
+        <String>::sse_encode(self.first_time_theme, serializer);
+        <String>::sse_encode(self.comments_bg_color, serializer);
+        <String>::sse_encode(self.lottery_bg_color, serializer);
+        <String>::sse_encode(self.counter_bg_color, serializer);
+        <String>::sse_encode(self.first_time_bg_color, serializer);
         <String>::sse_encode(self.comments_custom_css, serializer);
         <String>::sse_encode(self.lottery_custom_css, serializer);
         <String>::sse_encode(self.counter_custom_css, serializer);
+        <String>::sse_encode(self.first_time_custom_css, serializer);
     }
 }
 

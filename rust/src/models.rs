@@ -119,6 +119,8 @@ pub struct CommentItem {
     pub user_id: String,
     pub user_name: String,
     pub user_icon_url: String,
+    pub user_memo: String,
+    pub is_first_time: bool,
     pub message: String,
     pub timestamp_ms: i64,
     pub is_owner: bool,
@@ -129,6 +131,88 @@ pub struct CommentItem {
     pub bubble_bg_color: Option<String>,
     pub bubble_text_color: Option<String>,
     pub bubble_border_color: Option<String>,
+}
+
+/// 初見カウンターの設定
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FirstTimeCounterConfig {
+    /// 未登録ユーザーの初回コメントを初見として検知する
+    #[serde(default = "default_true")]
+    pub detect_unregistered: bool,
+    /// 「初見」などの特定ワード発言で初見として検知する
+    #[serde(default = "default_true")]
+    pub detect_keyword: bool,
+    /// 初見とみなすキーワード一覧
+    #[serde(default = "default_first_time_keywords")]
+    pub keywords: Vec<String>,
+    /// 新しい配信に接続したとき表示カウントを自動で 0 にリセットする
+    #[serde(default = "default_true")]
+    pub auto_reset_on_new_stream: bool,
+    /// 初見の人のアイコンと名前を表示するオプション（デフォルト: OFF）
+    #[serde(default)]
+    pub show_first_timer_profile: bool,
+    /// BAN 済みユーザーを初見カウントから除外する
+    #[serde(default = "default_true")]
+    pub exclude_banned: bool,
+    /// アクセントカラー
+    #[serde(default = "default_first_time_accent")]
+    pub accent_color: String,
+}
+
+fn default_first_time_keywords() -> Vec<String> {
+    vec!["初見".to_string(), "しょけん".to_string()]
+}
+
+fn default_first_time_accent() -> String {
+    "#16A34A".to_string()
+}
+
+impl Default for FirstTimeCounterConfig {
+    fn default() -> Self {
+        Self {
+            detect_unregistered: true,
+            detect_keyword: true,
+            keywords: default_first_time_keywords(),
+            auto_reset_on_new_stream: true,
+            show_first_timer_profile: false,
+            exclude_banned: true,
+            accent_color: default_first_time_accent(),
+        }
+    }
+}
+
+/// 検知された初見ユーザー情報
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FirstTimeUser {
+    pub user_id: String,
+    pub user_name: String,
+    pub user_icon_url: String,
+    /// "未登録" または "初見ワード"
+    pub trigger_reason: String,
+    pub detected_at_ms: i64,
+}
+
+/// 初見カウンターの現在状態
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FirstTimeCounterState {
+    /// 現在の配信での初見カウント（配信ごとに0へリセット可能）
+    pub count: u64,
+    /// ソフトウェア全体でこれまでに初見検知した累計人数
+    pub total_detected_all_time: u64,
+    /// 今回の配信で検知された初見ユーザー一覧（新しい順）
+    pub recent_users: Vec<FirstTimeUser>,
+    pub config: FirstTimeCounterConfig,
+}
+
+impl Default for FirstTimeCounterState {
+    fn default() -> Self {
+        Self {
+            count: 0,
+            total_detected_all_time: 0,
+            recent_users: Vec::new(),
+            config: FirstTimeCounterConfig::default(),
+        }
+    }
 }
 
 /// 特定ワードカウンターの設定と現在カウント
@@ -326,7 +410,11 @@ fn default_text_color() -> String {
     "#F4F4F5".to_string()
 }
 
-/// OBS ブラウザソースオーバーレイの設定 ＆ 各機能デザインプリセット・カスタムCSS
+fn default_overlay_bg() -> String {
+    "transparent".to_string()
+}
+
+/// OBS ブラウザソースオーバーレイの設定 ＆ 各機能デザインプリセット・背景色・カスタムCSS
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OverlayConfig {
     #[serde(default = "default_overlay_port")]
@@ -352,6 +440,18 @@ pub struct OverlayConfig {
     /// ワードカウンターオーバーレイのデザインプリセット ("default" | "compact" | "scoreboard" | "neon" | "pastel")
     #[serde(default = "default_theme_name")]
     pub counter_theme: String,
+    /// 初見カウンターオーバーレイのデザインプリセット ("default" | "compact" | "scoreboard" | "neon" | "pastel")
+    #[serde(default = "default_theme_name")]
+    pub first_time_theme: String,
+    /// 各オーバーレイの背景色 ("transparent" または "#RRGGBB" / "#RRGGBBAA")
+    #[serde(default = "default_overlay_bg")]
+    pub comments_bg_color: String,
+    #[serde(default = "default_overlay_bg")]
+    pub lottery_bg_color: String,
+    #[serde(default = "default_overlay_bg")]
+    pub counter_bg_color: String,
+    #[serde(default = "default_overlay_bg")]
+    pub first_time_bg_color: String,
     /// コメント表示用ユーザーカスタム CSS
     #[serde(default)]
     pub comments_custom_css: String,
@@ -361,6 +461,9 @@ pub struct OverlayConfig {
     /// ワードカウンター用ユーザーカスタム CSS
     #[serde(default)]
     pub counter_custom_css: String,
+    /// 初見カウンター用ユーザーカスタム CSS
+    #[serde(default)]
+    pub first_time_custom_css: String,
 }
 
 impl Default for OverlayConfig {
@@ -376,9 +479,15 @@ impl Default for OverlayConfig {
             comments_theme: default_theme_name(),
             lottery_theme: default_theme_name(),
             counter_theme: default_theme_name(),
+            first_time_theme: default_theme_name(),
+            comments_bg_color: default_overlay_bg(),
+            lottery_bg_color: default_overlay_bg(),
+            counter_bg_color: default_overlay_bg(),
+            first_time_bg_color: default_overlay_bg(),
             comments_custom_css: String::new(),
             lottery_custom_css: String::new(),
             counter_custom_css: String::new(),
+            first_time_custom_css: String::new(),
         }
     }
 }
@@ -468,6 +577,12 @@ pub struct FeatureFlags {
     /// 参加ユーザーリスト自動記録（視聴回数・コメント回数集計）
     #[serde(default = "default_true")]
     pub user_tracking_enabled: bool,
+    /// コメント欄上の名前メモ表示
+    #[serde(default = "default_true")]
+    pub user_memo_display_enabled: bool,
+    /// 初見カウンター機能
+    #[serde(default = "default_true")]
+    pub first_time_counter_enabled: bool,
     /// OBS Studio オーバーレイローカルサーバー
     #[serde(default = "default_true")]
     pub obs_overlay_enabled: bool,
@@ -485,6 +600,8 @@ impl Default for FeatureFlags {
             user_lottery_enabled: true,
             comment_lottery_enabled: true,
             user_tracking_enabled: true,
+            user_memo_display_enabled: true,
+            first_time_counter_enabled: true,
             obs_overlay_enabled: true,
             auto_update_check_enabled: true,
         }
@@ -495,8 +612,10 @@ impl Default for FeatureFlags {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AppEventKind {
     CommentReceived,
+    CommentsReplaced,
     ConnectionChanged,
     CountersUpdated,
+    FirstTimeUpdated,
     UsersUpdated,
     CommentLotteryUpdated,
     LotteryDrawn,
@@ -509,8 +628,10 @@ pub enum AppEventKind {
 pub struct AppEvent {
     pub kind: AppEventKind,
     pub comment: Option<CommentItem>,
+    pub comments: Option<Vec<CommentItem>>,
     pub connection: Option<ConnectionStateDto>,
     pub counters: Option<Vec<WordCounterConfig>>,
+    pub first_time_state: Option<FirstTimeCounterState>,
     pub comment_lottery: Option<CommentLotteryState>,
     pub lottery_result: Option<LotteryResult>,
     pub feature_flags: Option<FeatureFlags>,
@@ -519,115 +640,78 @@ pub struct AppEvent {
 }
 
 impl AppEvent {
-    pub fn comment_received(comment: CommentItem) -> Self {
+    fn empty(kind: AppEventKind) -> Self {
         Self {
-            kind: AppEventKind::CommentReceived,
-            comment: Some(comment),
+            kind,
+            comment: None,
+            comments: None,
             connection: None,
             counters: None,
+            first_time_state: None,
             comment_lottery: None,
             lottery_result: None,
             feature_flags: None,
             notice_level: None,
             notice_message: None,
         }
+    }
+
+    pub fn comment_received(comment: CommentItem) -> Self {
+        let mut e = Self::empty(AppEventKind::CommentReceived);
+        e.comment = Some(comment);
+        e
+    }
+
+    pub fn comments_replaced(comments: Vec<CommentItem>) -> Self {
+        let mut e = Self::empty(AppEventKind::CommentsReplaced);
+        e.comments = Some(comments);
+        e
     }
 
     pub fn connection_changed(state: ConnectionStateDto) -> Self {
-        Self {
-            kind: AppEventKind::ConnectionChanged,
-            comment: None,
-            connection: Some(state),
-            counters: None,
-            comment_lottery: None,
-            lottery_result: None,
-            feature_flags: None,
-            notice_level: None,
-            notice_message: None,
-        }
+        let mut e = Self::empty(AppEventKind::ConnectionChanged);
+        e.connection = Some(state);
+        e
     }
 
     pub fn counters_updated(counters: Vec<WordCounterConfig>) -> Self {
-        Self {
-            kind: AppEventKind::CountersUpdated,
-            comment: None,
-            connection: None,
-            counters: Some(counters),
-            comment_lottery: None,
-            lottery_result: None,
-            feature_flags: None,
-            notice_level: None,
-            notice_message: None,
-        }
+        let mut e = Self::empty(AppEventKind::CountersUpdated);
+        e.counters = Some(counters);
+        e
+    }
+
+    pub fn first_time_updated(state: FirstTimeCounterState) -> Self {
+        let mut e = Self::empty(AppEventKind::FirstTimeUpdated);
+        e.first_time_state = Some(state);
+        e
     }
 
     pub fn users_updated() -> Self {
-        Self {
-            kind: AppEventKind::UsersUpdated,
-            comment: None,
-            connection: None,
-            counters: None,
-            comment_lottery: None,
-            lottery_result: None,
-            feature_flags: None,
-            notice_level: None,
-            notice_message: None,
-        }
+        Self::empty(AppEventKind::UsersUpdated)
     }
 
     pub fn comment_lottery_updated(state: CommentLotteryState) -> Self {
-        Self {
-            kind: AppEventKind::CommentLotteryUpdated,
-            comment: None,
-            connection: None,
-            counters: None,
-            comment_lottery: Some(state),
-            lottery_result: None,
-            feature_flags: None,
-            notice_level: None,
-            notice_message: None,
-        }
+        let mut e = Self::empty(AppEventKind::CommentLotteryUpdated);
+        e.comment_lottery = Some(state);
+        e
     }
 
     pub fn lottery_drawn(result: LotteryResult) -> Self {
-        Self {
-            kind: AppEventKind::LotteryDrawn,
-            comment: None,
-            connection: None,
-            counters: None,
-            comment_lottery: None,
-            lottery_result: Some(result),
-            feature_flags: None,
-            notice_level: None,
-            notice_message: None,
-        }
+        let mut e = Self::empty(AppEventKind::LotteryDrawn);
+        e.lottery_result = Some(result);
+        e
     }
 
     pub fn feature_flags_updated(flags: FeatureFlags) -> Self {
-        Self {
-            kind: AppEventKind::FeatureFlagsUpdated,
-            comment: None,
-            connection: None,
-            counters: None,
-            comment_lottery: None,
-            lottery_result: None,
-            feature_flags: Some(flags),
-            notice_level: None,
-            notice_message: None,
-        }
+        let mut e = Self::empty(AppEventKind::FeatureFlagsUpdated);
+        e.feature_flags = Some(flags);
+        e
     }
 
     pub fn system_notice(level: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            kind: AppEventKind::SystemNotice,
-            comment: None,
-            connection: None,
-            counters: None,
-            comment_lottery: None,
-            lottery_result: None,
-            feature_flags: None,
-            notice_level: Some(level.into()),
-            notice_message: Some(message.into()),
-        }
+        let mut e = Self::empty(AppEventKind::SystemNotice);
+        e.notice_level = Some(level.into());
+        e.notice_message = Some(message.into());
+        e
     }
 }

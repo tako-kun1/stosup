@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'screens/comments_screen.dart';
 import 'screens/counters_screen.dart';
+import 'screens/first_time_screen.dart';
 import 'screens/highlight_rules_screen.dart';
 import 'screens/lottery_screen.dart';
 import 'screens/overlay_screen.dart';
@@ -160,12 +161,14 @@ class _StosupShellState extends State<StosupShell> {
       case 2:
         return CountersScreen(controller: c);
       case 3:
-        return LotteryScreen(controller: c);
+        return FirstTimeScreen(controller: c);
       case 4:
-        return UsersScreen(controller: c);
+        return LotteryScreen(controller: c);
       case 5:
-        return OverlayScreen(controller: c);
+        return UsersScreen(controller: c);
       case 6:
+        return OverlayScreen(controller: c);
+      case 7:
         return SettingsScreen(controller: c);
       default:
         return CommentsScreen(controller: c);
@@ -362,9 +365,24 @@ class _StosupShellState extends State<StosupShell> {
                               onTap: () => setState(() => _selectedIndex = 2),
                             ),
                             _NavTile(
+                              icon: Icons.waving_hand_outlined,
+                              label: '初見カウンター',
+                              selected: _selectedIndex == 3,
+                              badge: !flags.firstTimeCounterEnabled
+                                  ? 'OFF'
+                                  : (ctrl.firstTimeState.count > BigInt.zero
+                                      ? ctrl.firstTimeState.count.toString()
+                                      : null),
+                              badgeColor: !flags.firstTimeCounterEnabled
+                                  ? p.textMuted
+                                  : p.success,
+                              dimmed: !flags.firstTimeCounterEnabled,
+                              onTap: () => setState(() => _selectedIndex = 3),
+                            ),
+                            _NavTile(
                               icon: Icons.casino_outlined,
                               label: '抽選システム',
-                              selected: _selectedIndex == 3,
+                              selected: _selectedIndex == 4,
                               badge: allLotteryOff
                                   ? 'OFF'
                                   : (ctrl.commentLottery.isAccepting
@@ -373,25 +391,25 @@ class _StosupShellState extends State<StosupShell> {
                               badgeColor:
                                   allLotteryOff ? p.textMuted : p.warning,
                               dimmed: allLotteryOff,
-                              onTap: () => setState(() => _selectedIndex = 3),
+                              onTap: () => setState(() => _selectedIndex = 4),
                             ),
                             _NavTile(
                               icon: Icons.people_outline,
                               label: 'ユーザー / BAN',
-                              selected: _selectedIndex == 4,
+                              selected: _selectedIndex == 5,
                               badge: !flags.userTrackingEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.userTrackingEnabled,
-                              onTap: () => setState(() => _selectedIndex = 4),
+                              onTap: () => setState(() => _selectedIndex = 5),
                             ),
                             _NavTile(
                               icon: Icons.brush_outlined,
                               label: 'OBS・デザイン',
-                              selected: _selectedIndex == 5,
+                              selected: _selectedIndex == 6,
                               badge: !flags.obsOverlayEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.obsOverlayEnabled,
-                              onTap: () => setState(() => _selectedIndex = 5),
+                              onTap: () => setState(() => _selectedIndex = 6),
                             ),
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 8),
@@ -400,11 +418,11 @@ class _StosupShellState extends State<StosupShell> {
                             _NavTile(
                               icon: Icons.settings_outlined,
                               label: '設定・機能管理',
-                              selected: _selectedIndex == 6,
+                              selected: _selectedIndex == 7,
                               badge:
                                   updateInfo?.hasUpdate == true ? 'NEW' : null,
                               badgeColor: p.accent,
-                              onTap: () => setState(() => _selectedIndex = 6),
+                              onTap: () => setState(() => _selectedIndex = 7),
                             ),
                           ],
                         ),

@@ -12,11 +12,14 @@ use serde::Serialize;
 use tokio::sync::{broadcast, oneshot, RwLock};
 use tower_http::cors::CorsLayer;
 
-use crate::models::{CommentItem, LotteryResult, OverlayConfig, WordCounterConfig};
+use crate::models::{
+    CommentItem, FirstTimeCounterState, LotteryResult, OverlayConfig, WordCounterConfig,
+};
 
 const COMMENTS_HTML: &str = include_str!("comments.html");
 const LOTTERY_HTML: &str = include_str!("lottery.html");
 const COUNTER_HTML: &str = include_str!("counter.html");
+const FIRST_TIME_HTML: &str = include_str!("first_time.html");
 const APP_ICON_ICO: &[u8] = include_bytes!("../../../windows/runner/resources/app_icon.ico");
 
 /// オーバーレイ画面へ WebSocket で送信するメッセージ
@@ -28,12 +31,18 @@ pub enum OverlayMessage {
         comments: Vec<CommentItem>,
         counters: Vec<WordCounterConfig>,
         last_lottery: Option<LotteryResult>,
+        first_time: FirstTimeCounterState,
+        first_time_enabled: bool,
     },
     Comment {
         comment: CommentItem,
     },
     Counters {
         counters: Vec<WordCounterConfig>,
+    },
+    FirstTime {
+        first_time: FirstTimeCounterState,
+        enabled: bool,
     },
     LotteryResult {
         result: LotteryResult,
@@ -49,17 +58,26 @@ pub struct OverlaySharedState {
     pub recent_comments: RwLock<Vec<CommentItem>>,
     pub counters: RwLock<Vec<WordCounterConfig>>,
     pub last_lottery: RwLock<Option<LotteryResult>>,
+    pub first_time: RwLock<FirstTimeCounterState>,
+    pub first_time_enabled: RwLock<bool>,
     pub tx: broadcast::Sender<String>,
 }
 
 impl OverlaySharedState {
-    pub fn new(config: OverlayConfig, counters: Vec<WordCounterConfig>) -> Self {
+    pub fn new(
+        config: OverlayConfig,
+        counters: Vec<WordCounterConfig>,
+        first_time: FirstTimeCounterState,
+        first_time_enabled: bool,
+    ) -> Self {
         let (tx, _) = broadcast::channel(256);
         Self {
             config: RwLock::new(config),
             recent_comments: RwLock::new(Vec::new()),
             counters: RwLock::new(counters),
             last_lottery: RwLock::new(None),
+            first_time: RwLock::new(first_time),
+            first_time_enabled: RwLock::new(first_time_enabled),
             tx,
         }
     }
@@ -86,6 +104,15 @@ impl OverlaySharedState {
     pub async fn update_counters(&self, counters: Vec<WordCounterConfig>) {
         *self.counters.write().await = counters.clone();
         self.broadcast(&OverlayMessage::Counters { counters });
+    }
+
+    pub async fn update_first_time(&self, state: FirstTimeCounterState, enabled: bool) {
+        *self.first_time.write().await = state.clone();
+        *self.first_time_enabled.write().await = enabled;
+        self.broadcast(&OverlayMessage::FirstTime {
+            first_time: state,
+            enabled,
+        });
     }
 
     pub async fn show_lottery(&self, result: LotteryResult) {
@@ -132,6 +159,7 @@ pub async fn start_overlay_server(
         .route("/overlay/comments", get(|| async { Html(COMMENTS_HTML) }))
         .route("/overlay/lottery", get(|| async { Html(LOTTERY_HTML) }))
         .route("/overlay/counter", get(|| async { Html(COUNTER_HTML) }))
+        .route("/overlay/first_time", get(|| async { Html(FIRST_TIME_HTML) }))
         .route("/ws", get(ws_handler))
         .layer(CorsLayer::permissive())
         .with_state(shared);
@@ -161,12 +189,13 @@ async fn favicon_handler() -> impl IntoResponse {
 async fn index_handler() -> Html<&'static str> {
     Html(
         "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><link rel='icon' href='/favicon.ico'><title>Stosup OBS オーバーレイ</title></head>\
-         <body style='font-family:sans-serif;background:#0f172a;color:#f8fafc;padding:32px'>\
+         <body style='font-family:sans-serif;background:#18181b;color:#f4f4f5;padding:32px'>\
          <h1>Stosup OBS オーバーレイサーバー稼働中</h1>\
          <ul>\
-           <li><a style='color:#38bdf8' href='/overlay/comments'>/overlay/comments (コメント表示)</a></li>\
-           <li><a style='color:#38bdf8' href='/overlay/lottery'>/overlay/lottery (抽選演出・結果表示)</a></li>\
-           <li><a style='color:#38bdf8' href='/overlay/counter'>/overlay/counter (ワードカウンター表示)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/comments'>/overlay/comments (コメント表示)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/lottery'>/overlay/lottery (抽選演出・結果表示)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/counter'>/overlay/counter (ワードカウンター表示)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/first_time'>/overlay/first_time (初見カウンター表示)</a></li>\
          </ul></body></html>",
     )
 }
@@ -181,12 +210,13 @@ async fn ws_handler(
 async fn handle_socket(socket: WebSocket, state: Arc<OverlaySharedState>) {
     let (mut sender, mut receiver) = socket.split();
 
-    // 接続直後に最新スナップショットを配信
     let snapshot = OverlayMessage::Snapshot {
         config: state.config.read().await.clone(),
         comments: state.recent_comments.read().await.clone(),
         counters: state.counters.read().await.clone(),
         last_lottery: state.last_lottery.read().await.clone(),
+        first_time: state.first_time.read().await.clone(),
+        first_time_enabled: *state.first_time_enabled.read().await,
     };
     if let Ok(json) = serde_json::to_string(&snapshot) {
         if sender.send(Message::Text(json.into())).await.is_err() {

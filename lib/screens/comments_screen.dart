@@ -109,6 +109,39 @@ class _CommentsScreenState extends State<CommentsScreen> {
     reasonCtrl.dispose();
   }
 
+  Future<void> _editUserMemo(CommentItem c) async {
+    final memoCtrl = TextEditingController(text: c.userMemo);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${c.userName} の名前メモ'),
+        content: TextField(
+          controller: memoCtrl,
+          maxLines: 2,
+          decoration: const InputDecoration(
+            labelText: 'コメント欄上に表示するメモ',
+            hintText: '例: 常連さん / イラスト担当 / 前回当選者',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await widget.controller
+          .setUserMemo(c.userId, c.platform, memoCtrl.text.trim());
+    }
+    memoCtrl.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
@@ -284,6 +317,15 @@ class _CommentsScreenState extends State<CommentsScreen> {
                               featureLabel: 'コメント表示機能',
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          FeatureToggleSwitch(
+                            label: '名前メモ',
+                            enabled: ctrl.featureFlags.userMemoDisplayEnabled,
+                            onChanged: (v) => ctrl.setFeatureEnabled(
+                              userMemoDisplay: v,
+                              featureLabel: '名前メモ表示',
+                            ),
+                          ),
                           const Spacer(),
                           Text('自動スクロール',
                               style: TextStyle(
@@ -348,7 +390,10 @@ class _CommentsScreenState extends State<CommentsScreen> {
                                 final c = ctrl.comments[idx];
                                 return _CommentBubbleCard(
                                   comment: c,
+                                  showMemo: ctrl
+                                      .featureFlags.userMemoDisplayEnabled,
                                   timeLabel: _formatTime(c.timestampMs),
+                                  onMemoTap: () => _editUserMemo(c),
                                   onBanTap: () => _confirmBan(c),
                                   onUnbanTap: () => ctrl.setUserBan(
                                       c.userId, c.platform, false, ''),
@@ -368,6 +413,83 @@ class _CommentsScreenState extends State<CommentsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
+                    // 初見カウンター速報
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('本日の初見さん',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13)),
+                                      Text(
+                                        ctrl.featureFlags
+                                                .firstTimeCounterEnabled
+                                            ? '累計検知 ${ctrl.firstTimeState.totalDetectedAllTime}人'
+                                            : '初見カウンター OFF',
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            color: p.textSecondary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  ctrl.firstTimeState.count.toString(),
+                                  style: TextStyle(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.parseCssHex(
+                                      ctrl.firstTimeState.config.accentColor,
+                                      fallback: p.success,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (ctrl.firstTimeState.config
+                                    .showFirstTimerProfile &&
+                                ctrl.firstTimeState.recentUsers.isNotEmpty) ...[
+                              const Divider(height: 14),
+                              ...ctrl.firstTimeState.recentUsers.take(3).map(
+                                    (u) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Row(
+                                        children: [
+                                          UserAvatar(
+                                            name: u.userName,
+                                            iconUrl: u.userIconUrl,
+                                            radius: 10,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              u.userName,
+                                              overflow: TextOverflow.ellipsis,
+                                              style:
+                                                  const TextStyle(fontSize: 12),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         const Text(
@@ -605,13 +727,17 @@ class _StatusChip extends StatelessWidget {
 class _CommentBubbleCard extends StatelessWidget {
   const _CommentBubbleCard({
     required this.comment,
+    required this.showMemo,
     required this.timeLabel,
+    required this.onMemoTap,
     required this.onBanTap,
     required this.onUnbanTap,
   });
 
   final CommentItem comment;
+  final bool showMemo;
   final String timeLabel;
+  final VoidCallback onMemoTap;
   final VoidCallback onBanTap;
   final VoidCallback onUnbanTap;
 
@@ -664,31 +790,66 @@ class _CommentBubbleCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          comment.userName,
-                          style: TextStyle(
-                            color: fg.withValues(alpha: 0.88),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                        Flexible(
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                comment.userName,
+                                style: TextStyle(
+                                  color: fg.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                              if (showMemo && comment.userMemo.isNotEmpty)
+                                InkWell(
+                                  onTap: onMemoTap,
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: p.accent.withValues(alpha: 0.16),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: p.accent.withValues(alpha: 0.45),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.note_outlined,
+                                            size: 11, color: p.accent),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          comment.userMemo,
+                                          style: TextStyle(
+                                            color: fg,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              if (comment.isFirstTime)
+                                _MiniBadge('初見', p.success, Colors.white),
+                              if (comment.isOwner)
+                                _MiniBadge('配信者', p.warning, Colors.black),
+                              if (comment.isModerator)
+                                _MiniBadge('MOD', p.accent, Colors.white),
+                              if (comment.isMember)
+                                _MiniBadge('メンバー', p.success, Colors.white),
+                              if (comment.isBanned)
+                                _MiniBadge('BAN', p.danger, Colors.white),
+                            ],
                           ),
                         ),
-                        if (comment.isOwner) ...[
-                          const SizedBox(width: 6),
-                          _MiniBadge('配信者', p.warning, Colors.black),
-                        ],
-                        if (comment.isModerator) ...[
-                          const SizedBox(width: 6),
-                          _MiniBadge('MOD', p.accent, Colors.white),
-                        ],
-                        if (comment.isMember) ...[
-                          const SizedBox(width: 6),
-                          _MiniBadge('メンバー', p.success, Colors.white),
-                        ],
-                        if (comment.isBanned) ...[
-                          const SizedBox(width: 6),
-                          _MiniBadge('BAN', p.danger, Colors.white),
-                        ],
-                        const Spacer(),
+                        const SizedBox(width: 8),
                         Text(
                           timeLabel,
                           style: TextStyle(
@@ -703,10 +864,15 @@ class _CommentBubbleCard extends StatelessWidget {
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onSelected: (v) {
+                            if (v == 'memo') onMemoTap();
                             if (v == 'ban') onBanTap();
                             if (v == 'unban') onUnbanTap();
                           },
                           itemBuilder: (_) => [
+                            const PopupMenuItem(
+                              value: 'memo',
+                              child: Text('名前メモを編集'),
+                            ),
                             if (!comment.isBanned)
                               const PopupMenuItem(
                                 value: 'ban',

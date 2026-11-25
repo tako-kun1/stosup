@@ -241,6 +241,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const Divider(height: 1),
                   SwitchListTile(
                     dense: true,
+                    secondary: const Icon(Icons.note_alt_outlined, size: 20),
+                    title: const Text('名前メモ表示（コメント欄上）'),
+                    subtitle: const Text('ユーザーに設定したメモをコメント欄の名前の横に表示'),
+                    value: flags.userMemoDisplayEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      userMemoDisplay: v,
+                      featureLabel: '名前メモ表示',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    dense: true,
+                    secondary: const Icon(Icons.waving_hand_outlined, size: 20),
+                    title: const Text('初見カウンター'),
+                    subtitle: const Text('未登録ユーザーまたは初見ワード発言を1アカウント1度だけ検知'),
+                    value: flags.firstTimeCounterEnabled,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      firstTimeCounter: v,
+                      featureLabel: '初見カウンター',
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    dense: true,
                     secondary: const Icon(Icons.brush_outlined, size: 20),
                     title: const Text('OBS オーバーレイローカルサーバー'),
                     subtitle: const Text('OBS ブラウザソース用の HTTP / WebSocket サーバー稼働'),

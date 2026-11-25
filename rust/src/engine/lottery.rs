@@ -284,6 +284,8 @@ mod tests {
             user_id: uid.to_string(),
             user_name: format!("U-{}", uid),
             user_icon_url: String::new(),
+            user_memo: String::new(),
+            is_first_time: false,
             message: msg.to_string(),
             timestamp_ms: ts,
             is_owner: false,

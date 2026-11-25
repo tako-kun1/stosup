@@ -11,8 +11,10 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 class AppEvent {
   final AppEventKind kind;
   final CommentItem? comment;
+  final List<CommentItem>? comments;
   final ConnectionStateDto? connection;
   final List<WordCounterConfig>? counters;
+  final FirstTimeCounterState? firstTimeState;
   final CommentLotteryState? commentLottery;
   final LotteryResult? lotteryResult;
   final FeatureFlags? featureFlags;
@@ -22,8 +24,10 @@ class AppEvent {
   const AppEvent({
     required this.kind,
     this.comment,
+    this.comments,
     this.connection,
     this.counters,
+    this.firstTimeState,
     this.commentLottery,
     this.lotteryResult,
     this.featureFlags,
@@ -35,8 +39,10 @@ class AppEvent {
   int get hashCode =>
       kind.hashCode ^
       comment.hashCode ^
+      comments.hashCode ^
       connection.hashCode ^
       counters.hashCode ^
+      firstTimeState.hashCode ^
       commentLottery.hashCode ^
       lotteryResult.hashCode ^
       featureFlags.hashCode ^
@@ -50,8 +56,10 @@ class AppEvent {
           runtimeType == other.runtimeType &&
           kind == other.kind &&
           comment == other.comment &&
+          comments == other.comments &&
           connection == other.connection &&
           counters == other.counters &&
+          firstTimeState == other.firstTimeState &&
           commentLottery == other.commentLottery &&
           lotteryResult == other.lotteryResult &&
           featureFlags == other.featureFlags &&
@@ -62,8 +70,10 @@ class AppEvent {
 /// リアルタイムイベント種別
 enum AppEventKind {
   commentReceived,
+  commentsReplaced,
   connectionChanged,
   countersUpdated,
+  firstTimeUpdated,
   usersUpdated,
   commentLotteryUpdated,
   lotteryDrawn,
@@ -82,6 +92,8 @@ class CommentItem {
   final String userId;
   final String userName;
   final String userIconUrl;
+  final String userMemo;
+  final bool isFirstTime;
   final String message;
   final PlatformInt64 timestampMs;
   final bool isOwner;
@@ -100,6 +112,8 @@ class CommentItem {
     required this.userId,
     required this.userName,
     required this.userIconUrl,
+    required this.userMemo,
+    required this.isFirstTime,
     required this.message,
     required this.timestampMs,
     required this.isOwner,
@@ -120,6 +134,8 @@ class CommentItem {
       userId.hashCode ^
       userName.hashCode ^
       userIconUrl.hashCode ^
+      userMemo.hashCode ^
+      isFirstTime.hashCode ^
       message.hashCode ^
       timestampMs.hashCode ^
       isOwner.hashCode ^
@@ -142,6 +158,8 @@ class CommentItem {
           userId == other.userId &&
           userName == other.userName &&
           userIconUrl == other.userIconUrl &&
+          userMemo == other.userMemo &&
+          isFirstTime == other.isFirstTime &&
           message == other.message &&
           timestampMs == other.timestampMs &&
           isOwner == other.isOwner &&
@@ -375,6 +393,12 @@ class FeatureFlags {
   /// 参加ユーザーリスト自動記録（視聴回数・コメント回数集計）
   final bool userTrackingEnabled;
 
+  /// コメント欄上の名前メモ表示
+  final bool userMemoDisplayEnabled;
+
+  /// 初見カウンター機能
+  final bool firstTimeCounterEnabled;
+
   /// OBS Studio オーバーレイローカルサーバー
   final bool obsOverlayEnabled;
 
@@ -388,6 +412,8 @@ class FeatureFlags {
     required this.userLotteryEnabled,
     required this.commentLotteryEnabled,
     required this.userTrackingEnabled,
+    required this.userMemoDisplayEnabled,
+    required this.firstTimeCounterEnabled,
     required this.obsOverlayEnabled,
     required this.autoUpdateCheckEnabled,
   });
@@ -400,6 +426,8 @@ class FeatureFlags {
       userLotteryEnabled.hashCode ^
       commentLotteryEnabled.hashCode ^
       userTrackingEnabled.hashCode ^
+      userMemoDisplayEnabled.hashCode ^
+      firstTimeCounterEnabled.hashCode ^
       obsOverlayEnabled.hashCode ^
       autoUpdateCheckEnabled.hashCode;
 
@@ -414,8 +442,142 @@ class FeatureFlags {
           userLotteryEnabled == other.userLotteryEnabled &&
           commentLotteryEnabled == other.commentLotteryEnabled &&
           userTrackingEnabled == other.userTrackingEnabled &&
+          userMemoDisplayEnabled == other.userMemoDisplayEnabled &&
+          firstTimeCounterEnabled == other.firstTimeCounterEnabled &&
           obsOverlayEnabled == other.obsOverlayEnabled &&
           autoUpdateCheckEnabled == other.autoUpdateCheckEnabled;
+}
+
+/// 初見カウンターの設定
+class FirstTimeCounterConfig {
+  /// 未登録ユーザーの初回コメントを初見として検知する
+  final bool detectUnregistered;
+
+  /// 「初見」などの特定ワード発言で初見として検知する
+  final bool detectKeyword;
+
+  /// 初見とみなすキーワード一覧
+  final List<String> keywords;
+
+  /// 新しい配信に接続したとき表示カウントを自動で 0 にリセットする
+  final bool autoResetOnNewStream;
+
+  /// 初見の人のアイコンと名前を表示するオプション（デフォルト: OFF）
+  final bool showFirstTimerProfile;
+
+  /// BAN 済みユーザーを初見カウントから除外する
+  final bool excludeBanned;
+
+  /// アクセントカラー
+  final String accentColor;
+
+  const FirstTimeCounterConfig({
+    required this.detectUnregistered,
+    required this.detectKeyword,
+    required this.keywords,
+    required this.autoResetOnNewStream,
+    required this.showFirstTimerProfile,
+    required this.excludeBanned,
+    required this.accentColor,
+  });
+
+  @override
+  int get hashCode =>
+      detectUnregistered.hashCode ^
+      detectKeyword.hashCode ^
+      keywords.hashCode ^
+      autoResetOnNewStream.hashCode ^
+      showFirstTimerProfile.hashCode ^
+      excludeBanned.hashCode ^
+      accentColor.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FirstTimeCounterConfig &&
+          runtimeType == other.runtimeType &&
+          detectUnregistered == other.detectUnregistered &&
+          detectKeyword == other.detectKeyword &&
+          keywords == other.keywords &&
+          autoResetOnNewStream == other.autoResetOnNewStream &&
+          showFirstTimerProfile == other.showFirstTimerProfile &&
+          excludeBanned == other.excludeBanned &&
+          accentColor == other.accentColor;
+}
+
+/// 初見カウンターの現在状態
+class FirstTimeCounterState {
+  /// 現在の配信での初見カウント（配信ごとに0へリセット可能）
+  final BigInt count;
+
+  /// ソフトウェア全体でこれまでに初見検知した累計人数
+  final BigInt totalDetectedAllTime;
+
+  /// 今回の配信で検知された初見ユーザー一覧（新しい順）
+  final List<FirstTimeUser> recentUsers;
+  final FirstTimeCounterConfig config;
+
+  const FirstTimeCounterState({
+    required this.count,
+    required this.totalDetectedAllTime,
+    required this.recentUsers,
+    required this.config,
+  });
+
+  @override
+  int get hashCode =>
+      count.hashCode ^
+      totalDetectedAllTime.hashCode ^
+      recentUsers.hashCode ^
+      config.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FirstTimeCounterState &&
+          runtimeType == other.runtimeType &&
+          count == other.count &&
+          totalDetectedAllTime == other.totalDetectedAllTime &&
+          recentUsers == other.recentUsers &&
+          config == other.config;
+}
+
+/// 検知された初見ユーザー情報
+class FirstTimeUser {
+  final String userId;
+  final String userName;
+  final String userIconUrl;
+
+  /// "未登録" または "初見ワード"
+  final String triggerReason;
+  final PlatformInt64 detectedAtMs;
+
+  const FirstTimeUser({
+    required this.userId,
+    required this.userName,
+    required this.userIconUrl,
+    required this.triggerReason,
+    required this.detectedAtMs,
+  });
+
+  @override
+  int get hashCode =>
+      userId.hashCode ^
+      userName.hashCode ^
+      userIconUrl.hashCode ^
+      triggerReason.hashCode ^
+      detectedAtMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FirstTimeUser &&
+          runtimeType == other.runtimeType &&
+          userId == other.userId &&
+          userName == other.userName &&
+          userIconUrl == other.userIconUrl &&
+          triggerReason == other.triggerReason &&
+          detectedAtMs == other.detectedAtMs;
 }
 
 /// 特定ワード反応による吹き出し色変更ルール
@@ -560,7 +722,7 @@ class LotteryWinner {
 /// ワードの一致判定方式
 enum MatchMode { contains, exact, regex }
 
-/// OBS ブラウザソースオーバーレイの設定 ＆ 各機能デザインプリセット・カスタムCSS
+/// OBS ブラウザソースオーバーレイの設定 ＆ 各機能デザインプリセット・背景色・カスタムCSS
 class OverlayConfig {
   final int port;
   final int commentFontSize;
@@ -579,6 +741,15 @@ class OverlayConfig {
   /// ワードカウンターオーバーレイのデザインプリセット ("default" | "compact" | "scoreboard" | "neon" | "pastel")
   final String counterTheme;
 
+  /// 初見カウンターオーバーレイのデザインプリセット ("default" | "compact" | "scoreboard" | "neon" | "pastel")
+  final String firstTimeTheme;
+
+  /// 各オーバーレイの背景色 ("transparent" または "#RRGGBB" / "#RRGGBBAA")
+  final String commentsBgColor;
+  final String lotteryBgColor;
+  final String counterBgColor;
+  final String firstTimeBgColor;
+
   /// コメント表示用ユーザーカスタム CSS
   final String commentsCustomCss;
 
@@ -587,6 +758,9 @@ class OverlayConfig {
 
   /// ワードカウンター用ユーザーカスタム CSS
   final String counterCustomCss;
+
+  /// 初見カウンター用ユーザーカスタム CSS
+  final String firstTimeCustomCss;
 
   const OverlayConfig({
     required this.port,
@@ -599,9 +773,15 @@ class OverlayConfig {
     required this.commentsTheme,
     required this.lotteryTheme,
     required this.counterTheme,
+    required this.firstTimeTheme,
+    required this.commentsBgColor,
+    required this.lotteryBgColor,
+    required this.counterBgColor,
+    required this.firstTimeBgColor,
     required this.commentsCustomCss,
     required this.lotteryCustomCss,
     required this.counterCustomCss,
+    required this.firstTimeCustomCss,
   });
 
   @override
@@ -616,9 +796,15 @@ class OverlayConfig {
       commentsTheme.hashCode ^
       lotteryTheme.hashCode ^
       counterTheme.hashCode ^
+      firstTimeTheme.hashCode ^
+      commentsBgColor.hashCode ^
+      lotteryBgColor.hashCode ^
+      counterBgColor.hashCode ^
+      firstTimeBgColor.hashCode ^
       commentsCustomCss.hashCode ^
       lotteryCustomCss.hashCode ^
-      counterCustomCss.hashCode;
+      counterCustomCss.hashCode ^
+      firstTimeCustomCss.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -635,9 +821,15 @@ class OverlayConfig {
           commentsTheme == other.commentsTheme &&
           lotteryTheme == other.lotteryTheme &&
           counterTheme == other.counterTheme &&
+          firstTimeTheme == other.firstTimeTheme &&
+          commentsBgColor == other.commentsBgColor &&
+          lotteryBgColor == other.lotteryBgColor &&
+          counterBgColor == other.counterBgColor &&
+          firstTimeBgColor == other.firstTimeBgColor &&
           commentsCustomCss == other.commentsCustomCss &&
           lotteryCustomCss == other.lotteryCustomCss &&
-          counterCustomCss == other.counterCustomCss;
+          counterCustomCss == other.counterCustomCss &&
+          firstTimeCustomCss == other.firstTimeCustomCss;
 }
 
 /// 対応配信プラットフォーム（将来の拡張を前提とした列挙型）

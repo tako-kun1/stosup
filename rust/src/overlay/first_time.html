@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stosup 初見カウンターオーバーレイ</title>
+<link rel="icon" href="/favicon.ico" />
+<style id="stosup-base-css">
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: var(--page-bg, transparent) !important;
+    overflow: hidden;
+    font-family: "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif;
+  }
+  #wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px;
+  }
+  .ft-card {
+    background: rgba(24, 24, 27, 0.92);
+    border: 1.5px solid var(--accent, #16a34a);
+    border-radius: 10px;
+    padding: 12px 20px;
+    min-width: 220px;
+    color: #f4f4f5;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  }
+  .ft-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #d4d4d8;
+    margin-bottom: 4px;
+  }
+  .ft-count {
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 1.1;
+    color: var(--accent, #16a34a);
+    font-variant-numeric: tabular-nums;
+    transition: transform 0.16s ease;
+  }
+  .ft-count.bump { transform: scale(1.16); }
+  .ft-profiles {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    max-width: 340px;
+  }
+  .ft-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(24, 24, 27, 0.9);
+    border: 1px solid var(--accent, #16a34a);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #f4f4f5;
+    animation: fadeSlide 0.28s ease forwards;
+  }
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .ft-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent, #16a34a);
+    background: #3f3f46;
+  }
+  .ft-user-name {
+    font-size: 14px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ft-user-badge {
+    font-size: 10.5px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--accent, #16a34a);
+    color: #ffffff;
+    font-weight: 700;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  /* プリセット: compact */
+  body[data-theme="compact"] .ft-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: auto;
+    padding: 8px 18px;
+    border-radius: 999px;
+  }
+  body[data-theme="compact"] .ft-title { margin-bottom: 0; }
+  body[data-theme="compact"] .ft-count { font-size: 28px; }
+
+  /* プリセット: scoreboard */
+  body[data-theme="scoreboard"] .ft-card {
+    background: #111214;
+    border: 2px solid #3f3f46;
+    border-top: 5px solid var(--accent, #16a34a);
+    border-radius: 4px;
+    text-align: center;
+  }
+  body[data-theme="scoreboard"] .ft-count {
+    font-family: "Consolas", monospace;
+    font-size: 52px;
+  }
+
+  /* プリセット: neon */
+  body[data-theme="neon"] .ft-card,
+  body[data-theme="neon"] .ft-user {
+    background: rgba(9, 11, 20, 0.9);
+    border: 2px solid var(--accent, #22d3ee);
+    border-radius: 6px;
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.28);
+  }
+  body[data-theme="neon"] .ft-count {
+    text-shadow: 0 0 14px var(--accent, #22d3ee);
+  }
+
+  /* プリセット: pastel */
+  body[data-theme="pastel"] .ft-card,
+  body[data-theme="pastel"] .ft-user {
+    background: rgba(255, 255, 255, 0.96);
+    color: #27272a;
+    border: 2.5px solid var(--accent, #f472b6);
+    border-radius: 18px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+  }
+  body[data-theme="pastel"] .ft-title { color: #52525b; }
+</style>
+<style id="stosup-custom-css"></style>
+</head>
+<body data-theme="default">
+  <div id="wrap"></div>
+<script>
+  const wrap = document.getElementById('wrap');
+  const customStyleEl = document.getElementById('stosup-custom-css');
+  const params = new URLSearchParams(location.search);
+  const urlThemeOverride = params.get('theme');
+  const urlBgOverride = params.get('bg');
+
+  let prevCount = null;
+  let enabled = true;
+  let ftState = {
+    count: 0,
+    total_detected_all_time: 0,
+    recent_users: [],
+    config: { show_first_timer_profile: false, accent_color: '#16A34A' }
+  };
+  let config = {
+    first_time_theme: 'default',
+    first_time_bg_color: 'transparent',
+    first_time_custom_css: ''
+  };
+
+  function resolveBg(raw) {
+    const val = (raw || 'transparent').trim();
+    if (!val || val.toLowerCase() === 'transparent') return 'transparent';
+    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return '#' + val;
+    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return val;
+    return 'transparent';
+  }
+
+  function applyDesign() {
+    document.body.dataset.theme = urlThemeOverride || config.first_time_theme || 'default';
+    const bg = resolveBg(urlBgOverride || config.first_time_bg_color);
+    document.documentElement.style.setProperty('--page-bg', bg);
+    customStyleEl.textContent = config.first_time_custom_css || '';
+  }
+
+  function fallbackAvatar(name) {
+    const ch = (name || '?').slice(0, 1);
+    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%2352525b'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
+  }
+
+  function render() {
+    wrap.innerHTML = '';
+    if (!enabled) return;
+
+    const accent = (ftState.config && ftState.config.accent_color) || '#16A34A';
+    wrap.style.setProperty('--accent', accent);
+
+    const card = document.createElement('div');
+    card.className = 'ft-card';
+
+    const title = document.createElement('div');
+    title.className = 'ft-title';
+    title.textContent = '本日の初見さん';
+
+    const countEl = document.createElement('div');
+    countEl.className = 'ft-count';
+    countEl.textContent = String(ftState.count || 0);
+    if (prevCount !== null && prevCount !== ftState.count) {
+      countEl.classList.add('bump');
+      setTimeout(() => countEl.classList.remove('bump'), 200);
+    }
+    prevCount = ftState.count;
+
+    card.appendChild(title);
+    card.appendChild(countEl);
+    wrap.appendChild(card);
+
+    // オプション（デフォルトOFF）：初見の人のアイコンと名前を表示
+    if (ftState.config && ftState.config.show_first_timer_profile && Array.isArray(ftState.recent_users) && ftState.recent_users.length > 0) {
+      const profiles = document.createElement('div');
+      profiles.className = 'ft-profiles';
+
+      ftState.recent_users.slice(0, 5).forEach((u) => {
+        const row = document.createElement('div');
+        row.className = 'ft-user';
+
+        const img = document.createElement('img');
+        img.className = 'ft-avatar';
+        img.src = u.user_icon_url || fallbackAvatar(u.user_name);
+        img.onerror = () => { img.src = fallbackAvatar(u.user_name); };
+
+        const name = document.createElement('div');
+        name.className = 'ft-user-name';
+        name.textContent = u.user_name;
+
+        const badge = document.createElement('span');
+        badge.className = 'ft-user-badge';
+        badge.textContent = '初見';
+
+        row.appendChild(img);
+        row.appendChild(name);
+        row.appendChild(badge);
+        profiles.appendChild(row);
+      });
+
+      wrap.appendChild(profiles);
+    }
+  }
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${proto}//${location.host}/ws`);
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data.type === 'snapshot') {
+          config = Object.assign(config, data.config || {});
+          if (data.first_time) ftState = data.first_time;
+          if (typeof data.first_time_enabled === 'boolean') enabled = data.first_time_enabled;
+          applyDesign();
+          render();
+        } else if (data.type === 'first_time') {
+          if (data.first_time) ftState = data.first_time;
+          if (typeof data.enabled === 'boolean') enabled = data.enabled;
+          render();
+        } else if (data.type === 'config_updated') {
+          config = Object.assign(config, data.config || {});
+          applyDesign();
+        }
+      } catch (e) { console.error(e); }
+    };
+    ws.onclose = () => setTimeout(connect, 2000);
+    ws.onerror = () => ws.close();
+  }
+  applyDesign();
+  connect();
+</script>
+</body>
+</html>

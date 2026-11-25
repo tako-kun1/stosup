@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 2133865614;
+  int get rustContentHash => -68477525;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -80,6 +80,10 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
+  Future<FirstTimeCounterState> crateApiAdjustFirstTimeCount({
+    required PlatformInt64 delta,
+  });
+
   Future<List<WordCounterConfig>> crateApiAdjustWordCounter({
     required String id,
     required PlatformInt64 delta,
@@ -133,6 +137,8 @@ abstract class RustLibApi extends BaseApi {
 
   Future<FeatureFlags> crateApiGetFeatureFlags();
 
+  Future<FirstTimeCounterState> crateApiGetFirstTimeState();
+
   Future<OverlayConfig> crateApiGetOverlayConfig();
 
   Future<List<CommentItem>> crateApiGetRecentComments();
@@ -170,6 +176,10 @@ abstract class RustLibApi extends BaseApi {
     required bool clearWinnersOnly,
   });
 
+  Future<FirstTimeCounterState> crateApiResetFirstTimeAllHistory();
+
+  Future<FirstTimeCounterState> crateApiResetFirstTimeSessionCount();
+
   Future<void> crateApiResetUserLotteryWinners();
 
   Future<List<WordCounterConfig>> crateApiResetWordCounter({
@@ -177,6 +187,10 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<FeatureFlags> crateApiSaveFeatureFlags({required FeatureFlags flags});
+
+  Future<FirstTimeCounterState> crateApiSaveFirstTimeConfig({
+    required FirstTimeCounterConfig config,
+  });
 
   Future<List<HighlightRule>> crateApiSaveHighlightRule({
     required HighlightRule rule,
@@ -240,6 +254,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
+  Future<FirstTimeCounterState> crateApiAdjustFirstTimeCount({
+    required PlatformInt64 delta,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_64(delta, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 1,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_first_time_counter_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiAdjustFirstTimeCountConstMeta,
+        argValues: [delta],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiAdjustFirstTimeCountConstMeta =>
+      const TaskConstMeta(
+        debugName: "adjust_first_time_count",
+        argNames: ["delta"],
+      );
+
+  @override
   Future<List<WordCounterConfig>> crateApiAdjustWordCounter({
     required String id,
     required PlatformInt64 delta,
@@ -253,7 +300,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 1,
+            funcId: 2,
             port: port_,
           );
         },
@@ -282,7 +329,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 2,
+            funcId: 3,
             port: port_,
           );
         },
@@ -309,7 +356,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 3,
+            funcId: 4,
             port: port_,
           );
         },
@@ -336,7 +383,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 5,
             port: port_,
           );
         },
@@ -368,7 +415,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 6,
             port: port_,
           );
         },
@@ -402,7 +449,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 7,
             port: port_,
           );
         },
@@ -434,7 +481,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 8,
             port: port_,
           );
         },
@@ -464,7 +511,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 9,
             port: port_,
           );
         },
@@ -491,7 +538,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 10,
             port: port_,
           );
         },
@@ -518,7 +565,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 11,
             port: port_,
           );
         },
@@ -558,7 +605,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 11,
+              funcId: 12,
               port: port_,
             );
           },
@@ -590,7 +637,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 13,
             port: port_,
           );
         },
@@ -620,7 +667,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 14,
             port: port_,
           );
         },
@@ -644,7 +691,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -669,7 +716,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 16,
             port: port_,
           );
         },
@@ -696,7 +743,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 17,
             port: port_,
           );
         },
@@ -723,7 +770,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 18,
             port: port_,
           );
         },
@@ -750,7 +797,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 19,
             port: port_,
           );
         },
@@ -769,6 +816,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "get_feature_flags", argNames: []);
 
   @override
+  Future<FirstTimeCounterState> crateApiGetFirstTimeState() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 20,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_first_time_counter_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiGetFirstTimeStateConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiGetFirstTimeStateConstMeta =>
+      const TaskConstMeta(debugName: "get_first_time_state", argNames: []);
+
+  @override
   Future<OverlayConfig> crateApiGetOverlayConfig() {
     return handler.executeNormal(
       NormalTask(
@@ -777,7 +851,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 21,
             port: port_,
           );
         },
@@ -804,7 +878,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 22,
             port: port_,
           );
         },
@@ -831,7 +905,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 21,
+            funcId: 23,
             port: port_,
           );
         },
@@ -858,7 +932,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 22,
+            funcId: 24,
             port: port_,
           );
         },
@@ -885,7 +959,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 23,
+            funcId: 25,
             port: port_,
           );
         },
@@ -912,7 +986,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 24,
+            funcId: 26,
             port: port_,
           );
         },
@@ -940,7 +1014,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 25,
+            funcId: 27,
             port: port_,
           );
         },
@@ -972,7 +1046,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 26,
+            funcId: 28,
             port: port_,
           );
         },
@@ -1002,7 +1076,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 27,
+            funcId: 29,
             port: port_,
           );
         },
@@ -1030,7 +1104,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 28,
+            funcId: 30,
             port: port_,
           );
         },
@@ -1059,7 +1133,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 29,
+            funcId: 31,
             port: port_,
           );
         },
@@ -1086,7 +1160,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 30,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1113,7 +1187,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 31,
+            funcId: 33,
             port: port_,
           );
         },
@@ -1141,7 +1215,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 32,
+            funcId: 34,
             port: port_,
           );
         },
@@ -1169,7 +1243,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1199,7 +1273,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 34,
+            funcId: 36,
             port: port_,
           );
         },
@@ -1221,6 +1295,66 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<FirstTimeCounterState> crateApiResetFirstTimeAllHistory() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 37,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_first_time_counter_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiResetFirstTimeAllHistoryConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiResetFirstTimeAllHistoryConstMeta =>
+      const TaskConstMeta(
+        debugName: "reset_first_time_all_history",
+        argNames: [],
+      );
+
+  @override
+  Future<FirstTimeCounterState> crateApiResetFirstTimeSessionCount() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 38,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_first_time_counter_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiResetFirstTimeSessionCountConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiResetFirstTimeSessionCountConstMeta =>
+      const TaskConstMeta(
+        debugName: "reset_first_time_session_count",
+        argNames: [],
+      );
+
+  @override
   Future<void> crateApiResetUserLotteryWinners() {
     return handler.executeNormal(
       NormalTask(
@@ -1229,7 +1363,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 35,
+            funcId: 39,
             port: port_,
           );
         },
@@ -1262,7 +1396,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 36,
+            funcId: 40,
             port: port_,
           );
         },
@@ -1290,7 +1424,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 37,
+            funcId: 41,
             port: port_,
           );
         },
@@ -1309,6 +1443,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "save_feature_flags", argNames: ["flags"]);
 
   @override
+  Future<FirstTimeCounterState> crateApiSaveFirstTimeConfig({
+    required FirstTimeCounterConfig config,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_box_autoadd_first_time_counter_config(config, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 42,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_first_time_counter_state,
+          decodeErrorData: sse_decode_String,
+        ),
+        constMeta: kCrateApiSaveFirstTimeConfigConstMeta,
+        argValues: [config],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiSaveFirstTimeConfigConstMeta =>
+      const TaskConstMeta(
+        debugName: "save_first_time_config",
+        argNames: ["config"],
+      );
+
+  @override
   Future<List<HighlightRule>> crateApiSaveHighlightRule({
     required HighlightRule rule,
   }) {
@@ -1320,7 +1487,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 38,
+            funcId: 43,
             port: port_,
           );
         },
@@ -1350,7 +1517,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 44,
             port: port_,
           );
         },
@@ -1380,7 +1547,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 40,
+            funcId: 45,
             port: port_,
           );
         },
@@ -1410,7 +1577,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 41,
+            funcId: 46,
             port: port_,
           );
         },
@@ -1444,7 +1611,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 42,
+            funcId: 47,
             port: port_,
           );
         },
@@ -1481,7 +1648,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 43,
+            funcId: 48,
             port: port_,
           );
         },
@@ -1519,7 +1686,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 49,
             port: port_,
           );
         },
@@ -1555,7 +1722,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 50,
             port: port_,
           );
         },
@@ -1587,7 +1754,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 51,
             port: port_,
           );
         },
@@ -1617,7 +1784,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 52,
             port: port_,
           );
         },
@@ -1644,7 +1811,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 53,
             port: port_,
           );
         },
@@ -1674,7 +1841,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 49,
+              funcId: 54,
               port: port_,
             );
           },
@@ -1706,7 +1873,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 50,
+            funcId: 55,
             port: port_,
           );
         },
@@ -1756,18 +1923,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   AppEvent dco_decode_app_event(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    if (arr.length != 11)
+      throw Exception('unexpected arr length: expect 11 but see ${arr.length}');
     return AppEvent(
       kind: dco_decode_app_event_kind(arr[0]),
       comment: dco_decode_opt_box_autoadd_comment_item(arr[1]),
-      connection: dco_decode_opt_box_autoadd_connection_state_dto(arr[2]),
-      counters: dco_decode_opt_list_word_counter_config(arr[3]),
-      commentLottery: dco_decode_opt_box_autoadd_comment_lottery_state(arr[4]),
-      lotteryResult: dco_decode_opt_box_autoadd_lottery_result(arr[5]),
-      featureFlags: dco_decode_opt_box_autoadd_feature_flags(arr[6]),
-      noticeLevel: dco_decode_opt_String(arr[7]),
-      noticeMessage: dco_decode_opt_String(arr[8]),
+      comments: dco_decode_opt_list_comment_item(arr[2]),
+      connection: dco_decode_opt_box_autoadd_connection_state_dto(arr[3]),
+      counters: dco_decode_opt_list_word_counter_config(arr[4]),
+      firstTimeState: dco_decode_opt_box_autoadd_first_time_counter_state(
+        arr[5],
+      ),
+      commentLottery: dco_decode_opt_box_autoadd_comment_lottery_state(arr[6]),
+      lotteryResult: dco_decode_opt_box_autoadd_lottery_result(arr[7]),
+      featureFlags: dco_decode_opt_box_autoadd_feature_flags(arr[8]),
+      noticeLevel: dco_decode_opt_String(arr[9]),
+      noticeMessage: dco_decode_opt_String(arr[10]),
     );
   }
 
@@ -1824,6 +1995,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  FirstTimeCounterConfig dco_decode_box_autoadd_first_time_counter_config(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_first_time_counter_config(raw);
+  }
+
+  @protected
+  FirstTimeCounterState dco_decode_box_autoadd_first_time_counter_state(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_first_time_counter_state(raw);
+  }
+
+  @protected
   HighlightRule dco_decode_box_autoadd_highlight_rule(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dco_decode_highlight_rule(raw);
@@ -1875,8 +2062,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   CommentItem dco_decode_comment_item(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 16)
-      throw Exception('unexpected arr length: expect 16 but see ${arr.length}');
+    if (arr.length != 18)
+      throw Exception('unexpected arr length: expect 18 but see ${arr.length}');
     return CommentItem(
       id: dco_decode_String(arr[0]),
       sessionId: dco_decode_String(arr[1]),
@@ -1884,16 +2071,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       userId: dco_decode_String(arr[3]),
       userName: dco_decode_String(arr[4]),
       userIconUrl: dco_decode_String(arr[5]),
-      message: dco_decode_String(arr[6]),
-      timestampMs: dco_decode_i_64(arr[7]),
-      isOwner: dco_decode_bool(arr[8]),
-      isModerator: dco_decode_bool(arr[9]),
-      isMember: dco_decode_bool(arr[10]),
-      isBanned: dco_decode_bool(arr[11]),
-      highlightRuleId: dco_decode_opt_String(arr[12]),
-      bubbleBgColor: dco_decode_opt_String(arr[13]),
-      bubbleTextColor: dco_decode_opt_String(arr[14]),
-      bubbleBorderColor: dco_decode_opt_String(arr[15]),
+      userMemo: dco_decode_String(arr[6]),
+      isFirstTime: dco_decode_bool(arr[7]),
+      message: dco_decode_String(arr[8]),
+      timestampMs: dco_decode_i_64(arr[9]),
+      isOwner: dco_decode_bool(arr[10]),
+      isModerator: dco_decode_bool(arr[11]),
+      isMember: dco_decode_bool(arr[12]),
+      isBanned: dco_decode_bool(arr[13]),
+      highlightRuleId: dco_decode_opt_String(arr[14]),
+      bubbleBgColor: dco_decode_opt_String(arr[15]),
+      bubbleTextColor: dco_decode_opt_String(arr[16]),
+      bubbleBorderColor: dco_decode_opt_String(arr[17]),
     );
   }
 
@@ -1984,8 +2173,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   FeatureFlags dco_decode_feature_flags(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 8)
-      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
     return FeatureFlags(
       commentDisplayEnabled: dco_decode_bool(arr[0]),
       wordHighlightEnabled: dco_decode_bool(arr[1]),
@@ -1993,8 +2182,56 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       userLotteryEnabled: dco_decode_bool(arr[3]),
       commentLotteryEnabled: dco_decode_bool(arr[4]),
       userTrackingEnabled: dco_decode_bool(arr[5]),
-      obsOverlayEnabled: dco_decode_bool(arr[6]),
-      autoUpdateCheckEnabled: dco_decode_bool(arr[7]),
+      userMemoDisplayEnabled: dco_decode_bool(arr[6]),
+      firstTimeCounterEnabled: dco_decode_bool(arr[7]),
+      obsOverlayEnabled: dco_decode_bool(arr[8]),
+      autoUpdateCheckEnabled: dco_decode_bool(arr[9]),
+    );
+  }
+
+  @protected
+  FirstTimeCounterConfig dco_decode_first_time_counter_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return FirstTimeCounterConfig(
+      detectUnregistered: dco_decode_bool(arr[0]),
+      detectKeyword: dco_decode_bool(arr[1]),
+      keywords: dco_decode_list_String(arr[2]),
+      autoResetOnNewStream: dco_decode_bool(arr[3]),
+      showFirstTimerProfile: dco_decode_bool(arr[4]),
+      excludeBanned: dco_decode_bool(arr[5]),
+      accentColor: dco_decode_String(arr[6]),
+    );
+  }
+
+  @protected
+  FirstTimeCounterState dco_decode_first_time_counter_state(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return FirstTimeCounterState(
+      count: dco_decode_u_64(arr[0]),
+      totalDetectedAllTime: dco_decode_u_64(arr[1]),
+      recentUsers: dco_decode_list_first_time_user(arr[2]),
+      config: dco_decode_first_time_counter_config(arr[3]),
+    );
+  }
+
+  @protected
+  FirstTimeUser dco_decode_first_time_user(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return FirstTimeUser(
+      userId: dco_decode_String(arr[0]),
+      userName: dco_decode_String(arr[1]),
+      userIconUrl: dco_decode_String(arr[2]),
+      triggerReason: dco_decode_String(arr[3]),
+      detectedAtMs: dco_decode_i_64(arr[4]),
     );
   }
 
@@ -2048,6 +2285,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return (raw as List<dynamic>)
         .map(dco_decode_comment_lottery_entry)
         .toList();
+  }
+
+  @protected
+  List<FirstTimeUser> dco_decode_list_first_time_user(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_first_time_user).toList();
   }
 
   @protected
@@ -2167,6 +2410,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  FirstTimeCounterState? dco_decode_opt_box_autoadd_first_time_counter_state(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null
+        ? null
+        : dco_decode_box_autoadd_first_time_counter_state(raw);
+  }
+
+  @protected
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_i_64(raw);
@@ -2191,6 +2444,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<CommentItem>? dco_decode_opt_list_comment_item(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_list_comment_item(raw);
+  }
+
+  @protected
   List<WordCounterConfig>? dco_decode_opt_list_word_counter_config(
     dynamic raw,
   ) {
@@ -2202,8 +2461,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   OverlayConfig dco_decode_overlay_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 13)
-      throw Exception('unexpected arr length: expect 13 but see ${arr.length}');
+    if (arr.length != 19)
+      throw Exception('unexpected arr length: expect 19 but see ${arr.length}');
     return OverlayConfig(
       port: dco_decode_u_16(arr[0]),
       commentFontSize: dco_decode_u_32(arr[1]),
@@ -2215,9 +2474,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       commentsTheme: dco_decode_String(arr[7]),
       lotteryTheme: dco_decode_String(arr[8]),
       counterTheme: dco_decode_String(arr[9]),
-      commentsCustomCss: dco_decode_String(arr[10]),
-      lotteryCustomCss: dco_decode_String(arr[11]),
-      counterCustomCss: dco_decode_String(arr[12]),
+      firstTimeTheme: dco_decode_String(arr[10]),
+      commentsBgColor: dco_decode_String(arr[11]),
+      lotteryBgColor: dco_decode_String(arr[12]),
+      counterBgColor: dco_decode_String(arr[13]),
+      firstTimeBgColor: dco_decode_String(arr[14]),
+      commentsCustomCss: dco_decode_String(arr[15]),
+      lotteryCustomCss: dco_decode_String(arr[16]),
+      counterCustomCss: dco_decode_String(arr[17]),
+      firstTimeCustomCss: dco_decode_String(arr[18]),
     );
   }
 
@@ -2417,10 +2682,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_kind = sse_decode_app_event_kind(deserializer);
     var var_comment = sse_decode_opt_box_autoadd_comment_item(deserializer);
+    var var_comments = sse_decode_opt_list_comment_item(deserializer);
     var var_connection = sse_decode_opt_box_autoadd_connection_state_dto(
       deserializer,
     );
     var var_counters = sse_decode_opt_list_word_counter_config(deserializer);
+    var var_firstTimeState =
+        sse_decode_opt_box_autoadd_first_time_counter_state(deserializer);
     var var_commentLottery = sse_decode_opt_box_autoadd_comment_lottery_state(
       deserializer,
     );
@@ -2435,8 +2703,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return AppEvent(
       kind: var_kind,
       comment: var_comment,
+      comments: var_comments,
       connection: var_connection,
       counters: var_counters,
+      firstTimeState: var_firstTimeState,
       commentLottery: var_commentLottery,
       lotteryResult: var_lotteryResult,
       featureFlags: var_featureFlags,
@@ -2506,6 +2776,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  FirstTimeCounterConfig sse_decode_box_autoadd_first_time_counter_config(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_first_time_counter_config(deserializer));
+  }
+
+  @protected
+  FirstTimeCounterState sse_decode_box_autoadd_first_time_counter_state(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_first_time_counter_state(deserializer));
+  }
+
+  @protected
   HighlightRule sse_decode_box_autoadd_highlight_rule(
     SseDeserializer deserializer,
   ) {
@@ -2572,6 +2858,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_userId = sse_decode_String(deserializer);
     var var_userName = sse_decode_String(deserializer);
     var var_userIconUrl = sse_decode_String(deserializer);
+    var var_userMemo = sse_decode_String(deserializer);
+    var var_isFirstTime = sse_decode_bool(deserializer);
     var var_message = sse_decode_String(deserializer);
     var var_timestampMs = sse_decode_i_64(deserializer);
     var var_isOwner = sse_decode_bool(deserializer);
@@ -2589,6 +2877,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       userId: var_userId,
       userName: var_userName,
       userIconUrl: var_userIconUrl,
+      userMemo: var_userMemo,
+      isFirstTime: var_isFirstTime,
       message: var_message,
       timestampMs: var_timestampMs,
       isOwner: var_isOwner,
@@ -2725,6 +3015,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_userLotteryEnabled = sse_decode_bool(deserializer);
     var var_commentLotteryEnabled = sse_decode_bool(deserializer);
     var var_userTrackingEnabled = sse_decode_bool(deserializer);
+    var var_userMemoDisplayEnabled = sse_decode_bool(deserializer);
+    var var_firstTimeCounterEnabled = sse_decode_bool(deserializer);
     var var_obsOverlayEnabled = sse_decode_bool(deserializer);
     var var_autoUpdateCheckEnabled = sse_decode_bool(deserializer);
     return FeatureFlags(
@@ -2734,8 +3026,67 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       userLotteryEnabled: var_userLotteryEnabled,
       commentLotteryEnabled: var_commentLotteryEnabled,
       userTrackingEnabled: var_userTrackingEnabled,
+      userMemoDisplayEnabled: var_userMemoDisplayEnabled,
+      firstTimeCounterEnabled: var_firstTimeCounterEnabled,
       obsOverlayEnabled: var_obsOverlayEnabled,
       autoUpdateCheckEnabled: var_autoUpdateCheckEnabled,
+    );
+  }
+
+  @protected
+  FirstTimeCounterConfig sse_decode_first_time_counter_config(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_detectUnregistered = sse_decode_bool(deserializer);
+    var var_detectKeyword = sse_decode_bool(deserializer);
+    var var_keywords = sse_decode_list_String(deserializer);
+    var var_autoResetOnNewStream = sse_decode_bool(deserializer);
+    var var_showFirstTimerProfile = sse_decode_bool(deserializer);
+    var var_excludeBanned = sse_decode_bool(deserializer);
+    var var_accentColor = sse_decode_String(deserializer);
+    return FirstTimeCounterConfig(
+      detectUnregistered: var_detectUnregistered,
+      detectKeyword: var_detectKeyword,
+      keywords: var_keywords,
+      autoResetOnNewStream: var_autoResetOnNewStream,
+      showFirstTimerProfile: var_showFirstTimerProfile,
+      excludeBanned: var_excludeBanned,
+      accentColor: var_accentColor,
+    );
+  }
+
+  @protected
+  FirstTimeCounterState sse_decode_first_time_counter_state(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_count = sse_decode_u_64(deserializer);
+    var var_totalDetectedAllTime = sse_decode_u_64(deserializer);
+    var var_recentUsers = sse_decode_list_first_time_user(deserializer);
+    var var_config = sse_decode_first_time_counter_config(deserializer);
+    return FirstTimeCounterState(
+      count: var_count,
+      totalDetectedAllTime: var_totalDetectedAllTime,
+      recentUsers: var_recentUsers,
+      config: var_config,
+    );
+  }
+
+  @protected
+  FirstTimeUser sse_decode_first_time_user(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_userId = sse_decode_String(deserializer);
+    var var_userName = sse_decode_String(deserializer);
+    var var_userIconUrl = sse_decode_String(deserializer);
+    var var_triggerReason = sse_decode_String(deserializer);
+    var var_detectedAtMs = sse_decode_i_64(deserializer);
+    return FirstTimeUser(
+      userId: var_userId,
+      userName: var_userName,
+      userIconUrl: var_userIconUrl,
+      triggerReason: var_triggerReason,
+      detectedAtMs: var_detectedAtMs,
     );
   }
 
@@ -2812,6 +3163,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <CommentLotteryEntry>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_comment_lottery_entry(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<FirstTimeUser> sse_decode_list_first_time_user(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <FirstTimeUser>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_first_time_user(deserializer));
     }
     return ans_;
   }
@@ -3005,6 +3370,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  FirstTimeCounterState? sse_decode_opt_box_autoadd_first_time_counter_state(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_first_time_counter_state(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -3051,6 +3429,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  List<CommentItem>? sse_decode_opt_list_comment_item(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_list_comment_item(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   List<WordCounterConfig>? sse_decode_opt_list_word_counter_config(
     SseDeserializer deserializer,
   ) {
@@ -3076,9 +3467,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_commentsTheme = sse_decode_String(deserializer);
     var var_lotteryTheme = sse_decode_String(deserializer);
     var var_counterTheme = sse_decode_String(deserializer);
+    var var_firstTimeTheme = sse_decode_String(deserializer);
+    var var_commentsBgColor = sse_decode_String(deserializer);
+    var var_lotteryBgColor = sse_decode_String(deserializer);
+    var var_counterBgColor = sse_decode_String(deserializer);
+    var var_firstTimeBgColor = sse_decode_String(deserializer);
     var var_commentsCustomCss = sse_decode_String(deserializer);
     var var_lotteryCustomCss = sse_decode_String(deserializer);
     var var_counterCustomCss = sse_decode_String(deserializer);
+    var var_firstTimeCustomCss = sse_decode_String(deserializer);
     return OverlayConfig(
       port: var_port,
       commentFontSize: var_commentFontSize,
@@ -3090,9 +3487,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       commentsTheme: var_commentsTheme,
       lotteryTheme: var_lotteryTheme,
       counterTheme: var_counterTheme,
+      firstTimeTheme: var_firstTimeTheme,
+      commentsBgColor: var_commentsBgColor,
+      lotteryBgColor: var_lotteryBgColor,
+      counterBgColor: var_counterBgColor,
+      firstTimeBgColor: var_firstTimeBgColor,
       commentsCustomCss: var_commentsCustomCss,
       lotteryCustomCss: var_lotteryCustomCss,
       counterCustomCss: var_counterCustomCss,
+      firstTimeCustomCss: var_firstTimeCustomCss,
     );
   }
 
@@ -3351,11 +3754,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_app_event_kind(self.kind, serializer);
     sse_encode_opt_box_autoadd_comment_item(self.comment, serializer);
+    sse_encode_opt_list_comment_item(self.comments, serializer);
     sse_encode_opt_box_autoadd_connection_state_dto(
       self.connection,
       serializer,
     );
     sse_encode_opt_list_word_counter_config(self.counters, serializer);
+    sse_encode_opt_box_autoadd_first_time_counter_state(
+      self.firstTimeState,
+      serializer,
+    );
     sse_encode_opt_box_autoadd_comment_lottery_state(
       self.commentLottery,
       serializer,
@@ -3427,6 +3835,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_feature_flags(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_first_time_counter_config(
+    FirstTimeCounterConfig self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_first_time_counter_config(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_first_time_counter_state(
+    FirstTimeCounterState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_first_time_counter_state(self, serializer);
   }
 
   @protected
@@ -3504,6 +3930,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.userId, serializer);
     sse_encode_String(self.userName, serializer);
     sse_encode_String(self.userIconUrl, serializer);
+    sse_encode_String(self.userMemo, serializer);
+    sse_encode_bool(self.isFirstTime, serializer);
     sse_encode_String(self.message, serializer);
     sse_encode_i_64(self.timestampMs, serializer);
     sse_encode_bool(self.isOwner, serializer);
@@ -3606,8 +4034,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.userLotteryEnabled, serializer);
     sse_encode_bool(self.commentLotteryEnabled, serializer);
     sse_encode_bool(self.userTrackingEnabled, serializer);
+    sse_encode_bool(self.userMemoDisplayEnabled, serializer);
+    sse_encode_bool(self.firstTimeCounterEnabled, serializer);
     sse_encode_bool(self.obsOverlayEnabled, serializer);
     sse_encode_bool(self.autoUpdateCheckEnabled, serializer);
+  }
+
+  @protected
+  void sse_encode_first_time_counter_config(
+    FirstTimeCounterConfig self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.detectUnregistered, serializer);
+    sse_encode_bool(self.detectKeyword, serializer);
+    sse_encode_list_String(self.keywords, serializer);
+    sse_encode_bool(self.autoResetOnNewStream, serializer);
+    sse_encode_bool(self.showFirstTimerProfile, serializer);
+    sse_encode_bool(self.excludeBanned, serializer);
+    sse_encode_String(self.accentColor, serializer);
+  }
+
+  @protected
+  void sse_encode_first_time_counter_state(
+    FirstTimeCounterState self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_64(self.count, serializer);
+    sse_encode_u_64(self.totalDetectedAllTime, serializer);
+    sse_encode_list_first_time_user(self.recentUsers, serializer);
+    sse_encode_first_time_counter_config(self.config, serializer);
+  }
+
+  @protected
+  void sse_encode_first_time_user(
+    FirstTimeUser self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.userId, serializer);
+    sse_encode_String(self.userName, serializer);
+    sse_encode_String(self.userIconUrl, serializer);
+    sse_encode_String(self.triggerReason, serializer);
+    sse_encode_i_64(self.detectedAtMs, serializer);
   }
 
   @protected
@@ -3667,6 +4137,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_comment_lottery_entry(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_first_time_user(
+    List<FirstTimeUser> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_first_time_user(item, serializer);
     }
   }
 
@@ -3838,6 +4320,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_box_autoadd_first_time_counter_state(
+    FirstTimeCounterState? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_first_time_counter_state(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_i_64(
     PlatformInt64? self,
     SseSerializer serializer,
@@ -3884,6 +4379,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_list_comment_item(
+    List<CommentItem>? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_list_comment_item(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_list_word_counter_config(
     List<WordCounterConfig>? self,
     SseSerializer serializer,
@@ -3909,9 +4417,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.commentsTheme, serializer);
     sse_encode_String(self.lotteryTheme, serializer);
     sse_encode_String(self.counterTheme, serializer);
+    sse_encode_String(self.firstTimeTheme, serializer);
+    sse_encode_String(self.commentsBgColor, serializer);
+    sse_encode_String(self.lotteryBgColor, serializer);
+    sse_encode_String(self.counterBgColor, serializer);
+    sse_encode_String(self.firstTimeBgColor, serializer);
     sse_encode_String(self.commentsCustomCss, serializer);
     sse_encode_String(self.lotteryCustomCss, serializer);
     sse_encode_String(self.counterCustomCss, serializer);
+    sse_encode_String(self.firstTimeCustomCss, serializer);
   }
 
   @protected

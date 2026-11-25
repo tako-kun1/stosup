@@ -6,6 +6,7 @@ import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/color_picker_row.dart';
 import '../widgets/feature_toggle_banner.dart';
+import '../widgets/overlay_bg_picker.dart';
 
 class _PresetMeta {
   const _PresetMeta({
@@ -25,7 +26,7 @@ class _PresetMeta {
   final Color border;
 }
 
-/// OBS オーバーレイ ＆ 各機能デザイン（プリセット選択 ＋ カスタム CSS 編集）画面
+/// OBS オーバーレイ ＆ 各機能デザイン（プリセット・背景色切替・カスタム CSS 編集）画面
 class OverlayScreen extends StatefulWidget {
   const OverlayScreen({super.key, required this.controller});
 
@@ -42,6 +43,7 @@ class _OverlayScreenState extends State<OverlayScreen>
   late TextEditingController _commentsCssCtrl;
   late TextEditingController _lotteryCssCtrl;
   late TextEditingController _counterCssCtrl;
+  late TextEditingController _firstTimeCssCtrl;
 
   late int _fontSize;
   late int _maxItems;
@@ -52,6 +54,11 @@ class _OverlayScreenState extends State<OverlayScreen>
   late String _commentsTheme;
   late String _lotteryTheme;
   late String _counterTheme;
+  late String _firstTimeTheme;
+  late String _commentsBgColor;
+  late String _lotteryBgColor;
+  late String _counterBgColor;
+  late String _firstTimeBgColor;
 
   static const List<_PresetMeta> _commentPresets = [
     _PresetMeta(
@@ -185,12 +192,13 @@ class _OverlayScreenState extends State<OverlayScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 4, vsync: this);
+    _tabCtrl = TabController(length: 5, vsync: this);
     final cfg = widget.controller.overlayConfig;
     _portCtrl = TextEditingController(text: cfg.port.toString());
     _commentsCssCtrl = TextEditingController(text: cfg.commentsCustomCss);
     _lotteryCssCtrl = TextEditingController(text: cfg.lotteryCustomCss);
     _counterCssCtrl = TextEditingController(text: cfg.counterCustomCss);
+    _firstTimeCssCtrl = TextEditingController(text: cfg.firstTimeCustomCss);
     _fontSize = cfg.commentFontSize;
     _maxItems = cfg.commentMaxItems;
     _showIcons = cfg.showIcons;
@@ -200,6 +208,11 @@ class _OverlayScreenState extends State<OverlayScreen>
     _commentsTheme = cfg.commentsTheme;
     _lotteryTheme = cfg.lotteryTheme;
     _counterTheme = cfg.counterTheme;
+    _firstTimeTheme = cfg.firstTimeTheme;
+    _commentsBgColor = cfg.commentsBgColor;
+    _lotteryBgColor = cfg.lotteryBgColor;
+    _counterBgColor = cfg.counterBgColor;
+    _firstTimeBgColor = cfg.firstTimeBgColor;
   }
 
   @override
@@ -209,6 +222,7 @@ class _OverlayScreenState extends State<OverlayScreen>
     _commentsCssCtrl.dispose();
     _lotteryCssCtrl.dispose();
     _counterCssCtrl.dispose();
+    _firstTimeCssCtrl.dispose();
     super.dispose();
   }
 
@@ -233,9 +247,15 @@ class _OverlayScreenState extends State<OverlayScreen>
       commentsTheme: _commentsTheme,
       lotteryTheme: _lotteryTheme,
       counterTheme: _counterTheme,
+      firstTimeTheme: _firstTimeTheme,
+      commentsBgColor: _commentsBgColor,
+      lotteryBgColor: _lotteryBgColor,
+      counterBgColor: _counterBgColor,
+      firstTimeBgColor: _firstTimeBgColor,
       commentsCustomCss: _commentsCssCtrl.text,
       lotteryCustomCss: _lotteryCssCtrl.text,
       counterCustomCss: _counterCssCtrl.text,
+      firstTimeCustomCss: _firstTimeCssCtrl.text,
     ));
   }
 
@@ -255,15 +275,10 @@ class _OverlayScreenState extends State<OverlayScreen>
               Row(
                 children: [
                   const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'OBS オーバーレイ ＆ デザインカスタマイズ',
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                    child: Text(
+                      'OBS オーバーレイ ＆ デザインカスタマイズ',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                   ),
                   FeatureToggleSwitch(
@@ -289,9 +304,10 @@ class _OverlayScreenState extends State<OverlayScreen>
                 tabAlignment: TabAlignment.start,
                 tabs: const [
                   Tab(text: 'OBS URL・基本設定'),
-                  Tab(text: 'コメント表示デザイン / CSS'),
-                  Tab(text: '抽選画面デザイン / CSS'),
-                  Tab(text: 'カウンターデザイン / CSS'),
+                  Tab(text: 'コメント表示 / CSS'),
+                  Tab(text: '抽選画面 / CSS'),
+                  Tab(text: 'ワードカウント / CSS'),
+                  Tab(text: '初見カウンター / CSS'),
                 ],
               ),
             ],
@@ -307,11 +323,14 @@ class _OverlayScreenState extends State<OverlayScreen>
                 presets: _commentPresets,
                 selectedId: _commentsTheme,
                 onSelect: (id) => setState(() => _commentsTheme = id),
+                bgColor: _commentsBgColor,
+                onBgChanged: (bg) => setState(() => _commentsBgColor = bg),
                 cssController: _commentsCssCtrl,
-                previewUrl: '${widget.controller.overlayBaseUrl}/overlay/comments',
+                previewUrl:
+                    '${widget.controller.overlayBaseUrl}/overlay/comments',
                 obsEnabled: obsEnabled,
                 selectorsHelp:
-                    '.comment-row（行全体） / .avatar（アイコン） / .bubble（吹き出し） / .bubble.highlighted（ワード反応時） / .author（名前） / .message（本文）',
+                    '.comment-row / .avatar / .bubble / .bubble.highlighted / .author / .message',
                 sampleCss:
                     '/* 例: 吹き出しを角張らせて文字に縁取りを付ける */\n.bubble {\n  border-radius: 4px;\n  padding: 12px 18px;\n}\n.message {\n  font-weight: 700;\n  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);\n}',
                 previewBuilder: (meta) => _buildCommentMiniPreview(meta),
@@ -321,11 +340,14 @@ class _OverlayScreenState extends State<OverlayScreen>
                 presets: _lotteryPresets,
                 selectedId: _lotteryTheme,
                 onSelect: (id) => setState(() => _lotteryTheme = id),
+                bgColor: _lotteryBgColor,
+                onBgChanged: (bg) => setState(() => _lotteryBgColor = bg),
                 cssController: _lotteryCssCtrl,
-                previewUrl: '${widget.controller.overlayBaseUrl}/overlay/lottery',
+                previewUrl:
+                    '${widget.controller.overlayBaseUrl}/overlay/lottery',
                 obsEnabled: obsEnabled,
                 selectorsHelp:
-                    '.banner（上部見出し） / .winner-card（当選カード） / .winner-avatar（アイコン） / .winner-name（当選者名） / .winner-comment（応募コメント） / .rolling（抽選中表示）',
+                    '.banner / .winner-card / .winner-avatar / .winner-name / .winner-comment / .rolling',
                 sampleCss:
                     '/* 例: 当選者名をさらに大きく強調する */\n.winner-card {\n  min-width: 360px;\n}\n.winner-name {\n  font-size: 34px;\n  letter-spacing: 0.04em;\n}',
                 previewBuilder: (meta) => _buildLotteryMiniPreview(meta),
@@ -335,14 +357,36 @@ class _OverlayScreenState extends State<OverlayScreen>
                 presets: _counterPresets,
                 selectedId: _counterTheme,
                 onSelect: (id) => setState(() => _counterTheme = id),
+                bgColor: _counterBgColor,
+                onBgChanged: (bg) => setState(() => _counterBgColor = bg),
                 cssController: _counterCssCtrl,
-                previewUrl: '${widget.controller.overlayBaseUrl}/overlay/counter',
+                previewUrl:
+                    '${widget.controller.overlayBaseUrl}/overlay/counter',
                 obsEnabled: obsEnabled,
                 selectorsHelp:
-                    '#counters（全体コンテナ） / .card（カウンターカード） / .label（カウンター名） / .mode-tag（回数制限タグ） / .value（数値） / .sub（補足テキスト）',
+                    '#counters / .card / .label / .mode-tag / .value / .sub',
                 sampleCss:
                     '/* 例: カウンターを縦並びにし、数字を強調する */\n#counters {\n  flex-direction: column;\n}\n.value {\n  font-size: 54px;\n}',
-                previewBuilder: (meta) => _buildCounterMiniPreview(meta),
+                previewBuilder: (meta) =>
+                    _buildCounterMiniPreview(meta, '草カウンター', '128'),
+              ),
+              _buildDesignTab(
+                title: '初見カウンターオーバーレイのデザイン',
+                presets: _counterPresets,
+                selectedId: _firstTimeTheme,
+                onSelect: (id) => setState(() => _firstTimeTheme = id),
+                bgColor: _firstTimeBgColor,
+                onBgChanged: (bg) => setState(() => _firstTimeBgColor = bg),
+                cssController: _firstTimeCssCtrl,
+                previewUrl:
+                    '${widget.controller.overlayBaseUrl}/overlay/first_time',
+                obsEnabled: obsEnabled,
+                selectorsHelp:
+                    '.ft-card / .ft-title / .ft-count / .ft-profiles / .ft-user / .ft-avatar / .ft-user-name',
+                sampleCss:
+                    '/* 例: 初見カウント数字をさらに大きく表示する */\n.ft-count {\n  font-size: 56px;\n}\n.ft-user {\n  border-radius: 999px;\n}',
+                previewBuilder: (meta) =>
+                    _buildCounterMiniPreview(meta, '本日の初見さん', '5'),
               ),
             ],
           ),
@@ -357,6 +401,7 @@ class _OverlayScreenState extends State<OverlayScreen>
     final commentsUrl = '$base/overlay/comments';
     final lotteryUrl = '$base/overlay/lottery';
     final counterUrl = '$base/overlay/counter';
+    final firstTimeUrl = '$base/overlay/first_time';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -376,28 +421,46 @@ class _OverlayScreenState extends State<OverlayScreen>
           _OverlayUrlCard(
             icon: Icons.chat_bubble_outline,
             title: 'コメント表示オーバーレイ',
-            description: '推奨サイズ: 幅 480 × 高さ 720。末尾に ?theme=pop 等を付けて個別上書きも可能。',
+            description:
+                '推奨サイズ: 幅 480 × 高さ 720。背景色・プリセット・カスタムCSSは「コメント表示 / CSS」タブで調整できます。',
             url: commentsUrl,
             onCopy: () => _copy(commentsUrl, 'コメント表示'),
-            onOpen: obsEnabled ? () => widget.controller.openUrl(commentsUrl) : null,
+            onOpen:
+                obsEnabled ? () => widget.controller.openUrl(commentsUrl) : null,
           ),
           const SizedBox(height: 10),
           _OverlayUrlCard(
             icon: Icons.emoji_events_outlined,
             title: '抽選演出・当選者オーバーレイ',
-            description: '推奨サイズ: 幅 960 × 高さ 540。当選者のアイコン・名前・応募コメントを表示。',
+            description:
+                '推奨サイズ: 幅 960 × 高さ 540。当選者のアイコン・名前・応募コメントを表示します。',
             url: lotteryUrl,
             onCopy: () => _copy(lotteryUrl, '抽選結果表示'),
-            onOpen: obsEnabled ? () => widget.controller.openUrl(lotteryUrl) : null,
+            onOpen:
+                obsEnabled ? () => widget.controller.openUrl(lotteryUrl) : null,
           ),
           const SizedBox(height: 10),
           _OverlayUrlCard(
             icon: Icons.pin_outlined,
             title: '特定ワードカウンターオーバーレイ',
-            description: '推奨サイズ: 幅 600 × 高さ 240。単体 URL はカウンター画面からコピー可能。',
+            description:
+                '推奨サイズ: 幅 600 × 高さ 240。単体 URL はワードカウント画面からコピーできます。',
             url: counterUrl,
             onCopy: () => _copy(counterUrl, 'ワードカウンター'),
-            onOpen: obsEnabled ? () => widget.controller.openUrl(counterUrl) : null,
+            onOpen:
+                obsEnabled ? () => widget.controller.openUrl(counterUrl) : null,
+          ),
+          const SizedBox(height: 10),
+          _OverlayUrlCard(
+            icon: Icons.waving_hand_outlined,
+            title: '初見カウンターオーバーレイ',
+            description:
+                '推奨サイズ: 幅 380 × 高さ 320。オプションON時は初見さんのアイコンと名前も表示されます。',
+            url: firstTimeUrl,
+            onCopy: () => _copy(firstTimeUrl, '初見カウンター'),
+            onOpen: obsEnabled
+                ? () => widget.controller.openUrl(firstTimeUrl)
+                : null,
           ),
           const SizedBox(height: 18),
           Card(
@@ -519,6 +582,8 @@ class _OverlayScreenState extends State<OverlayScreen>
     required List<_PresetMeta> presets,
     required String selectedId,
     required ValueChanged<String> onSelect,
+    required String bgColor,
+    required ValueChanged<String> onBgChanged,
     required TextEditingController cssController,
     required String previewUrl,
     required bool obsEnabled,
@@ -531,6 +596,10 @@ class _OverlayScreenState extends State<OverlayScreen>
       (e) => e.id == selectedId,
       orElse: () => presets.first,
     );
+    final isTransparent = bgColor.trim().toLowerCase() == 'transparent';
+    final previewCanvasColor = isTransparent
+        ? const Color(0xFF1F2429)
+        : AppTheme.parseCssHex(bgColor, fallback: const Color(0xFF1F2429));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -557,7 +626,7 @@ class _OverlayScreenState extends State<OverlayScreen>
           ),
           const SizedBox(height: 12),
 
-          // プリセット選択グリッド
+          // 1. プリセット選択
           const Text('1. プリセットデザインを選択',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
           const SizedBox(height: 8),
@@ -610,8 +679,7 @@ class _OverlayScreenState extends State<OverlayScreen>
                       const SizedBox(height: 6),
                       Text(
                         meta.desc,
-                        style: TextStyle(
-                            fontSize: 11.5, color: p.textSecondary),
+                        style: TextStyle(fontSize: 11.5, color: p.textSecondary),
                       ),
                     ],
                   ),
@@ -621,15 +689,40 @@ class _OverlayScreenState extends State<OverlayScreen>
           ),
           const SizedBox(height: 16),
 
-          // イメージプレビュー
-          const Text('選択中プリセットのイメージ',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+          // 2. 背景色の切り替え
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: OverlayBgPicker(
+                value: bgColor,
+                onChanged: onBgChanged,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // イメージプレビュー（背景色連動）
+          Row(
+            children: [
+              const Text('プレビュー',
+                  style:
+                      TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+              const SizedBox(width: 10),
+              Text(
+                isTransparent ? '背景: 透過（OBS標準）' : '背景色: $bgColor',
+                style: TextStyle(
+                    fontFamily: 'Consolas',
+                    fontSize: 11.5,
+                    color: p.textSecondary),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: const Color(0xFF1F2429),
+              color: previewCanvasColor,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: p.border),
             ),
@@ -637,12 +730,12 @@ class _OverlayScreenState extends State<OverlayScreen>
           ),
           const SizedBox(height: 18),
 
-          // カスタム CSS エディタ
+          // 3. カスタム CSS エディタ
           Row(
             children: [
               const Expanded(
                 child: Text(
-                  '2. ユーザーカスタム CSS（上級者向け・プリセットの上書き調整）',
+                  '3. ユーザーカスタム CSS（プリセットの上書き調整）',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
                 ),
               ),
@@ -688,14 +781,15 @@ class _OverlayScreenState extends State<OverlayScreen>
           const SizedBox(height: 8),
           TextField(
             controller: cssController,
-            maxLines: 9,
+            maxLines: 8,
             style: const TextStyle(
               fontFamily: 'Consolas',
               fontSize: 13,
               height: 1.45,
             ),
             decoration: const InputDecoration(
-              hintText: 'ここにカスタム CSS を記述し、右上の「保存して即時反映」を押すと OBS にリアルタイム適用されます...',
+              hintText:
+                  'ここにカスタム CSS を記述し、「保存して即時反映」を押すと OBS にリアルタイム適用されます...',
             ),
           ),
           const SizedBox(height: 12),
@@ -704,7 +798,7 @@ class _OverlayScreenState extends State<OverlayScreen>
             child: FilledButton.icon(
               onPressed: _save,
               icon: const Icon(Icons.save_outlined, size: 17),
-              label: const Text('このデザイン・CSS を保存して OBS へ即時反映'),
+              label: const Text('デザイン・背景色・CSS を保存して OBS へ即時反映'),
             ),
           ),
         ],
@@ -806,26 +900,26 @@ class _OverlayScreenState extends State<OverlayScreen>
     );
   }
 
-  Widget _buildCounterMiniPreview(_PresetMeta meta) {
+  Widget _buildCounterMiniPreview(
+      _PresetMeta meta, String title, String value) {
     final isCompact = meta.id == 'compact';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: BoxDecoration(
         color: meta.bg,
-        borderRadius: BorderRadius.circular(isCompact
-            ? 999
-            : (meta.id == 'pastel' ? 18 : 8)),
+        borderRadius: BorderRadius.circular(
+            isCompact ? 999 : (meta.id == 'pastel' ? 18 : 8)),
         border: Border.all(color: meta.border, width: 2),
       ),
       child: isCompact
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('草カウンター',
-                    style: TextStyle(
-                        color: meta.fg, fontWeight: FontWeight.bold)),
+                Text(title,
+                    style:
+                        TextStyle(color: meta.fg, fontWeight: FontWeight.bold)),
                 const SizedBox(width: 12),
-                Text('128',
+                Text(value,
                     style: TextStyle(
                         color: meta.border,
                         fontSize: 24,
@@ -836,13 +930,13 @@ class _OverlayScreenState extends State<OverlayScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('草カウンター',
+                Text(title,
                     style: TextStyle(
                         color: meta.fg.withValues(alpha: 0.85),
                         fontSize: 12.5,
                         fontWeight: FontWeight.bold)),
                 Text(
-                  '128',
+                  value,
                   style: TextStyle(
                     color: meta.border,
                     fontSize: 36,
@@ -850,9 +944,6 @@ class _OverlayScreenState extends State<OverlayScreen>
                     fontFamily: meta.id == 'scoreboard' ? 'Consolas' : null,
                   ),
                 ),
-                Text('対象: 草, www / 参加 42人',
-                    style: TextStyle(
-                        color: meta.fg.withValues(alpha: 0.6), fontSize: 11)),
               ],
             ),
     );

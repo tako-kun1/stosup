@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:stosup/theme/app_theme.dart';
 import 'package:stosup/widgets/feature_toggle_banner.dart';
 import 'package:stosup/widgets/markdown_notes_view.dart';
+import 'package:stosup/widgets/overlay_bg_picker.dart';
 import 'package:stosup/widgets/user_avatar.dart';
 
 void main() {
@@ -122,5 +123,27 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(darkPalette?.windowBg, StosupPalette.dark.windowBg);
+  });
+
+  testWidgets('OverlayBgPicker が背景色の切り替えイベントを通知する',
+      (WidgetTester tester) async {
+    var selected = 'transparent';
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: StatefulBuilder(
+          builder: (context, setState) => Scaffold(
+            body: OverlayBgPicker(
+              value: selected,
+              onChanged: (v) => setState(() => selected = v),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('クロマキー緑'));
+    await tester.pumpAndSettle();
+    expect(selected, '#00FF00');
   });
 }

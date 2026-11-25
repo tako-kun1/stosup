@@ -10,7 +10,7 @@
   html, body {
     width: 100%;
     height: 100%;
-    background: transparent !important;
+    background: var(--page-bg, transparent) !important;
     overflow: hidden;
     font-family: "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif;
   }
@@ -125,11 +125,21 @@
   const params = new URLSearchParams(location.search);
   const filterId = params.get('id');
   const urlThemeOverride = params.get('theme');
+  const urlBgOverride = params.get('bg');
   const prevValues = new Map();
-  let config = { counter_theme: 'default', counter_custom_css: '' };
+  let config = { counter_theme: 'default', counter_bg_color: 'transparent', counter_custom_css: '' };
+
+  function resolvePageBg(raw) {
+    const val = (raw || 'transparent').trim();
+    if (!val || val.toLowerCase() === 'transparent') return 'transparent';
+    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return '#' + val;
+    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return val;
+    return 'transparent';
+  }
 
   function applyDesign() {
     document.body.dataset.theme = urlThemeOverride || config.counter_theme || 'default';
+    document.documentElement.style.setProperty('--page-bg', resolvePageBg(urlBgOverride || config.counter_bg_color));
     customStyleEl.textContent = config.counter_custom_css || '';
   }
 

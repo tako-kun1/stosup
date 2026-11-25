@@ -65,6 +65,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FeatureFlags dco_decode_box_autoadd_feature_flags(dynamic raw);
 
   @protected
+  FirstTimeCounterConfig dco_decode_box_autoadd_first_time_counter_config(
+    dynamic raw,
+  );
+
+  @protected
+  FirstTimeCounterState dco_decode_box_autoadd_first_time_counter_state(
+    dynamic raw,
+  );
+
+  @protected
   HighlightRule dco_decode_box_autoadd_highlight_rule(dynamic raw);
 
   @protected
@@ -113,6 +123,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FeatureFlags dco_decode_feature_flags(dynamic raw);
 
   @protected
+  FirstTimeCounterConfig dco_decode_first_time_counter_config(dynamic raw);
+
+  @protected
+  FirstTimeCounterState dco_decode_first_time_counter_state(dynamic raw);
+
+  @protected
+  FirstTimeUser dco_decode_first_time_user(dynamic raw);
+
+  @protected
   HighlightRule dco_decode_highlight_rule(dynamic raw);
 
   @protected
@@ -129,6 +148,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<CommentLotteryEntry> dco_decode_list_comment_lottery_entry(dynamic raw);
+
+  @protected
+  List<FirstTimeUser> dco_decode_list_first_time_user(dynamic raw);
 
   @protected
   List<HighlightRule> dco_decode_list_highlight_rule(dynamic raw);
@@ -180,6 +202,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FeatureFlags? dco_decode_opt_box_autoadd_feature_flags(dynamic raw);
 
   @protected
+  FirstTimeCounterState? dco_decode_opt_box_autoadd_first_time_counter_state(
+    dynamic raw,
+  );
+
+  @protected
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
 
   @protected
@@ -190,6 +217,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  List<CommentItem>? dco_decode_opt_list_comment_item(dynamic raw);
 
   @protected
   List<WordCounterConfig>? dco_decode_opt_list_word_counter_config(dynamic raw);
@@ -289,6 +319,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  FirstTimeCounterConfig sse_decode_box_autoadd_first_time_counter_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FirstTimeCounterState sse_decode_box_autoadd_first_time_counter_state(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   HighlightRule sse_decode_box_autoadd_highlight_rule(
     SseDeserializer deserializer,
   );
@@ -355,6 +395,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FeatureFlags sse_decode_feature_flags(SseDeserializer deserializer);
 
   @protected
+  FirstTimeCounterConfig sse_decode_first_time_counter_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FirstTimeCounterState sse_decode_first_time_counter_state(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FirstTimeUser sse_decode_first_time_user(SseDeserializer deserializer);
+
+  @protected
   HighlightRule sse_decode_highlight_rule(SseDeserializer deserializer);
 
   @protected
@@ -371,6 +424,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<CommentLotteryEntry> sse_decode_list_comment_lottery_entry(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<FirstTimeUser> sse_decode_list_first_time_user(
     SseDeserializer deserializer,
   );
 
@@ -438,6 +496,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  FirstTimeCounterState? sse_decode_opt_box_autoadd_first_time_counter_state(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
@@ -450,6 +513,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  List<CommentItem>? sse_decode_opt_list_comment_item(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<WordCounterConfig>? sse_decode_opt_list_word_counter_config(
@@ -570,6 +638,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_first_time_counter_config(
+    FirstTimeCounterConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_first_time_counter_state(
+    FirstTimeCounterState self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_highlight_rule(
     HighlightRule self,
     SseSerializer serializer,
@@ -654,6 +734,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_feature_flags(FeatureFlags self, SseSerializer serializer);
 
   @protected
+  void sse_encode_first_time_counter_config(
+    FirstTimeCounterConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_first_time_counter_state(
+    FirstTimeCounterState self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_first_time_user(FirstTimeUser self, SseSerializer serializer);
+
+  @protected
   void sse_encode_highlight_rule(HighlightRule self, SseSerializer serializer);
 
   @protected
@@ -674,6 +769,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_comment_lottery_entry(
     List<CommentLotteryEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_first_time_user(
+    List<FirstTimeUser> self,
     SseSerializer serializer,
   );
 
@@ -756,6 +857,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_first_time_counter_state(
+    FirstTimeCounterState? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_i_64(
     PlatformInt64? self,
     SseSerializer serializer,
@@ -772,6 +879,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_list_comment_item(
+    List<CommentItem>? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_list_word_counter_config(

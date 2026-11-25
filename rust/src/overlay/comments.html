@@ -10,7 +10,7 @@
   html, body {
     width: 100%;
     height: 100%;
-    background: transparent !important;
+    background: var(--page-bg, transparent) !important;
     overflow: hidden;
     font-family: "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif;
   }
@@ -146,7 +146,9 @@
 <script>
   const container = document.getElementById('container');
   const customStyleEl = document.getElementById('stosup-custom-css');
-  const urlThemeOverride = new URLSearchParams(location.search).get('theme');
+  const searchParams = new URLSearchParams(location.search);
+  const urlThemeOverride = searchParams.get('theme');
+  const urlBgOverride = searchParams.get('bg');
   let cachedComments = [];
   let config = {
     comment_font_size: 18,
@@ -156,8 +158,17 @@
     default_bubble_bg: '#202124E6',
     default_text_color: '#F4F4F5',
     comments_theme: 'default',
+    comments_bg_color: 'transparent',
     comments_custom_css: ''
   };
+
+  function resolvePageBg(raw) {
+    const val = (raw || 'transparent').trim();
+    if (!val || val.toLowerCase() === 'transparent') return 'transparent';
+    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return '#' + val;
+    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return val;
+    return 'transparent';
+  }
 
   function hexToCss(hex, fallback) {
     if (!hex || typeof hex !== 'string') return fallback;
@@ -169,6 +180,7 @@
   function applyDesign() {
     const theme = urlThemeOverride || config.comments_theme || 'default';
     document.body.dataset.theme = theme;
+    document.documentElement.style.setProperty('--page-bg', resolvePageBg(urlBgOverride || config.comments_bg_color));
     document.documentElement.style.setProperty('--default-bg', hexToCss(config.default_bubble_bg, '#202124E6'));
     document.documentElement.style.setProperty('--default-fg', hexToCss(config.default_text_color, '#F4F4F5'));
     customStyleEl.textContent = config.comments_custom_css || '';
