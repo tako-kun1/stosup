@@ -12,7 +12,7 @@
     height: 100%;
     background: var(--page-bg, transparent) !important;
     overflow: hidden;
-    font-family: "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif;
+    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
   }
   #container {
     display: flex;
@@ -138,6 +138,12 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
   }
   body[data-theme="japanese"] .author { color: #f3d58d; }
+
+  /* システムフォント明示指定時はプリセット既定フォントより優先 */
+  body.has-custom-font,
+  body.has-custom-font * {
+    font-family: var(--font-family) !important;
+  }
 </style>
 <style id="stosup-custom-css"></style>
 </head>
@@ -149,6 +155,7 @@
   const searchParams = new URLSearchParams(location.search);
   const urlThemeOverride = searchParams.get('theme');
   const urlBgOverride = searchParams.get('bg');
+  const urlFontOverride = searchParams.get('font');
   let cachedComments = [];
   let config = {
     comment_font_size: 18,
@@ -159,8 +166,21 @@
     default_text_color: '#F4F4F5',
     comments_theme: 'default',
     comments_bg_color: 'transparent',
+    comments_font_family: '',
     comments_custom_css: ''
   };
+
+  function applyFontFamily(rawFont) {
+    const f = (rawFont || '').trim();
+    if (f) {
+      const safe = f.replace(/["\\]/g, '');
+      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
+      document.body.classList.add('has-custom-font');
+    } else {
+      document.documentElement.style.removeProperty('--font-family');
+      document.body.classList.remove('has-custom-font');
+    }
+  }
 
   function resolvePageBg(raw) {
     const val = (raw || 'transparent').trim();
@@ -183,6 +203,7 @@
     document.documentElement.style.setProperty('--page-bg', resolvePageBg(urlBgOverride || config.comments_bg_color));
     document.documentElement.style.setProperty('--default-bg', hexToCss(config.default_bubble_bg, '#202124E6'));
     document.documentElement.style.setProperty('--default-fg', hexToCss(config.default_text_color, '#F4F4F5'));
+    applyFontFamily(urlFontOverride || config.comments_font_family);
     customStyleEl.textContent = config.comments_custom_css || '';
   }
 

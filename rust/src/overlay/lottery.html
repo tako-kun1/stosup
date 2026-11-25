@@ -12,7 +12,7 @@
     height: 100%;
     background: var(--page-bg, transparent) !important;
     overflow: hidden;
-    font-family: "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif;
+    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -178,6 +178,11 @@
   body[data-theme="cute"] .winner-avatar { border-color: #f472b6; }
   body[data-theme="cute"] .winner-name { color: #db2777; }
   body[data-theme="cute"] .winner-comment { background: #fdf2f8; color: #52525b; }
+
+  body.has-custom-font,
+  body.has-custom-font * {
+    font-family: var(--font-family) !important;
+  }
 </style>
 <style id="stosup-custom-css"></style>
 </head>
@@ -189,8 +194,21 @@
   const searchParams = new URLSearchParams(location.search);
   const urlThemeOverride = searchParams.get('theme');
   const urlBgOverride = searchParams.get('bg');
+  const urlFontOverride = searchParams.get('font');
   let rollingTimer = null;
-  let config = { lottery_theme: 'default', lottery_bg_color: 'transparent', lottery_custom_css: '' };
+  let config = { lottery_theme: 'default', lottery_bg_color: 'transparent', lottery_font_family: '', lottery_custom_css: '' };
+
+  function applyFontFamily(rawFont) {
+    const f = (rawFont || '').trim();
+    if (f) {
+      const safe = f.replace(/["\\]/g, '');
+      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
+      document.body.classList.add('has-custom-font');
+    } else {
+      document.documentElement.style.removeProperty('--font-family');
+      document.body.classList.remove('has-custom-font');
+    }
+  }
 
   function resolvePageBg(raw) {
     const val = (raw || 'transparent').trim();
@@ -203,6 +221,7 @@
   function applyDesign() {
     document.body.dataset.theme = urlThemeOverride || config.lottery_theme || 'default';
     document.documentElement.style.setProperty('--page-bg', resolvePageBg(urlBgOverride || config.lottery_bg_color));
+    applyFontFamily(urlFontOverride || config.lottery_font_family);
     customStyleEl.textContent = config.lottery_custom_css || '';
   }
 

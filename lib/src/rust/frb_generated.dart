@@ -68,7 +68,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -68477525;
+  int get rustContentHash => -1897501169;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -161,6 +161,8 @@ abstract class RustLibApi extends BaseApi {
   Future<List<HighlightRule>> crateApiListHighlightRules();
 
   Future<List<LotteryResult>> crateApiListLotteryHistory({required int limit});
+
+  Future<List<String>> crateApiListSystemFonts();
 
   Future<List<UserRecord>> crateApiListUsers();
 
@@ -1125,7 +1127,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
-  Future<List<UserRecord>> crateApiListUsers() {
+  Future<List<String>> crateApiListSystemFonts() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -1134,6 +1136,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             generalizedFrbRustBinding,
             serializer,
             funcId: 31,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_list_String,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiListSystemFontsConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiListSystemFontsConstMeta =>
+      const TaskConstMeta(debugName: "list_system_fonts", argNames: []);
+
+  @override
+  Future<List<UserRecord>> crateApiListUsers() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 32,
             port: port_,
           );
         },
@@ -1160,7 +1189,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 32,
+            funcId: 33,
             port: port_,
           );
         },
@@ -1187,7 +1216,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 33,
+            funcId: 34,
             port: port_,
           );
         },
@@ -1215,7 +1244,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 34,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1243,7 +1272,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 35,
+            funcId: 36,
             port: port_,
           );
         },
@@ -1273,7 +1302,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 36,
+            funcId: 37,
             port: port_,
           );
         },
@@ -1303,7 +1332,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 37,
+            funcId: 38,
             port: port_,
           );
         },
@@ -1333,7 +1362,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 38,
+            funcId: 39,
             port: port_,
           );
         },
@@ -1363,7 +1392,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 40,
             port: port_,
           );
         },
@@ -1396,7 +1425,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 40,
+            funcId: 41,
             port: port_,
           );
         },
@@ -1424,7 +1453,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 41,
+            funcId: 42,
             port: port_,
           );
         },
@@ -1454,7 +1483,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 42,
+            funcId: 43,
             port: port_,
           );
         },
@@ -1487,7 +1516,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 43,
+            funcId: 44,
             port: port_,
           );
         },
@@ -1517,7 +1546,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 45,
             port: port_,
           );
         },
@@ -1547,7 +1576,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 46,
             port: port_,
           );
         },
@@ -1577,7 +1606,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 47,
             port: port_,
           );
         },
@@ -1611,7 +1640,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 48,
             port: port_,
           );
         },
@@ -1648,7 +1677,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 49,
             port: port_,
           );
         },
@@ -1686,7 +1715,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 49,
+            funcId: 50,
             port: port_,
           );
         },
@@ -1722,7 +1751,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 50,
+            funcId: 51,
             port: port_,
           );
         },
@@ -1754,7 +1783,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 51,
+            funcId: 52,
             port: port_,
           );
         },
@@ -1784,7 +1813,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 52,
+            funcId: 53,
             port: port_,
           );
         },
@@ -1811,7 +1840,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 53,
+            funcId: 54,
             port: port_,
           );
         },
@@ -1841,7 +1870,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             pdeCallFfi(
               generalizedFrbRustBinding,
               serializer,
-              funcId: 54,
+              funcId: 55,
               port: port_,
             );
           },
@@ -1873,7 +1902,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 55,
+            funcId: 56,
             port: port_,
           );
         },
@@ -2461,8 +2490,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   OverlayConfig dco_decode_overlay_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 19)
-      throw Exception('unexpected arr length: expect 19 but see ${arr.length}');
+    if (arr.length != 23)
+      throw Exception('unexpected arr length: expect 23 but see ${arr.length}');
     return OverlayConfig(
       port: dco_decode_u_16(arr[0]),
       commentFontSize: dco_decode_u_32(arr[1]),
@@ -2479,10 +2508,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       lotteryBgColor: dco_decode_String(arr[12]),
       counterBgColor: dco_decode_String(arr[13]),
       firstTimeBgColor: dco_decode_String(arr[14]),
-      commentsCustomCss: dco_decode_String(arr[15]),
-      lotteryCustomCss: dco_decode_String(arr[16]),
-      counterCustomCss: dco_decode_String(arr[17]),
-      firstTimeCustomCss: dco_decode_String(arr[18]),
+      commentsFontFamily: dco_decode_String(arr[15]),
+      lotteryFontFamily: dco_decode_String(arr[16]),
+      counterFontFamily: dco_decode_String(arr[17]),
+      firstTimeFontFamily: dco_decode_String(arr[18]),
+      commentsCustomCss: dco_decode_String(arr[19]),
+      lotteryCustomCss: dco_decode_String(arr[20]),
+      counterCustomCss: dco_decode_String(arr[21]),
+      firstTimeCustomCss: dco_decode_String(arr[22]),
     );
   }
 
@@ -3472,6 +3505,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_lotteryBgColor = sse_decode_String(deserializer);
     var var_counterBgColor = sse_decode_String(deserializer);
     var var_firstTimeBgColor = sse_decode_String(deserializer);
+    var var_commentsFontFamily = sse_decode_String(deserializer);
+    var var_lotteryFontFamily = sse_decode_String(deserializer);
+    var var_counterFontFamily = sse_decode_String(deserializer);
+    var var_firstTimeFontFamily = sse_decode_String(deserializer);
     var var_commentsCustomCss = sse_decode_String(deserializer);
     var var_lotteryCustomCss = sse_decode_String(deserializer);
     var var_counterCustomCss = sse_decode_String(deserializer);
@@ -3492,6 +3529,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       lotteryBgColor: var_lotteryBgColor,
       counterBgColor: var_counterBgColor,
       firstTimeBgColor: var_firstTimeBgColor,
+      commentsFontFamily: var_commentsFontFamily,
+      lotteryFontFamily: var_lotteryFontFamily,
+      counterFontFamily: var_counterFontFamily,
+      firstTimeFontFamily: var_firstTimeFontFamily,
       commentsCustomCss: var_commentsCustomCss,
       lotteryCustomCss: var_lotteryCustomCss,
       counterCustomCss: var_counterCustomCss,
@@ -4422,6 +4463,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.lotteryBgColor, serializer);
     sse_encode_String(self.counterBgColor, serializer);
     sse_encode_String(self.firstTimeBgColor, serializer);
+    sse_encode_String(self.commentsFontFamily, serializer);
+    sse_encode_String(self.lotteryFontFamily, serializer);
+    sse_encode_String(self.counterFontFamily, serializer);
+    sse_encode_String(self.firstTimeFontFamily, serializer);
     sse_encode_String(self.commentsCustomCss, serializer);
     sse_encode_String(self.lotteryCustomCss, serializer);
     sse_encode_String(self.counterCustomCss, serializer);

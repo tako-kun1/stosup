@@ -63,11 +63,17 @@ class StosupController extends ChangeNotifier {
     lotteryBgColor: 'transparent',
     counterBgColor: 'transparent',
     firstTimeBgColor: 'transparent',
+    commentsFontFamily: '',
+    lotteryFontFamily: '',
+    counterFontFamily: '',
+    firstTimeFontFamily: '',
     commentsCustomCss: '',
     lotteryCustomCss: '',
     counterCustomCss: '',
     firstTimeCustomCss: '',
   );
+
+  List<String> systemFonts = [];
 
   AppThemeMode themeMode = AppThemeMode.dark;
 
@@ -159,6 +165,7 @@ class StosupController extends ChangeNotifier {
       api.getFeatureFlags(),
       api.getThemeMode(),
       api.getFirstTimeState(),
+      api.listSystemFonts(),
     ]);
 
     connectionState = results[0] as ConnectionStateDto;
@@ -174,6 +181,7 @@ class StosupController extends ChangeNotifier {
     featureFlags = results[10] as FeatureFlags;
     themeMode = results[11] as AppThemeMode;
     firstTimeState = results[12] as FirstTimeCounterState;
+    systemFonts = results[13] as List<String>;
     notifyListeners();
   }
 
@@ -677,6 +685,16 @@ class StosupController extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshSystemFonts() async {
+    try {
+      systemFonts = await api.listSystemFonts();
+      notifyListeners();
+      onNotice?.call('info', 'システムフォント一覧を再読み込みしました（${systemFonts.length}種類）');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
   Future<void> openUrl(String url) async {
     try {
       await api.openExternalUrl(url: url);
@@ -756,7 +774,7 @@ class StosupController extends ChangeNotifier {
   Stream<UpdateDownloadProgress> downloadUpdate(UpdateInfo info) {
     return api.downloadUpdateInstaller(
       installerUrl: info.installerUrl!,
-      installerName: info.installerName ?? 'Stosup-Setup.exe',
+      installerName: info.installerName ?? 'Stosup-x64.msi',
       checksumUrl: info.checksumUrl,
     );
   }

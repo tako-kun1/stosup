@@ -12,7 +12,7 @@
     height: 100%;
     background: var(--page-bg, transparent) !important;
     overflow: hidden;
-    font-family: "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif;
+    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
   }
   #counters {
     display: flex;
@@ -114,6 +114,11 @@
   body[data-theme="pastel"] .label { color: #3f3f46; }
   body[data-theme="pastel"] .mode-tag { background: #f4f4f5; color: #52525b; }
   body[data-theme="pastel"] .sub { color: #71717a; }
+
+  body.has-custom-font,
+  body.has-custom-font * {
+    font-family: var(--font-family) !important;
+  }
 </style>
 <style id="stosup-custom-css"></style>
 </head>
@@ -126,8 +131,21 @@
   const filterId = params.get('id');
   const urlThemeOverride = params.get('theme');
   const urlBgOverride = params.get('bg');
+  const urlFontOverride = params.get('font');
   const prevValues = new Map();
-  let config = { counter_theme: 'default', counter_bg_color: 'transparent', counter_custom_css: '' };
+  let config = { counter_theme: 'default', counter_bg_color: 'transparent', counter_font_family: '', counter_custom_css: '' };
+
+  function applyFontFamily(rawFont) {
+    const f = (rawFont || '').trim();
+    if (f) {
+      const safe = f.replace(/["\\]/g, '');
+      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
+      document.body.classList.add('has-custom-font');
+    } else {
+      document.documentElement.style.removeProperty('--font-family');
+      document.body.classList.remove('has-custom-font');
+    }
+  }
 
   function resolvePageBg(raw) {
     const val = (raw || 'transparent').trim();
@@ -140,6 +158,7 @@
   function applyDesign() {
     document.body.dataset.theme = urlThemeOverride || config.counter_theme || 'default';
     document.documentElement.style.setProperty('--page-bg', resolvePageBg(urlBgOverride || config.counter_bg_color));
+    applyFontFamily(urlFontOverride || config.counter_font_family);
     customStyleEl.textContent = config.counter_custom_css || '';
   }
 

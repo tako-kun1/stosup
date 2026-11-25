@@ -12,7 +12,7 @@
     height: 100%;
     background: var(--page-bg, transparent) !important;
     overflow: hidden;
-    font-family: "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif;
+    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
   }
   #wrap {
     display: flex;
@@ -140,6 +140,11 @@
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
   }
   body[data-theme="pastel"] .ft-title { color: #52525b; }
+
+  body.has-custom-font,
+  body.has-custom-font * {
+    font-family: var(--font-family) !important;
+  }
 </style>
 <style id="stosup-custom-css"></style>
 </head>
@@ -151,6 +156,7 @@
   const params = new URLSearchParams(location.search);
   const urlThemeOverride = params.get('theme');
   const urlBgOverride = params.get('bg');
+  const urlFontOverride = params.get('font');
 
   let prevCount = null;
   let enabled = true;
@@ -163,8 +169,21 @@
   let config = {
     first_time_theme: 'default',
     first_time_bg_color: 'transparent',
+    first_time_font_family: '',
     first_time_custom_css: ''
   };
+
+  function applyFontFamily(rawFont) {
+    const f = (rawFont || '').trim();
+    if (f) {
+      const safe = f.replace(/["\\]/g, '');
+      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
+      document.body.classList.add('has-custom-font');
+    } else {
+      document.documentElement.style.removeProperty('--font-family');
+      document.body.classList.remove('has-custom-font');
+    }
+  }
 
   function resolveBg(raw) {
     const val = (raw || 'transparent').trim();
@@ -178,6 +197,7 @@
     document.body.dataset.theme = urlThemeOverride || config.first_time_theme || 'default';
     const bg = resolveBg(urlBgOverride || config.first_time_bg_color);
     document.documentElement.style.setProperty('--page-bg', bg);
+    applyFontFamily(urlFontOverride || config.first_time_font_family);
     customStyleEl.textContent = config.first_time_custom_css || '';
   }
 

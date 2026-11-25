@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../widgets/color_picker_row.dart';
 import '../widgets/feature_toggle_banner.dart';
 import '../widgets/overlay_bg_picker.dart';
+import '../widgets/system_font_picker.dart';
 
 class _PresetMeta {
   const _PresetMeta({
@@ -59,6 +60,10 @@ class _OverlayScreenState extends State<OverlayScreen>
   late String _lotteryBgColor;
   late String _counterBgColor;
   late String _firstTimeBgColor;
+  late String _commentsFont;
+  late String _lotteryFont;
+  late String _counterFont;
+  late String _firstTimeFont;
 
   static const List<_PresetMeta> _commentPresets = [
     _PresetMeta(
@@ -213,6 +218,10 @@ class _OverlayScreenState extends State<OverlayScreen>
     _lotteryBgColor = cfg.lotteryBgColor;
     _counterBgColor = cfg.counterBgColor;
     _firstTimeBgColor = cfg.firstTimeBgColor;
+    _commentsFont = cfg.commentsFontFamily;
+    _lotteryFont = cfg.lotteryFontFamily;
+    _counterFont = cfg.counterFontFamily;
+    _firstTimeFont = cfg.firstTimeFontFamily;
   }
 
   @override
@@ -252,6 +261,10 @@ class _OverlayScreenState extends State<OverlayScreen>
       lotteryBgColor: _lotteryBgColor,
       counterBgColor: _counterBgColor,
       firstTimeBgColor: _firstTimeBgColor,
+      commentsFontFamily: _commentsFont,
+      lotteryFontFamily: _lotteryFont,
+      counterFontFamily: _counterFont,
+      firstTimeFontFamily: _firstTimeFont,
       commentsCustomCss: _commentsCssCtrl.text,
       lotteryCustomCss: _lotteryCssCtrl.text,
       counterCustomCss: _counterCssCtrl.text,
@@ -325,6 +338,8 @@ class _OverlayScreenState extends State<OverlayScreen>
                 onSelect: (id) => setState(() => _commentsTheme = id),
                 bgColor: _commentsBgColor,
                 onBgChanged: (bg) => setState(() => _commentsBgColor = bg),
+                fontFamily: _commentsFont,
+                onFontChanged: (f) => setState(() => _commentsFont = f),
                 cssController: _commentsCssCtrl,
                 previewUrl:
                     '${widget.controller.overlayBaseUrl}/overlay/comments',
@@ -333,7 +348,8 @@ class _OverlayScreenState extends State<OverlayScreen>
                     '.comment-row / .avatar / .bubble / .bubble.highlighted / .author / .message',
                 sampleCss:
                     '/* 例: 吹き出しを角張らせて文字に縁取りを付ける */\n.bubble {\n  border-radius: 4px;\n  padding: 12px 18px;\n}\n.message {\n  font-weight: 700;\n  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);\n}',
-                previewBuilder: (meta) => _buildCommentMiniPreview(meta),
+                previewBuilder: (meta, font) =>
+                    _buildCommentMiniPreview(meta, font),
               ),
               _buildDesignTab(
                 title: '抽選演出・当選者オーバーレイのデザイン',
@@ -342,6 +358,8 @@ class _OverlayScreenState extends State<OverlayScreen>
                 onSelect: (id) => setState(() => _lotteryTheme = id),
                 bgColor: _lotteryBgColor,
                 onBgChanged: (bg) => setState(() => _lotteryBgColor = bg),
+                fontFamily: _lotteryFont,
+                onFontChanged: (f) => setState(() => _lotteryFont = f),
                 cssController: _lotteryCssCtrl,
                 previewUrl:
                     '${widget.controller.overlayBaseUrl}/overlay/lottery',
@@ -350,7 +368,8 @@ class _OverlayScreenState extends State<OverlayScreen>
                     '.banner / .winner-card / .winner-avatar / .winner-name / .winner-comment / .rolling',
                 sampleCss:
                     '/* 例: 当選者名をさらに大きく強調する */\n.winner-card {\n  min-width: 360px;\n}\n.winner-name {\n  font-size: 34px;\n  letter-spacing: 0.04em;\n}',
-                previewBuilder: (meta) => _buildLotteryMiniPreview(meta),
+                previewBuilder: (meta, font) =>
+                    _buildLotteryMiniPreview(meta, font),
               ),
               _buildDesignTab(
                 title: 'ワードカウンターオーバーレイのデザイン',
@@ -359,6 +378,8 @@ class _OverlayScreenState extends State<OverlayScreen>
                 onSelect: (id) => setState(() => _counterTheme = id),
                 bgColor: _counterBgColor,
                 onBgChanged: (bg) => setState(() => _counterBgColor = bg),
+                fontFamily: _counterFont,
+                onFontChanged: (f) => setState(() => _counterFont = f),
                 cssController: _counterCssCtrl,
                 previewUrl:
                     '${widget.controller.overlayBaseUrl}/overlay/counter',
@@ -367,8 +388,8 @@ class _OverlayScreenState extends State<OverlayScreen>
                     '#counters / .card / .label / .mode-tag / .value / .sub',
                 sampleCss:
                     '/* 例: カウンターを縦並びにし、数字を強調する */\n#counters {\n  flex-direction: column;\n}\n.value {\n  font-size: 54px;\n}',
-                previewBuilder: (meta) =>
-                    _buildCounterMiniPreview(meta, '草カウンター', '128'),
+                previewBuilder: (meta, font) =>
+                    _buildCounterMiniPreview(meta, '草カウンター', '128', font),
               ),
               _buildDesignTab(
                 title: '初見カウンターオーバーレイのデザイン',
@@ -377,6 +398,8 @@ class _OverlayScreenState extends State<OverlayScreen>
                 onSelect: (id) => setState(() => _firstTimeTheme = id),
                 bgColor: _firstTimeBgColor,
                 onBgChanged: (bg) => setState(() => _firstTimeBgColor = bg),
+                fontFamily: _firstTimeFont,
+                onFontChanged: (f) => setState(() => _firstTimeFont = f),
                 cssController: _firstTimeCssCtrl,
                 previewUrl:
                     '${widget.controller.overlayBaseUrl}/overlay/first_time',
@@ -385,8 +408,8 @@ class _OverlayScreenState extends State<OverlayScreen>
                     '.ft-card / .ft-title / .ft-count / .ft-profiles / .ft-user / .ft-avatar / .ft-user-name',
                 sampleCss:
                     '/* 例: 初見カウント数字をさらに大きく表示する */\n.ft-count {\n  font-size: 56px;\n}\n.ft-user {\n  border-radius: 999px;\n}',
-                previewBuilder: (meta) =>
-                    _buildCounterMiniPreview(meta, '本日の初見さん', '5'),
+                previewBuilder: (meta, font) =>
+                    _buildCounterMiniPreview(meta, '本日の初見さん', '5', font),
               ),
             ],
           ),
@@ -584,18 +607,21 @@ class _OverlayScreenState extends State<OverlayScreen>
     required ValueChanged<String> onSelect,
     required String bgColor,
     required ValueChanged<String> onBgChanged,
+    required String fontFamily,
+    required ValueChanged<String> onFontChanged,
     required TextEditingController cssController,
     required String previewUrl,
     required bool obsEnabled,
     required String selectorsHelp,
     required String sampleCss,
-    required Widget Function(_PresetMeta meta) previewBuilder,
+    required Widget Function(_PresetMeta meta, String? font) previewBuilder,
   }) {
     final p = context.palette;
     final current = presets.firstWhere(
       (e) => e.id == selectedId,
       orElse: () => presets.first,
     );
+    final effectiveFont = fontFamily.trim().isEmpty ? null : fontFamily.trim();
     final isTransparent = bgColor.trim().toLowerCase() == 'transparent';
     final previewCanvasColor = isTransparent
         ? const Color(0xFF1F2429)
@@ -699,9 +725,23 @@ class _OverlayScreenState extends State<OverlayScreen>
               ),
             ),
           ),
+          const SizedBox(height: 12),
+
+          // 3. システムフォントの選択
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: SystemFontPicker(
+                value: fontFamily,
+                availableFonts: widget.controller.systemFonts,
+                onChanged: onFontChanged,
+                onRefreshFonts: widget.controller.refreshSystemFonts,
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
 
-          // イメージプレビュー（背景色連動）
+          // イメージプレビュー（背景色・フォント連動）
           Row(
             children: [
               const Text('プレビュー',
@@ -709,7 +749,7 @@ class _OverlayScreenState extends State<OverlayScreen>
                       TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
               const SizedBox(width: 10),
               Text(
-                isTransparent ? '背景: 透過（OBS標準）' : '背景色: $bgColor',
+                '${isTransparent ? "背景: 透過" : "背景色: $bgColor"}  /  フォント: ${effectiveFont ?? "プリセット標準"}',
                 style: TextStyle(
                     fontFamily: 'Consolas',
                     fontSize: 11.5,
@@ -726,16 +766,16 @@ class _OverlayScreenState extends State<OverlayScreen>
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: p.border),
             ),
-            child: previewBuilder(current),
+            child: previewBuilder(current, effectiveFont),
           ),
           const SizedBox(height: 18),
 
-          // 3. カスタム CSS エディタ
+          // 4. カスタム CSS エディタ
           Row(
             children: [
               const Expanded(
                 child: Text(
-                  '3. ユーザーカスタム CSS（プリセットの上書き調整）',
+                  '4. ユーザーカスタム CSS（プリセットの上書き調整）',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
                 ),
               ),
@@ -806,7 +846,7 @@ class _OverlayScreenState extends State<OverlayScreen>
     );
   }
 
-  Widget _buildCommentMiniPreview(_PresetMeta meta) {
+  Widget _buildCommentMiniPreview(_PresetMeta meta, String? font) {
     final radius = meta.id == 'pop'
         ? 16.0
         : (meta.id == 'japanese' || meta.id == 'minimal' ? 4.0 : 10.0);
@@ -837,6 +877,7 @@ class _OverlayScreenState extends State<OverlayScreen>
               Text(
                 'サンプル視聴者',
                 style: TextStyle(
+                  fontFamily: font,
                   color: meta.fg.withValues(alpha: 0.8),
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -845,7 +886,7 @@ class _OverlayScreenState extends State<OverlayScreen>
               const SizedBox(height: 2),
               Text(
                 'プリセット「${meta.name}」でのコメント表示イメージです！',
-                style: TextStyle(color: meta.fg, fontSize: 14),
+                style: TextStyle(fontFamily: font, color: meta.fg, fontSize: 14),
               ),
             ],
           ),
@@ -854,7 +895,7 @@ class _OverlayScreenState extends State<OverlayScreen>
     );
   }
 
-  Widget _buildLotteryMiniPreview(_PresetMeta meta) {
+  Widget _buildLotteryMiniPreview(_PresetMeta meta, String? font) {
     return Center(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
@@ -880,6 +921,7 @@ class _OverlayScreenState extends State<OverlayScreen>
                 Text(
                   '当選者サンプル',
                   style: TextStyle(
+                    fontFamily: font,
                     color: meta.fg,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -888,6 +930,7 @@ class _OverlayScreenState extends State<OverlayScreen>
                 Text(
                   '参加します！当たれ〜！',
                   style: TextStyle(
+                    fontFamily: font,
                     color: meta.fg.withValues(alpha: 0.78),
                     fontSize: 12.5,
                   ),
@@ -901,7 +944,7 @@ class _OverlayScreenState extends State<OverlayScreen>
   }
 
   Widget _buildCounterMiniPreview(
-      _PresetMeta meta, String title, String value) {
+      _PresetMeta meta, String title, String value, String? font) {
     final isCompact = meta.id == 'compact';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -916,11 +959,14 @@ class _OverlayScreenState extends State<OverlayScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(title,
-                    style:
-                        TextStyle(color: meta.fg, fontWeight: FontWeight.bold)),
+                    style: TextStyle(
+                        fontFamily: font,
+                        color: meta.fg,
+                        fontWeight: FontWeight.bold)),
                 const SizedBox(width: 12),
                 Text(value,
                     style: TextStyle(
+                        fontFamily: font,
                         color: meta.border,
                         fontSize: 24,
                         fontWeight: FontWeight.w900)),
@@ -932,6 +978,7 @@ class _OverlayScreenState extends State<OverlayScreen>
               children: [
                 Text(title,
                     style: TextStyle(
+                        fontFamily: font,
                         color: meta.fg.withValues(alpha: 0.85),
                         fontSize: 12.5,
                         fontWeight: FontWeight.bold)),
@@ -941,7 +988,8 @@ class _OverlayScreenState extends State<OverlayScreen>
                     color: meta.border,
                     fontSize: 36,
                     fontWeight: FontWeight.w900,
-                    fontFamily: meta.id == 'scoreboard' ? 'Consolas' : null,
+                    fontFamily:
+                        font ?? (meta.id == 'scoreboard' ? 'Consolas' : null),
                   ),
                 ),
               ],

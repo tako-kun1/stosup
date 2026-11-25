@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -68477525;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1897501169;
 
 // Section: executor
 
@@ -1114,6 +1114,38 @@ fn wire__crate__api__list_lottery_history_impl(
                     })()
                     .await,
                 )
+            }
+        },
+    )
+}
+fn wire__crate__api__list_system_fonts_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_system_fonts",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::list_system_fonts())?;
+                    std::result::Result::Ok(output_ok)
+                })())
             }
         },
     )
@@ -2780,6 +2812,10 @@ impl SseDecode for crate::models::OverlayConfig {
         let mut var_lotteryBgColor = <String>::sse_decode(deserializer);
         let mut var_counterBgColor = <String>::sse_decode(deserializer);
         let mut var_firstTimeBgColor = <String>::sse_decode(deserializer);
+        let mut var_commentsFontFamily = <String>::sse_decode(deserializer);
+        let mut var_lotteryFontFamily = <String>::sse_decode(deserializer);
+        let mut var_counterFontFamily = <String>::sse_decode(deserializer);
+        let mut var_firstTimeFontFamily = <String>::sse_decode(deserializer);
         let mut var_commentsCustomCss = <String>::sse_decode(deserializer);
         let mut var_lotteryCustomCss = <String>::sse_decode(deserializer);
         let mut var_counterCustomCss = <String>::sse_decode(deserializer);
@@ -2800,6 +2836,10 @@ impl SseDecode for crate::models::OverlayConfig {
             lottery_bg_color: var_lotteryBgColor,
             counter_bg_color: var_counterBgColor,
             first_time_bg_color: var_firstTimeBgColor,
+            comments_font_family: var_commentsFontFamily,
+            lottery_font_family: var_lotteryFontFamily,
+            counter_font_family: var_counterFontFamily,
+            first_time_font_family: var_firstTimeFontFamily,
             comments_custom_css: var_commentsCustomCss,
             lottery_custom_css: var_lotteryCustomCss,
             counter_custom_css: var_counterCustomCss,
@@ -3055,35 +3095,36 @@ fn pde_ffi_dispatcher_primary_impl(
         28 => wire__crate__api__launch_update_installer_impl(port, ptr, rust_vec_len, data_len),
         29 => wire__crate__api__list_highlight_rules_impl(port, ptr, rust_vec_len, data_len),
         30 => wire__crate__api__list_lottery_history_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__list_users_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__list_word_counters_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__mark_release_notes_seen_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__open_external_url_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__post_chat_message_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__reset_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        37 => {
+        31 => wire__crate__api__list_system_fonts_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__list_users_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__list_word_counters_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__mark_release_notes_seen_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__open_external_url_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__post_chat_message_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__reset_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        38 => {
             wire__crate__api__reset_first_time_all_history_impl(port, ptr, rust_vec_len, data_len)
         }
-        38 => {
+        39 => {
             wire__crate__api__reset_first_time_session_count_impl(port, ptr, rust_vec_len, data_len)
         }
-        39 => wire__crate__api__reset_user_lottery_winners_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__reset_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__save_feature_flags_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__save_first_time_config_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__save_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__save_overlay_config_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__save_theme_mode_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__save_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__save_youtube_oauth_client_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__send_demo_comment_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__set_user_ban_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__set_user_memo_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__start_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__start_youtube_oauth_login_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__stop_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
-        55 => {
+        40 => wire__crate__api__reset_user_lottery_winners_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__reset_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__save_feature_flags_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__save_first_time_config_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__save_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__save_overlay_config_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__save_theme_mode_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__save_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__save_youtube_oauth_client_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__send_demo_comment_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__set_user_ban_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__set_user_memo_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__start_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__start_youtube_oauth_login_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__stop_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
+        56 => {
             wire__crate__api__update_comment_lottery_config_impl(port, ptr, rust_vec_len, data_len)
         }
         _ => unreachable!(),
@@ -3577,6 +3618,10 @@ impl flutter_rust_bridge::IntoDart for crate::models::OverlayConfig {
             self.lottery_bg_color.into_into_dart().into_dart(),
             self.counter_bg_color.into_into_dart().into_dart(),
             self.first_time_bg_color.into_into_dart().into_dart(),
+            self.comments_font_family.into_into_dart().into_dart(),
+            self.lottery_font_family.into_into_dart().into_dart(),
+            self.counter_font_family.into_into_dart().into_dart(),
+            self.first_time_font_family.into_into_dart().into_dart(),
             self.comments_custom_css.into_into_dart().into_dart(),
             self.lottery_custom_css.into_into_dart().into_dart(),
             self.counter_custom_css.into_into_dart().into_dart(),
@@ -4379,6 +4424,10 @@ impl SseEncode for crate::models::OverlayConfig {
         <String>::sse_encode(self.lottery_bg_color, serializer);
         <String>::sse_encode(self.counter_bg_color, serializer);
         <String>::sse_encode(self.first_time_bg_color, serializer);
+        <String>::sse_encode(self.comments_font_family, serializer);
+        <String>::sse_encode(self.lottery_font_family, serializer);
+        <String>::sse_encode(self.counter_font_family, serializer);
+        <String>::sse_encode(self.first_time_font_family, serializer);
         <String>::sse_encode(self.comments_custom_css, serializer);
         <String>::sse_encode(self.lottery_custom_css, serializer);
         <String>::sse_encode(self.counter_custom_css, serializer);

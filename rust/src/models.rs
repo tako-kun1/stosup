@@ -452,6 +452,15 @@ pub struct OverlayConfig {
     pub counter_bg_color: String,
     #[serde(default = "default_overlay_bg")]
     pub first_time_bg_color: String,
+    /// 各オーバーレイのシステムフォントファミリー名（空文字 = プリセット標準）
+    #[serde(default)]
+    pub comments_font_family: String,
+    #[serde(default)]
+    pub lottery_font_family: String,
+    #[serde(default)]
+    pub counter_font_family: String,
+    #[serde(default)]
+    pub first_time_font_family: String,
     /// コメント表示用ユーザーカスタム CSS
     #[serde(default)]
     pub comments_custom_css: String,
@@ -484,6 +493,10 @@ impl Default for OverlayConfig {
             lottery_bg_color: default_overlay_bg(),
             counter_bg_color: default_overlay_bg(),
             first_time_bg_color: default_overlay_bg(),
+            comments_font_family: String::new(),
+            lottery_font_family: String::new(),
+            counter_font_family: String::new(),
+            first_time_font_family: String::new(),
             comments_custom_css: String::new(),
             lottery_custom_css: String::new(),
             counter_custom_css: String::new(),

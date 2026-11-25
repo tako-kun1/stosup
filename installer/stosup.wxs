@@ -1,0 +1,96 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="Stosup"
+    Manufacturer="tako-kun1"
+    Version="$(var.AppVersion)"
+    UpgradeCode="8F4C9E2A-7B31-4D56-9A2E-1C6F0B8D4E73"
+    Scope="perUser"
+    Language="1041"
+    Codepage="932">
+
+    <SummaryInformation
+      Description="配信者補助ソフトウェア Stosup インストーラー (Windows 64bit)"
+      Manufacturer="tako-kun1" />
+
+    <MajorUpgrade
+      DowngradeErrorMessage="新しいバージョンの Stosup がすでにインストールされています。"
+      Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- アプリ・コントロールパネル用の統一アイコン -->
+    <Icon Id="StosupIcon.ico" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="StosupIcon.ico" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/tako-kun1/stosup" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/tako-kun1/stosup" />
+
+    <!-- インストール先: %LOCALAPPDATA%\Stosup（管理者権限不要・サイレント自動更新対応） -->
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="Stosup" />
+    </StandardDirectory>
+
+    <!-- スタートメニュー -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Stosup" />
+    </StandardDirectory>
+
+    <!-- デスクトップ -->
+    <StandardDirectory Id="DesktopFolder" />
+
+    <Feature Id="MainFeature" Title="Stosup" Level="1">
+      <ComponentRef Id="MainExecutableComponent" />
+      <ComponentRef Id="StartMenuShortcutComponent" />
+      <ComponentRef Id="DesktopShortcutComponent" />
+      <ComponentGroupRef Id="AppPayloadFiles" />
+    </Feature>
+
+    <!-- メイン実行ファイル -->
+    <Component Id="MainExecutableComponent" Directory="INSTALLFOLDER" Guid="D1E63B59-9B87-4D62-A233-4A6A4E341D11">
+      <File Id="StosupExe" Source="$(var.BuildDir)\stosup.exe" KeyPath="yes" />
+    </Component>
+
+    <!-- スタートメニューショートカット -->
+    <Component Id="StartMenuShortcutComponent" Directory="ApplicationProgramsFolder" Guid="A93F2C41-3C14-4C93-8A77-27C8F66B9102">
+      <Shortcut
+        Id="StartMenuShortcut"
+        Name="Stosup"
+        Description="配信者補助ソフトウェア Stosup"
+        Target="[INSTALLFOLDER]stosup.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Icon="StosupIcon.ico" />
+      <RemoveFolder Id="CleanStartMenuFolder" On="uninstall" />
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\tako-kun1\Stosup"
+        Name="StartMenuShortcut"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+
+    <!-- デスクトップショートカット -->
+    <Component Id="DesktopShortcutComponent" Directory="DesktopFolder" Guid="E45B82A2-6D0A-45B1-9B10-8C44F5E21A90">
+      <Shortcut
+        Id="DesktopShortcut"
+        Name="Stosup"
+        Description="配信者補助ソフトウェア Stosup"
+        Target="[INSTALLFOLDER]stosup.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Icon="StosupIcon.ico" />
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\tako-kun1\Stosup"
+        Name="DesktopShortcut"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+
+    <!-- Flutter / Rust の残り全アセット・DLL・data フォルダを自動収録 -->
+    <ComponentGroup Id="AppPayloadFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.BuildDir)\**">
+        <Exclude Files="$(var.BuildDir)\stosup.exe" />
+      </Files>
+    </ComponentGroup>
+  </Package>
+</Wix>

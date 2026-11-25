@@ -102,7 +102,13 @@ pub async fn check_for_updates() -> Result<UpdateInfo> {
     let installer_asset = release
         .assets
         .iter()
-        .find(|a| a.name.to_lowercase().ends_with(".exe") && a.name.contains("Setup"))
+        .find(|a| a.name.to_lowercase().ends_with(".msi"))
+        .or_else(|| {
+            release
+                .assets
+                .iter()
+                .find(|a| a.name.to_lowercase().ends_with(".exe") && a.name.contains("Setup"))
+        })
         .or_else(|| {
             release
                 .assets
@@ -141,7 +147,7 @@ pub async fn download_installer(
     let safe_name = PathBuf::from(installer_name)
         .file_name()
         .and_then(|n| n.to_str())
-        .unwrap_or("Stosup-Setup.exe")
+        .unwrap_or("Stosup-x64.msi")
         .to_string();
     let dest_path = temp_dir.join(&safe_name);
 
@@ -227,11 +233,69 @@ pub async fn download_installer(
     Ok(path_str)
 }
 
-/// ダウンロード済みの Windows インストーラーを起動する
+/// ダウンロード済みの Windows インストーラー（.msi / .exe）を起動する
 pub fn launch_installer(installer_path: &str, silent: bool) -> Result<()> {
     let path = PathBuf::from(installer_path);
     if !path.exists() {
-        return Err(anyhow!("インストーラーファイルが見つかりません: {}", installer_path));
+        return Err(anyhow!(
+            "インストーラーファイルが見つかりません: {}",
+            installer_path
+        ));
+    }
+
+    let is_msi = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("msi"))
+        .unwrap_or(false);
+
+    if is_msi {
+        if silent {
+            // サイレント MSI 更新の完了後に Stosup を --after-update 付きで自動再起動するラッパーを生成
+            let script_dir = path
+                .parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(std::env::temp_dir);
+            let script_path = script_dir.join("apply_msi_update.cmd");
+            let msi_str = path.to_string_lossy().replace('"', "");
+            let exe_after = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.to_str().map(|s| s.to_string()))
+                .unwrap_or_else(|| r"%LOCALAPPDATA%\Stosup\stosup.exe".to_string());
+
+            let script = format!(
+                "@echo off\r\n\
+                 timeout /t 2 /nobreak >nul\r\n\
+                 msiexec /i \"{msi}\" /qn /norestart\r\n\
+                 if exist \"%LOCALAPPDATA%\\Stosup\\stosup.exe\" (\r\n\
+                   start \"\" \"%LOCALAPPDATA%\\Stosup\\stosup.exe\" --after-update\r\n\
+                 ) else if exist \"{fallback}\" (\r\n\
+                   start \"\" \"{fallback}\" --after-update\r\n\
+                 )\r\n\
+                 del \"%~f0\" >nul 2>&1\r\n",
+                msi = msi_str,
+                fallback = exe_after.replace('"', ""),
+            );
+            std::fs::write(&script_path, script)
+                .context("自動アップデートスクリプトの作成に失敗しました")?;
+
+            let mut cmd = std::process::Command::new("cmd");
+            cmd.args(["/C", &script_path.to_string_lossy()]);
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                cmd.creation_flags(CREATE_NO_WINDOW);
+            }
+            cmd.spawn()
+                .context("MSI 自動アップデートの起動に失敗しました")?;
+        } else {
+            std::process::Command::new("msiexec")
+                .args(["/i", &path.to_string_lossy()])
+                .spawn()
+                .context("MSI インストーラーの起動に失敗しました")?;
+        }
+        return Ok(());
     }
 
     let mut cmd = std::process::Command::new(&path);
@@ -393,9 +457,9 @@ mod tests {
 
     #[test]
     fn test_parse_sha256_file() {
-        let txt = "aabbcc112233  Stosup-Setup-v0.1.0.exe\n9988776655 *other.zip\n";
+        let txt = "aabbcc112233  Stosup-v0.3.0-x64.msi\n9988776655 *other.zip\n";
         assert_eq!(
-            parse_sha256_for_file(txt, "Stosup-Setup-v0.1.0.exe").as_deref(),
+            parse_sha256_for_file(txt, "Stosup-v0.3.0-x64.msi").as_deref(),
             Some("aabbcc112233")
         );
         assert_eq!(

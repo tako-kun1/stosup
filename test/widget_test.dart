@@ -4,6 +4,7 @@ import 'package:stosup/theme/app_theme.dart';
 import 'package:stosup/widgets/feature_toggle_banner.dart';
 import 'package:stosup/widgets/markdown_notes_view.dart';
 import 'package:stosup/widgets/overlay_bg_picker.dart';
+import 'package:stosup/widgets/system_font_picker.dart';
 import 'package:stosup/widgets/user_avatar.dart';
 
 void main() {
@@ -145,5 +146,31 @@ void main() {
     await tester.tap(find.text('クロマキー緑'));
     await tester.pumpAndSettle();
     expect(selected, '#00FF00');
+  });
+
+  testWidgets('SystemFontPicker がシステムフォント一覧から検索・選択できる',
+      (WidgetTester tester) async {
+    var selectedFont = '';
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: StatefulBuilder(
+          builder: (context, setState) => Scaffold(
+            body: SystemFontPicker(
+              value: selectedFont,
+              availableFonts: const ['Meiryo', 'Yu Mincho', 'BIZ UDPゴシック'],
+              onChanged: (v) => setState(() => selectedFont = v),
+              onRefreshFonts: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('一覧から選ぶ (3)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('BIZ UDPゴシック'));
+    await tester.pumpAndSettle();
+    expect(selectedFont, 'BIZ UDPゴシック');
   });
 }

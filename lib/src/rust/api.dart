@@ -184,6 +184,10 @@ Future<AppThemeMode> getThemeMode() =>
 Future<AppThemeMode> saveThemeMode({required AppThemeMode mode}) =>
     RustLib.instance.api.crateApiSaveThemeMode(mode: mode);
 
+/// OS にインストールされているシステムフォント一覧を取得する
+Future<List<String>> listSystemFonts() =>
+    RustLib.instance.api.crateApiListSystemFonts();
+
 Future<OverlayConfig> getOverlayConfig() =>
     RustLib.instance.api.crateApiGetOverlayConfig();
 

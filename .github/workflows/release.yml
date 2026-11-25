@@ -1,4 +1,4 @@
-name: 自動ビルド ＆ GitHub リリース
+name: 自動ビルド ＆ GitHub リリース (MSI)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'リリースバージョン（例: 0.1.0）'
+        description: 'リリースバージョン（例: 0.3.0）'
         required: true
         type: string
 
@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   release-windows:
-    name: Windows 64bit ビルド ＆ リリース公開
+    name: Windows 64bit ビルド ＆ MSI リリース公開
     runs-on: windows-latest
     steps:
       - name: チェックアウト
@@ -60,6 +60,11 @@ jobs:
           channel: stable
           cache: true
 
+      - name: .NET SDK セットアップ（WiX Toolset v5 用）
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
       - name: Rust テスト実行
         run: cargo test --manifest-path rust/Cargo.toml
 
@@ -73,32 +78,11 @@ jobs:
       - name: Flutter Windows (64bit) リリースビルド
         run: flutter build windows --release --build-name=${{ steps.ver.outputs.version }}
 
-      - name: Inno Setup の確認・セットアップ
+      - name: Windows MSI インストーラー生成 ＆ SHA256 算出 (WiX v5)
         shell: pwsh
         run: |
-          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) {
-            choco install innosetup -y
-          }
-          if (-not (Test-Path $iscc)) {
-            throw "Inno Setup (ISCC.exe) が見つかりませんでした"
-          }
-
-      - name: Windows インストーラー生成 ＆ SHA256 算出
-        shell: pwsh
-        run: |
-          $v = "${{ steps.ver.outputs.version }}"
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$v" "installer\stosup.iss"
+          pwsh -File installer/build_msi.ps1 -Version "${{ steps.ver.outputs.version }}" -SkipFlutterBuild
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-          $exeName = "Stosup-Setup-v$v.exe"
-          $exePath = Join-Path "dist" $exeName
-          if (-not (Test-Path $exePath)) {
-            throw "インストーラーが見つかりません: $exePath"
-          }
-          $hash = (Get-FileHash -Path $exePath -Algorithm SHA256).Hash.ToLower()
-          "$hash  $exeName" | Set-Content -Path "dist\SHA256SUMS.txt" -Encoding UTF8
-          Get-Content "dist\SHA256SUMS.txt"
 
       - name: CHANGELOG.md から該当バージョンの変更内容を抽出
         id: notes
@@ -127,11 +111,11 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($body)) {
             $body = "## Stosup v$v`n`nこのバージョンの詳細変更履歴はコミットログをご確認ください。"
           }
-          $body += "`n`n---`n### ダウンロード方法`n- **Windows 10/11 (64bit)**: ``Stosup-Setup-v$v.exe`` をダウンロードして実行してください。`n- すでに Stosup をインストール済みの場合は、アプリ内の自動アップデート機能からそのまま更新できます。"
+          $body += "`n`n---`n### ダウンロード方法`n- **Windows 10/11 (64bit)**: ``Stosup-v$v-x64.msi`` をダウンロードして実行してください。`n- すでに Stosup をインストール済みの場合は、アプリ内の自動アップデート機能からそのまま更新できます。"
           Set-Content -Path "release_notes.md" -Value $body -Encoding UTF8
           Get-Content "release_notes.md"
 
-      - name: GitHub Release 作成 ＆ インストーラー公開
+      - name: GitHub Release 作成 ＆ MSI インストーラー公開
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
@@ -139,5 +123,5 @@ jobs:
           body_path: release_notes.md
           generate_release_notes: false
           files: |
-            dist/Stosup-Setup-v*.exe
+            dist/Stosup-v*-x64.msi
             dist/SHA256SUMS.txt

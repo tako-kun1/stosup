@@ -2,6 +2,7 @@ use chrono::Utc;
 use flutter_rust_bridge::frb;
 
 use crate::engine::lottery;
+use crate::fonts;
 use crate::frb_generated::StreamSink;
 pub use crate::models::*;
 use crate::platform::{demo, youtube_oauth};
@@ -447,6 +448,11 @@ pub async fn save_theme_mode(mode: AppThemeMode) -> Result<AppThemeMode, String>
 }
 
 // ==================== OBS オーバーレイ ====================
+
+/// OS にインストールされているシステムフォント一覧を取得する
+pub fn list_system_fonts() -> Vec<String> {
+    fonts::list_installed_system_fonts()
+}
 
 pub async fn get_overlay_config() -> Result<OverlayConfig, String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;

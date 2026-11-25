@@ -1028,6 +1028,8 @@ mod tests {
         updated.first_time_theme = "pastel".to_string();
         updated.comments_bg_color = "#00FF00".to_string();
         updated.first_time_bg_color = "#18181B".to_string();
+        updated.comments_font_family = "Meiryo".to_string();
+        updated.lottery_font_family = "Yu Mincho".to_string();
         updated.comments_custom_css = ".bubble { border-radius: 0px; }".to_string();
         db.set_overlay_config(&updated).unwrap();
         assert_eq!(db.get_overlay_config().unwrap(), updated);

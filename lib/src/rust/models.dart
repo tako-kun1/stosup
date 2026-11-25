@@ -750,6 +750,12 @@ class OverlayConfig {
   final String counterBgColor;
   final String firstTimeBgColor;
 
+  /// 各オーバーレイのシステムフォントファミリー名（空文字 = プリセット標準）
+  final String commentsFontFamily;
+  final String lotteryFontFamily;
+  final String counterFontFamily;
+  final String firstTimeFontFamily;
+
   /// コメント表示用ユーザーカスタム CSS
   final String commentsCustomCss;
 
@@ -778,6 +784,10 @@ class OverlayConfig {
     required this.lotteryBgColor,
     required this.counterBgColor,
     required this.firstTimeBgColor,
+    required this.commentsFontFamily,
+    required this.lotteryFontFamily,
+    required this.counterFontFamily,
+    required this.firstTimeFontFamily,
     required this.commentsCustomCss,
     required this.lotteryCustomCss,
     required this.counterCustomCss,
@@ -801,6 +811,10 @@ class OverlayConfig {
       lotteryBgColor.hashCode ^
       counterBgColor.hashCode ^
       firstTimeBgColor.hashCode ^
+      commentsFontFamily.hashCode ^
+      lotteryFontFamily.hashCode ^
+      counterFontFamily.hashCode ^
+      firstTimeFontFamily.hashCode ^
       commentsCustomCss.hashCode ^
       lotteryCustomCss.hashCode ^
       counterCustomCss.hashCode ^
@@ -826,6 +840,10 @@ class OverlayConfig {
           lotteryBgColor == other.lotteryBgColor &&
           counterBgColor == other.counterBgColor &&
           firstTimeBgColor == other.firstTimeBgColor &&
+          commentsFontFamily == other.commentsFontFamily &&
+          lotteryFontFamily == other.lotteryFontFamily &&
+          counterFontFamily == other.counterFontFamily &&
+          firstTimeFontFamily == other.firstTimeFontFamily &&
           commentsCustomCss == other.commentsCustomCss &&
           lotteryCustomCss == other.lotteryCustomCss &&
           counterCustomCss == other.counterCustomCss &&
