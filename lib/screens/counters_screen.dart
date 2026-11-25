@@ -256,8 +256,8 @@ class CountersScreen extends StatelessWidget {
                 : GridView.builder(
                     gridDelegate:
                         const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 410,
-                      mainAxisExtent: 235,
+                      maxCrossAxisExtent: 460,
+                      mainAxisExtent: 245,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                     ),
@@ -329,36 +329,41 @@ class CountersScreen extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 7, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: accent.withValues(alpha: 0.14),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 7, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                accent.withValues(alpha: 0.14),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            c.maxPerAccount != null
+                                                ? '1アカウント ${c.maxPerAccount}回まで'
+                                                : '回数上限なし',
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                                color: accent,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold),
+                                          ),
                                         ),
-                                        child: Text(
-                                          c.maxPerAccount != null
-                                              ? '1アカウント ${c.maxPerAccount}回まで'
-                                              : '回数上限なし',
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          '参加アカウント: ${c.uniqueUserCount}人',
+                                          overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                              color: accent,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold),
+                                              fontSize: 12,
+                                              color: p.textSecondary),
                                         ),
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        '参加アカウント: ${c.uniqueUserCount}人',
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: p.textSecondary),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -371,62 +376,85 @@ class CountersScreen extends StatelessWidget {
                                     fontSize: 12, color: p.textSecondary),
                               ),
                               const Spacer(),
-                              Row(
-                                children: [
-                                  IconButton.outlined(
-                                    tooltip: '-1',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () =>
-                                        controller.adjustWordCounter(c.id, -1),
-                                    icon: const Icon(Icons.remove, size: 15),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  IconButton.outlined(
-                                    tooltip: '+1',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () =>
-                                        controller.adjustWordCounter(c.id, 1),
-                                    icon: const Icon(Icons.add, size: 15),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  OutlinedButton(
-                                    style: OutlinedButton.styleFrom(
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                    onPressed: () =>
-                                        controller.resetWordCounter(c.id),
-                                    child: const Text('リセット'),
-                                  ),
-                                  const Spacer(),
-                                  IconButton(
-                                    tooltip: 'このカウンター単体のOBS URLをコピー',
-                                    onPressed: () {
-                                      Clipboard.setData(
-                                          ClipboardData(text: singleUrl));
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                              '単体カウンター用 OBS URL をコピーしました'),
+                              SizedBox(
+                                width: double.infinity,
+                                child: Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  alignment: WrapAlignment.spaceBetween,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton.outlined(
+                                          tooltip: '-1',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () => controller
+                                              .adjustWordCounter(c.id, -1),
+                                          icon: const Icon(Icons.remove,
+                                              size: 15),
                                         ),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.link, size: 18),
-                                  ),
-                                  IconButton(
-                                    tooltip: '編集',
-                                    onPressed: () => _openEditor(context, c),
-                                    icon: const Icon(Icons.edit_outlined,
-                                        size: 18),
-                                  ),
-                                  IconButton(
-                                    tooltip: '削除',
-                                    onPressed: () =>
-                                        controller.deleteWordCounter(c.id),
-                                    icon: Icon(Icons.delete_outline,
-                                        size: 18, color: p.danger),
-                                  ),
-                                ],
+                                        const SizedBox(width: 4),
+                                        IconButton.outlined(
+                                          tooltip: '+1',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () => controller
+                                              .adjustWordCounter(c.id, 1),
+                                          icon: const Icon(Icons.add, size: 15),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        OutlinedButton(
+                                          style: OutlinedButton.styleFrom(
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                          onPressed: () =>
+                                              controller.resetWordCounter(c.id),
+                                          child: const Text('リセット'),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'このカウンター単体のOBS URLをコピー',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () {
+                                            Clipboard.setData(
+                                                ClipboardData(text: singleUrl));
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                    '単体カウンター用 OBS URL をコピーしました'),
+                                              ),
+                                            );
+                                          },
+                                          icon:
+                                              const Icon(Icons.link, size: 18),
+                                        ),
+                                        IconButton(
+                                          tooltip: '編集',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () =>
+                                              _openEditor(context, c),
+                                          icon: const Icon(Icons.edit_outlined,
+                                              size: 18),
+                                        ),
+                                        IconButton(
+                                          tooltip: '削除',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () => controller
+                                              .deleteWordCounter(c.id),
+                                          icon: Icon(Icons.delete_outline,
+                                              size: 18, color: p.danger),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),

@@ -1,6 +1,14 @@
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stosup/main.dart';
+import 'package:stosup/screens/comments_screen.dart';
+import 'package:stosup/screens/counters_screen.dart';
+import 'package:stosup/screens/first_time_screen.dart';
+import 'package:stosup/screens/highlight_rules_screen.dart';
+import 'package:stosup/screens/lottery_screen.dart';
 import 'package:stosup/screens/media_reaction_screen.dart';
+import 'package:stosup/screens/overlay_screen.dart';
 import 'package:stosup/screens/poll_screen.dart';
 import 'package:stosup/screens/queue_screen.dart';
 import 'package:stosup/screens/settings_screen.dart';
@@ -445,5 +453,226 @@ void main() {
     await tester.tap(find.text('同意しない（アプリを終了）'));
     await tester.pump();
     expect(declined, isTrue);
+  });
+
+  testWidgets('最小ウィンドウサイズ(1120x720)で全12画面とOBSタブのホイールスクロールが崩れない',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1120, 720);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final ctrl = StosupController();
+    addTearDown(ctrl.dispose);
+    ctrl.isInitialized = true;
+    ctrl.appVersion = '0.4.3';
+    ctrl.connectionState = const ConnectionStateDto(
+      status: ConnectionStatus.connected,
+      platform: PlatformKind.demo,
+      mode: ConnectionMode.demo,
+      streamTitle: 'テスト配信タイトル（長めのタイトルでも省略表示されて崩れない確認）',
+      streamId: 'demo-1',
+      sessionId: 'sess-1',
+      canPostChat: true,
+    );
+    ctrl.mediaReactionRules = [
+      MediaReactionRule(
+        id: 'mr-1',
+        name: 'おめでとうクラッカー',
+        pattern: 'おめでとう\nおめ',
+        matchMode: MatchMode.contains,
+        caseSensitive: false,
+        effectType: MediaEffectType.cracker,
+        triggerType: MediaTriggerType.keyword,
+        minSuperchatAmount: BigInt.zero,
+        priority: 20,
+        mediaKind: MediaKind.image,
+        storedFileName: '',
+        originalFileName: '',
+        soundStoredFileName: '',
+        soundOriginalFileName: '',
+        soundVolume: 80,
+        animation: MediaAnimationKind.popIn,
+        position: MediaPosition.center,
+        durationMs: 4000,
+        widthPercent: 45,
+        volume: 80,
+        particleCount: 30,
+        particleSize: 60,
+        particleSpeed: 100,
+        gravity: 100,
+        particleText: '🎉,✨',
+        ambientPreset: 'snow',
+        cooldownSec: 2,
+        excludeBanned: true,
+        captionTemplate: '',
+        enabled: true,
+      ),
+    ];
+    ctrl.comments = [
+      CommentItem(
+        id: 'c-1',
+        sessionId: 'sess-1',
+        platform: PlatformKind.demo,
+        userId: 'u-1',
+        userName: '常連リスナー太郎',
+        userIconUrl: '',
+        userMemo: 'イラスト担当',
+        isFirstTime: true,
+        message: 'こんにちは！テストコメントです！',
+        timestampMs: 1700000000000,
+        isOwner: false,
+        isModerator: true,
+        isMember: true,
+        isBanned: false,
+        amountDisplay: '¥1,000',
+      ),
+    ];
+    ctrl.monetizationItems = [
+      MonetizationItem(
+        id: 'm-1',
+        sessionId: 'sess-1',
+        platform: PlatformKind.demo,
+        kind: MonetizationEventKind.superChat,
+        userId: 'u-1',
+        userName: '応援リスナー',
+        userIconUrl: '',
+        amountDisplay: '¥1,000',
+        amountMicros: BigInt.from(1000000000),
+        currency: 'JPY',
+        tierColor: '#FFCA28',
+        message: '応援しています！',
+        timestampMs: 1700000000000,
+        isChecked: false,
+      ),
+    ];
+    ctrl.highlightRules = [
+      const HighlightRule(
+        id: 'h-1',
+        name: '質問ハイライト',
+        pattern: '質問',
+        matchMode: MatchMode.contains,
+        caseSensitive: false,
+        bgColor: '#FEF08A',
+        textColor: '#18181B',
+        borderColor: '#EAB308',
+        priority: 10,
+        enabled: true,
+      ),
+    ];
+    ctrl.wordCounters = [
+      WordCounterConfig(
+        id: 'wc-1',
+        name: '草カウンター',
+        keywords: const ['草', 'www'],
+        matchMode: MatchMode.contains,
+        caseSensitive: false,
+        excludeBanned: true,
+        accentColor: '#22C55E',
+        enabled: true,
+        totalCount: BigInt.from(12),
+        uniqueUserCount: BigInt.from(5),
+      ),
+    ];
+
+    final screens = <Widget>[
+      CommentsScreen(controller: ctrl),
+      SuperchatScreen(controller: ctrl),
+      HighlightRulesScreen(controller: ctrl),
+      MediaReactionScreen(controller: ctrl),
+      CountersScreen(controller: ctrl),
+      FirstTimeScreen(controller: ctrl),
+      PollScreen(controller: ctrl),
+      QueueScreen(controller: ctrl),
+      LotteryScreen(controller: ctrl),
+      UsersScreen(controller: ctrl),
+      OverlayScreen(controller: ctrl),
+      SettingsScreen(controller: ctrl),
+    ];
+
+    for (final screen in screens) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme(),
+          home: Scaffold(
+            body: Row(
+              children: [
+                const SizedBox(width: 212),
+                Expanded(child: screen),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    // StosupShell 全体描画確認
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: StosupShell(controller: ctrl),
+      ),
+    );
+    await tester.pump();
+
+    // OBS オーバーレイ画面のスライドバー ＆ マウスホイール横スクロール確認
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(
+          body: Row(
+            children: [
+              const SizedBox(width: 212),
+              Expanded(child: OverlayScreen(controller: ctrl)),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final tabTextFinder = find.text('コメント表示 / CSS');
+    expect(tabTextFinder, findsOneWidget);
+    final scrollableFinder = find.ancestor(
+      of: tabTextFinder,
+      matching: find.byType(SingleChildScrollView),
+    );
+    final beforeScroll =
+        tester.widget<SingleChildScrollView>(scrollableFinder).controller!.offset;
+
+    final center = tester.getCenter(tabTextFinder);
+    final pointer = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(pointer.hover(center));
+    await tester.sendEventToBinding(pointer.scroll(const Offset(0, 120)));
+    await tester.pump();
+
+    final afterScroll =
+        tester.widget<SingleChildScrollView>(scrollableFinder).controller!.offset;
+    expect(afterScroll, greaterThan(beforeScroll));
+
+    // タブ切替（コメント表示 / CSS）でも崩れないことを確認
+    await tester.tap(tabTextFinder);
+    await tester.pumpAndSettle();
+    expect(find.text('コメント表示オーバーレイのデザイン'), findsOneWidget);
+
+    // 抽選画面のコメント抽選タブ切替でも崩れないことを確認
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(
+          body: Row(
+            children: [
+              const SizedBox(width: 212),
+              Expanded(child: LotteryScreen(controller: ctrl)),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('コメント抽選（開始〜終了の間の特定ワード）'));
+    await tester.pumpAndSettle();
+    expect(find.text('1. 受付開始'), findsOneWidget);
   });
 }

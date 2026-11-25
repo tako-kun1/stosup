@@ -482,6 +482,7 @@ class _LotteryScreenState extends State<LotteryScreen>
                                   width: 120,
                                   child: DropdownButtonFormField<MatchMode>(
                                     initialValue: _commentMatchMode,
+                                    isExpanded: true,
                                     dropdownColor: p.cardBg,
                                     decoration: const InputDecoration(
                                         labelText: '一致方式'),

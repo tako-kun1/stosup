@@ -160,10 +160,15 @@ class _CommentsScreenState extends State<CommentsScreen> {
             border: Border(bottom: BorderSide(color: p.border)),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
+                  SizedBox(
+                    width: 360,
                     child: TextField(
                       controller: _urlCtrl,
                       decoration: InputDecoration(
@@ -175,7 +180,6 @@ class _CommentsScreenState extends State<CommentsScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   DropdownButtonHideUnderline(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -204,7 +208,6 @@ class _CommentsScreenState extends State<CommentsScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   FilledButton.icon(
                     onPressed: ctrl.isConnecting
                         ? null
@@ -221,7 +224,6 @@ class _CommentsScreenState extends State<CommentsScreen> {
                         : const Icon(Icons.play_arrow, size: 18),
                     label: const Text('接続'),
                   ),
-                  const SizedBox(width: 6),
                   OutlinedButton.icon(
                     onPressed: ctrl.isConnecting
                         ? null
@@ -229,8 +231,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
                     icon: const Icon(Icons.science_outlined, size: 17),
                     label: const Text('デモ配信'),
                   ),
-                  if (connected) ...[
-                    const SizedBox(width: 6),
+                  if (connected)
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: p.danger,
@@ -240,7 +241,6 @@ class _CommentsScreenState extends State<CommentsScreen> {
                       icon: const Icon(Icons.stop, size: 17),
                       label: const Text('切断'),
                     ),
-                  ],
                 ],
               ),
               const SizedBox(height: 8),
@@ -298,58 +298,72 @@ class _CommentsScreenState extends State<CommentsScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 8),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.chat_bubble_outline,
-                              size: 17, color: p.textSecondary),
-                          const SizedBox(width: 8),
-                          Text(
-                            'コメント一覧 (${ctrl.comments.length}件)',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 14),
+                          Row(
+                            children: [
+                              Icon(Icons.chat_bubble_outline,
+                                  size: 17, color: p.textSecondary),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'コメント一覧 (${ctrl.comments.length}件)',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14),
+                                ),
+                              ),
+                              Text('自動スクロール',
+                                  style: TextStyle(
+                                      fontSize: 12, color: p.textSecondary)),
+                              Switch(
+                                value: _autoScroll,
+                                onChanged: (v) =>
+                                    setState(() => _autoScroll = v),
+                              ),
+                              const SizedBox(width: 4),
+                              TextButton.icon(
+                                onPressed: ctrl.comments.isEmpty
+                                    ? null
+                                    : ctrl.clearComments,
+                                icon: const Icon(Icons.delete_sweep, size: 17),
+                                label: const Text('クリア'),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          FeatureToggleSwitch(
-                            label: 'コメント表示',
-                            enabled: ctrl.featureFlags.commentDisplayEnabled,
-                            onChanged: (v) => ctrl.setFeatureEnabled(
-                              commentDisplay: v,
-                              featureLabel: 'コメント表示機能',
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          FeatureToggleSwitch(
-                            label: '名前メモ',
-                            enabled: ctrl.featureFlags.userMemoDisplayEnabled,
-                            onChanged: (v) => ctrl.setFeatureEnabled(
-                              userMemoDisplay: v,
-                              featureLabel: '名前メモ表示',
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          FeatureToggleSwitch(
-                            label: 'ピックアップ',
-                            enabled: ctrl.featureFlags.pickupEnabled,
-                            onChanged: (v) => ctrl.setFeatureEnabled(
-                              pickup: v,
-                              featureLabel: 'コメントピックアップ表示',
-                            ),
-                          ),
-                          const Spacer(),
-                          Text('自動スクロール',
-                              style: TextStyle(
-                                  fontSize: 12, color: p.textSecondary)),
-                          Switch(
-                            value: _autoScroll,
-                            onChanged: (v) => setState(() => _autoScroll = v),
-                          ),
-                          const SizedBox(width: 6),
-                          TextButton.icon(
-                            onPressed: ctrl.comments.isEmpty
-                                ? null
-                                : ctrl.clearComments,
-                            icon: const Icon(Icons.delete_sweep, size: 17),
-                            label: const Text('クリア'),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              FeatureToggleSwitch(
+                                label: 'コメント表示',
+                                enabled: ctrl.featureFlags.commentDisplayEnabled,
+                                onChanged: (v) => ctrl.setFeatureEnabled(
+                                  commentDisplay: v,
+                                  featureLabel: 'コメント表示機能',
+                                ),
+                              ),
+                              FeatureToggleSwitch(
+                                label: '名前メモ',
+                                enabled:
+                                    ctrl.featureFlags.userMemoDisplayEnabled,
+                                onChanged: (v) => ctrl.setFeatureEnabled(
+                                  userMemoDisplay: v,
+                                  featureLabel: '名前メモ表示',
+                                ),
+                              ),
+                              FeatureToggleSwitch(
+                                label: 'ピックアップ',
+                                enabled: ctrl.featureFlags.pickupEnabled,
+                                onChanged: (v) => ctrl.setFeatureEnabled(
+                                  pickup: v,
+                                  featureLabel: 'コメントピックアップ表示',
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

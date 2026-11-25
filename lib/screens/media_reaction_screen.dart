@@ -378,12 +378,13 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
     final rules = ctrl.mediaReactionRules;
     final overlayUrl = '${ctrl.overlayBaseUrl}/overlay/media';
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
@@ -402,6 +403,7 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
               FeatureToggleSwitch(
                 label: 'ワード演出',
                 enabled: enabled,
@@ -410,13 +412,24 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                   featureLabel: 'WordParty 演出',
                 ),
               ),
-              const SizedBox(width: 8),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              FilledButton.icon(
+                onPressed: () => _openEditor(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('演出を追加'),
+              ),
               OutlinedButton.icon(
                 onPressed: _copyOverlayUrl,
                 icon: const Icon(Icons.copy, size: 15),
                 label: const Text('OBS URL'),
               ),
-              const SizedBox(width: 6),
               OutlinedButton.icon(
                 onPressed: ctrl.featureFlags.obsOverlayEnabled
                     ? () => ctrl.openUrl(overlayUrl)
@@ -424,17 +437,10 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                 icon: const Icon(Icons.open_in_new, size: 15),
                 label: const Text('ブラウザで確認'),
               ),
-              const SizedBox(width: 6),
               OutlinedButton.icon(
                 onPressed: ctrl.clearOverlayMedia,
                 icon: const Icon(Icons.stop_circle_outlined, size: 16),
                 label: const Text('全停止'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: () => _openEditor(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('演出を追加'),
               ),
             ],
           ),
@@ -450,7 +456,7 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
               ),
             ),
 
-          // 全体再生方式・複数判定・マスター音量設定カード
+          // 全体再生方式・複数判定・マスター音量・背景色設定カード
           Card(
             child: Padding(
               padding: const EdgeInsets.all(14),
@@ -459,17 +465,14 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                 children: [
                   Row(
                     children: [
-                      const Text(
-                        '全体設定（固定表示の再生方式・複数判定・マスター音量）',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14),
+                      const Expanded(
+                        child: Text(
+                          '全体設定（固定表示の再生方式・複数判定・マスター音量）',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
                       ),
-                      const Spacer(),
-                      Text(
-                        '※OBSで効果音を配信に載せる場合は「OBSを介して音声を制御する」を有効にしてください',
-                        style: TextStyle(fontSize: 11.5, color: p.textSecondary),
-                      ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       FilledButton.icon(
                         onPressed: () => ctrl.saveMediaReactionConfig(
                           MediaReactionConfig(
@@ -484,8 +487,16 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '※OBSで効果音を配信に載せる場合は「OBSを介して音声を制御する」を有効にしてください',
+                    style: TextStyle(fontSize: 11.5, color: p.textSecondary),
+                  ),
                   const SizedBox(height: 10),
-                  Row(
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 10,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       SegmentedButton<MediaPlaybackMode>(
                         segments: const [
@@ -509,7 +520,6 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                         onSelectionChanged: (s) =>
                             setState(() => _playbackMode = s.first),
                       ),
-                      const SizedBox(width: 14),
                       SizedBox(
                         width: 215,
                         child: CheckboxListTile(
@@ -523,8 +533,8 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                               style: TextStyle(fontSize: 12.5)),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
+                      SizedBox(
+                        width: 220,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -542,8 +552,7 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                           ],
                         ),
                       ),
-                      if (_playbackMode == MediaPlaybackMode.overlay) ...[
-                        const SizedBox(width: 10),
+                      if (_playbackMode == MediaPlaybackMode.overlay)
                         SizedBox(
                           width: 130,
                           child: DropdownButtonFormField<int>(
@@ -563,7 +572,6 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                             },
                           ),
                         ),
-                      ],
                     ],
                   ),
                   const Divider(height: 18),
@@ -627,10 +635,12 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
           const SizedBox(height: 10),
 
           // ルール一覧
-          Expanded(
-            child: Card(
-              child: rules.isEmpty
-                  ? Center(
+          Card(
+            child: rules.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 40, horizontal: 20),
+                    child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -645,153 +655,184 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                           const SizedBox(height: 4),
                           Text(
                             '上の「定番テンプレート追加」からワンクリックで追加するか、「演出を追加」からオリジナルの画像・動画・効果音を設定できます。',
-                            style: TextStyle(fontSize: 12.5, color: p.textMuted),
+                            textAlign: TextAlign.center,
+                            style:
+                                TextStyle(fontSize: 12.5, color: p.textMuted),
                           ),
                         ],
                       ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: rules.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, idx) {
-                        final r = rules[idx];
-                        final patternPreview = r.pattern
-                            .split('\n')
-                            .map((e) => e.trim())
-                            .where((e) => e.isNotEmpty)
-                            .join(' / ');
-                        final assetSummary = r.originalFileName.isNotEmpty
-                            ? '素材: ${r.originalFileName}'
-                            : (r.effectType == MediaEffectType.ambient
-                                ? '環境: ${ambientLabel(r.ambientPreset)}'
-                                : (r.particleText.isNotEmpty
-                                    ? '文字/絵文字: ${r.particleText}'
-                                    : '標準パーティクル'));
-                        final seSummary = r.soundOriginalFileName.isNotEmpty
-                            ? '  |  SE: ${r.soundOriginalFileName}'
-                            : '';
-
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: p.cardBg,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: r.enabled ? p.border : p.subtleBg,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: p.accent.withValues(alpha: 0.14),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  effectIcon(r.effectType),
-                                  color: p.accent,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 4,
-                                      crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                      children: [
-                                        Text(
-                                          r.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14.5,
-                                          ),
-                                        ),
-                                        _ChipTag(
-                                            effectLabel(r.effectType), p.accent),
-                                        _ChipTag(
-                                          triggerLabel(r.triggerType,
-                                              r.minSuperchatAmount),
-                                          p.success,
-                                        ),
-                                        if (r.triggerType ==
-                                                MediaTriggerType.keyword &&
-                                            patternPreview.isNotEmpty)
-                                          _ChipTag(
-                                              '反応: $patternPreview', p.warning),
-                                        Text(
-                                          '優先:${r.priority}',
-                                          style: TextStyle(
-                                              fontSize: 11, color: p.textMuted),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '$assetSummary$seSummary  |  '
-                                      '${r.effectType == MediaEffectType.fixed ? "幅${r.widthPercent}%" : "個数${r.particleCount} / サイズ${r.particleSize}px"}  |  '
-                                      '時間: ${r.durationMs == 0 ? "動画終了まで" : "${(r.durationMs / 1000).toStringAsFixed(1)}秒"}  |  CD: ${r.cooldownSec}秒',
-                                      style: TextStyle(
-                                          fontSize: 12, color: p.textSecondary),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                tooltip: '優先度を上げる',
-                                onPressed: () => ctrl.saveMediaReactionRule(
-                                  _copyRule(r, priority: r.priority + 5),
-                                ),
-                                icon: const Icon(Icons.arrow_upward, size: 16),
-                              ),
-                              IconButton(
-                                tooltip: '優先度を下げる',
-                                onPressed: () => ctrl.saveMediaReactionRule(
-                                  _copyRule(r, priority: r.priority - 5),
-                                ),
-                                icon:
-                                    const Icon(Icons.arrow_downward, size: 16),
-                              ),
-                              const SizedBox(width: 4),
-                              OutlinedButton.icon(
-                                onPressed: () =>
-                                    ctrl.testMediaReactionRule(r.id),
-                                icon: const Icon(Icons.play_arrow, size: 16),
-                                label: const Text('テスト再生'),
-                              ),
-                              const SizedBox(width: 6),
-                              Switch(
-                                value: r.enabled,
-                                onChanged: (v) => ctrl.saveMediaReactionRule(
-                                  _copyRule(r, enabled: v),
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: '編集',
-                                onPressed: () => _openEditor(initial: r),
-                                icon: const Icon(Icons.edit_outlined, size: 18),
-                              ),
-                              IconButton(
-                                tooltip: '削除',
-                                onPressed: () =>
-                                    ctrl.deleteMediaReactionRule(r.id),
-                                icon: Icon(Icons.delete_outline,
-                                    size: 18, color: p.danger),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
                     ),
-            ),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(12),
+                    itemCount: rules.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, idx) {
+                      final r = rules[idx];
+                      final patternPreview = r.pattern
+                          .split('\n')
+                          .map((e) => e.trim())
+                          .where((e) => e.isNotEmpty)
+                          .join(' / ');
+                      final assetSummary = r.originalFileName.isNotEmpty
+                          ? '素材: ${r.originalFileName}'
+                          : (r.effectType == MediaEffectType.ambient
+                              ? '環境: ${ambientLabel(r.ambientPreset)}'
+                              : (r.particleText.isNotEmpty
+                                  ? '文字/絵文字: ${r.particleText}'
+                                  : '標準パーティクル'));
+                      final seSummary = r.soundOriginalFileName.isNotEmpty
+                          ? '  |  SE: ${r.soundOriginalFileName}'
+                          : '';
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: p.cardBg,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: r.enabled ? p.border : p.subtleBg,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: p.accent.withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    effectIcon(r.effectType),
+                                    color: p.accent,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        children: [
+                                          Text(
+                                            r.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14.5,
+                                            ),
+                                          ),
+                                          _ChipTag(effectLabel(r.effectType),
+                                              p.accent),
+                                          _ChipTag(
+                                            triggerLabel(r.triggerType,
+                                                r.minSuperchatAmount),
+                                            p.success,
+                                          ),
+                                          if (r.triggerType ==
+                                                  MediaTriggerType.keyword &&
+                                              patternPreview.isNotEmpty)
+                                            _ChipTag('反応: $patternPreview',
+                                                p.warning),
+                                          Text(
+                                            '優先:${r.priority}',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color: p.textMuted),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '$assetSummary$seSummary  |  '
+                                        '${r.effectType == MediaEffectType.fixed ? "幅${r.widthPercent}%" : "個数${r.particleCount} / サイズ${r.particleSize}px"}  |  '
+                                        '時間: ${r.durationMs == 0 ? "動画終了まで" : "${(r.durationMs / 1000).toStringAsFixed(1)}秒"}  |  CD: ${r.cooldownSec}秒',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: p.textSecondary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Switch(
+                                  value: r.enabled,
+                                  onChanged: (v) => ctrl.saveMediaReactionRule(
+                                    _copyRule(r, enabled: v),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  IconButton(
+                                    tooltip: '優先度を上げる',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () => ctrl.saveMediaReactionRule(
+                                      _copyRule(r, priority: r.priority + 5),
+                                    ),
+                                    icon: const Icon(Icons.arrow_upward,
+                                        size: 16),
+                                  ),
+                                  IconButton(
+                                    tooltip: '優先度を下げる',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () => ctrl.saveMediaReactionRule(
+                                      _copyRule(r, priority: r.priority - 5),
+                                    ),
+                                    icon: const Icon(Icons.arrow_downward,
+                                        size: 16),
+                                  ),
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    onPressed: () =>
+                                        ctrl.testMediaReactionRule(r.id),
+                                    icon: const Icon(Icons.play_arrow, size: 16),
+                                    label: const Text('テスト再生'),
+                                  ),
+                                  IconButton(
+                                    tooltip: '編集',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () => _openEditor(initial: r),
+                                    icon: const Icon(Icons.edit_outlined,
+                                        size: 18),
+                                  ),
+                                  IconButton(
+                                    tooltip: '削除',
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () =>
+                                        ctrl.deleteMediaReactionRule(r.id),
+                                    icon: Icon(Icons.delete_outline,
+                                        size: 18, color: p.danger),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

@@ -1,5 +1,6 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
@@ -39,7 +40,21 @@ class OverlayScreen extends StatefulWidget {
 
 class _OverlayScreenState extends State<OverlayScreen>
     with SingleTickerProviderStateMixin {
+  static const List<String> _overlayTabLabels = [
+    'OBS URL・基本設定',
+    'コメント表示 / CSS',
+    'スパチャ / CSS',
+    'ピックアップ / CSS',
+    '投票グラフ / CSS',
+    '参加型キュー / CSS',
+    'ワード演出 / CSS',
+    '抽選画面 / CSS',
+    'ワードカウント / CSS',
+    '初見カウンター / CSS',
+  ];
+
   late TabController _tabCtrl;
+  final ScrollController _tabScrollCtrl = ScrollController();
   late TextEditingController _portCtrl;
   late TextEditingController _commentsCssCtrl;
   late TextEditingController _lotteryCssCtrl;
@@ -261,7 +276,8 @@ class _OverlayScreenState extends State<OverlayScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 10, vsync: this);
+    _tabCtrl = TabController(length: _overlayTabLabels.length, vsync: this);
+    _tabCtrl.addListener(_onTabChanged);
     final cfg = widget.controller.overlayConfig;
     _lastSyncedOverlayConfig = cfg;
     _portCtrl = TextEditingController(text: cfg.port.toString());
@@ -309,9 +325,35 @@ class _OverlayScreenState extends State<OverlayScreen>
     _mediaFont = cfg.mediaFontFamily;
   }
 
+  void _onTabChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _scrollTabsBy(double delta) {
+    if (!_tabScrollCtrl.hasClients) return;
+    final pos = _tabScrollCtrl.position;
+    final target =
+        (_tabScrollCtrl.offset + delta).clamp(pos.minScrollExtent, pos.maxScrollExtent);
+    _tabScrollCtrl.jumpTo(target);
+  }
+
+  void _animateScrollTabsBy(double delta) {
+    if (!_tabScrollCtrl.hasClients) return;
+    final pos = _tabScrollCtrl.position;
+    final target =
+        (_tabScrollCtrl.offset + delta).clamp(pos.minScrollExtent, pos.maxScrollExtent);
+    _tabScrollCtrl.animateTo(
+      target,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+    );
+  }
+
   @override
   void dispose() {
+    _tabCtrl.removeListener(_onTabChanged);
     _tabCtrl.dispose();
+    _tabScrollCtrl.dispose();
     _portCtrl.dispose();
     _commentsCssCtrl.dispose();
     _lotteryCssCtrl.dispose();
@@ -434,23 +476,114 @@ class _OverlayScreenState extends State<OverlayScreen>
                 ],
               ),
               const SizedBox(height: 10),
-              TabBar(
-                controller: _tabCtrl,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                tabs: const [
-                  Tab(text: 'OBS URL・基本設定'),
-                  Tab(text: 'コメント表示 / CSS'),
-                  Tab(text: 'スパチャ / CSS'),
-                  Tab(text: 'ピックアップ / CSS'),
-                  Tab(text: '投票グラフ / CSS'),
-                  Tab(text: '参加型キュー / CSS'),
-                  Tab(text: 'ワード演出 / CSS'),
-                  Tab(text: '抽選画面 / CSS'),
-                  Tab(text: 'ワードカウント / CSS'),
-                  Tab(text: '初見カウンター / CSS'),
-                ],
+              // タブ下の水平スライドバー ＆ マウススクロールホイール対応タブバー
+              Listener(
+                onPointerSignal: (event) {
+                  if (event is PointerScrollEvent) {
+                    final delta = event.scrollDelta.dy != 0
+                        ? event.scrollDelta.dy
+                        : event.scrollDelta.dx;
+                    _scrollTabsBy(delta);
+                  }
+                },
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    IconButton(
+                      tooltip: '左へスクロール',
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 36,
+                      ),
+                      onPressed: () => _animateScrollTabsBy(-220),
+                      icon: Icon(Icons.chevron_left,
+                          size: 20, color: p.textSecondary),
+                    ),
+                    Expanded(
+                      child: Scrollbar(
+                        controller: _tabScrollCtrl,
+                        thumbVisibility: true,
+                        trackVisibility: true,
+                        interactive: true,
+                        thickness: 7,
+                        radius: const Radius.circular(4),
+                        child: SingleChildScrollView(
+                          controller: _tabScrollCtrl,
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: List.generate(
+                              _overlayTabLabels.length,
+                              (idx) {
+                                final selected = _tabCtrl.index == idx;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: InkWell(
+                                    onTap: () => _tabCtrl.animateTo(idx),
+                                    borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(6),
+                                    ),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 13,
+                                        vertical: 9,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: selected
+                                            ? p.accent.withValues(alpha: 0.12)
+                                            : Colors.transparent,
+                                        borderRadius:
+                                            const BorderRadius.vertical(
+                                          top: Radius.circular(6),
+                                        ),
+                                        border: Border(
+                                          bottom: BorderSide(
+                                            color: selected
+                                                ? p.accent
+                                                : Colors.transparent,
+                                            width: 2.5,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _overlayTabLabels[idx],
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: selected
+                                              ? FontWeight.bold
+                                              : FontWeight.w500,
+                                          color: selected
+                                              ? p.accent
+                                              : p.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '右へスクロール',
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 36,
+                      ),
+                      onPressed: () => _animateScrollTabsBy(220),
+                      icon: Icon(Icons.chevron_right,
+                          size: 20, color: p.textSecondary),
+                    ),
+                  ],
+                ),
               ),
+              const Divider(height: 1),
             ],
           ),
         ),
@@ -1048,12 +1181,14 @@ class _OverlayScreenState extends State<OverlayScreen>
           const SizedBox(height: 16),
 
           // イメージプレビュー（背景色・フォント連動）
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Text('プレビュー',
                   style:
                       TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-              const SizedBox(width: 10),
               Text(
                 '${isTransparent ? "背景: 透過" : "背景色: $bgColor"}  /  フォント: ${effectiveFont ?? "プリセット標準"}',
                 style: TextStyle(

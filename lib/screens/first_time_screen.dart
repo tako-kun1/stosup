@@ -342,22 +342,28 @@ class _FirstTimeScreenState extends State<FirstTimeScreen> {
                                     setState(() => _accentColor = v),
                               ),
                               const SizedBox(height: 14),
-                              Row(
-                                children: [
-                                  TextButton(
-                                    style: TextButton.styleFrom(
-                                        foregroundColor: p.danger),
-                                    onPressed: _confirmResetAllHistory,
-                                    child: const Text('全ユーザーの履歴リセット'),
-                                  ),
-                                  const Spacer(),
-                                  FilledButton.icon(
-                                    onPressed: _saveConfig,
-                                    icon: const Icon(Icons.save_outlined,
-                                        size: 17),
-                                    label: const Text('設定を保存'),
-                                  ),
-                                ],
+                              SizedBox(
+                                width: double.infinity,
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  alignment: WrapAlignment.spaceBetween,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    TextButton(
+                                      style: TextButton.styleFrom(
+                                          foregroundColor: p.danger),
+                                      onPressed: _confirmResetAllHistory,
+                                      child: const Text('全ユーザーの履歴リセット'),
+                                    ),
+                                    FilledButton.icon(
+                                      onPressed: _saveConfig,
+                                      icon: const Icon(Icons.save_outlined,
+                                          size: 17),
+                                      label: const Text('設定を保存'),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -376,38 +382,45 @@ class _FirstTimeScreenState extends State<FirstTimeScreen> {
                       children: [
                         Padding(
                           padding: const EdgeInsets.all(14),
-                          child: Row(
-                            children: [
-                              const Text(
-                                '初見さんのアイコン・名前表示',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 14.5),
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: (ft.config.showFirstTimerProfile
-                                          ? p.success
-                                          : p.textMuted)
-                                      .withValues(alpha: 0.14),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  ft.config.showFirstTimerProfile
-                                      ? '表示オプション: ON'
-                                      : '表示オプション: OFF（デフォルト）',
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                const Text(
+                                  '初見さんのアイコン・名前表示',
                                   style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: ft.config.showFirstTimerProfile
-                                        ? p.success
-                                        : p.textSecondary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14.5),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: (ft.config.showFirstTimerProfile
+                                            ? p.success
+                                            : p.textMuted)
+                                        .withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    ft.config.showFirstTimerProfile
+                                        ? '表示オプション: ON'
+                                        : '表示オプション: OFF（デフォルト）',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: ft.config.showFirstTimerProfile
+                                          ? p.success
+                                          : p.textSecondary,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                         const Divider(height: 1),
