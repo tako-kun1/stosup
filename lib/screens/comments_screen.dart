@@ -26,6 +26,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
   ConnectionMode _selectedMode = ConnectionMode.youTubeInnerTube;
   bool _autoScroll = true;
   int _lastCommentCount = 0;
+  String? _lastCommentId;
 
   @override
   void dispose() {
@@ -37,9 +38,12 @@ class _CommentsScreenState extends State<CommentsScreen> {
     super.dispose();
   }
 
-  void _maybeScrollToBottom(int count) {
-    if (_autoScroll && count != _lastCommentCount) {
+  void _maybeScrollToBottom(List<CommentItem> comments) {
+    final count = comments.length;
+    final lastId = comments.isNotEmpty ? comments.last.id : null;
+    if (_autoScroll && (count != _lastCommentCount || lastId != _lastCommentId)) {
       _lastCommentCount = count;
+      _lastCommentId = lastId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollCtrl.hasClients) {
           _scrollCtrl.animateTo(
@@ -148,7 +152,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
     final ctrl = widget.controller;
     final conn = ctrl.connectionState;
     final connected = conn.status == ConnectionStatus.connected;
-    _maybeScrollToBottom(ctrl.comments.length);
+    _maybeScrollToBottom(ctrl.comments);
 
     return Column(
       children: [

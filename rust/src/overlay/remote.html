@@ -774,7 +774,11 @@
           appState.comments = appState.comments || [];
           appState.comments.push(ev.comment);
           if (appState.comments.length > 100) appState.comments.shift();
-          shouldRender = (currentTab === 'comments');
+          if (currentTab === 'comments') {
+            if (!prependCommentRow(ev.comment)) {
+              shouldRender = true;
+            }
+          }
         }
         break;
       case 'CommentsReplaced':
@@ -945,6 +949,40 @@
   }
 
   // ==================== 各タブ描画 ====================
+  function renderCommentRowHtml(c, picked) {
+    const isPicked = picked && picked.id === c.id;
+    return `<div class="item-row ${isPicked ? 'picked' : ''}">
+      <div class="item-main">
+        <div class="item-author">
+          <span>${esc(c.user_name)}</span>
+          ${c.amount_display ? `<span class="pill warning">${esc(c.amount_display)}</span>` : ''}
+          ${c.user_memo ? `<span class="pill accent">${esc(c.user_memo)}</span>` : ''}
+          ${c.is_first_time ? `<span class="pill success">初見</span>` : ''}
+        </div>
+        <div class="item-msg">${esc(c.message)}</div>
+      </div>
+      <button class="btn sm ${isPicked ? 'primary' : ''}" onclick="sendAction({action:'pick_comment',comment_id:'${esc(c.id)}'})">${isPicked ? '解除' : '📌表示'}</button>
+    </div>`;
+  }
+
+  // コメント受信時はコメント一覧 DOM の先頭へ 1 件のみ差分挿入し、フォーム入力や IME 変換を妨げない
+  function prependCommentRow(comment) {
+    const listEl = document.getElementById('comment-list-body');
+    if (!listEl) return false;
+    const emptyEl = listEl.querySelector('.empty-comments-msg');
+    if (emptyEl) emptyEl.remove();
+    const picked = appState && appState.picked && appState.picked.comment;
+    listEl.insertAdjacentHTML('afterbegin', renderCommentRowHtml(comment, picked));
+    while (listEl.children.length > 100) {
+      listEl.lastElementChild.remove();
+    }
+    const countLabel = document.getElementById('comment-count-label');
+    if (countLabel) {
+      countLabel.textContent = `コメント一覧 (${(appState.comments || []).length}件)`;
+    }
+    return true;
+  }
+
   function renderComments(el) {
     const picked = appState.picked && appState.picked.comment;
     const comments = (appState.comments || []).slice().reverse();
@@ -971,27 +1009,16 @@
     </div>`;
 
     html += `<div class="card">
-      <div class="card-title"><span>コメント一覧 (${comments.length}件)</span><button class="btn sm" onclick="sendAction({action:'clear_comments'})">クリア</button></div>`;
+      <div class="card-title"><span id="comment-count-label">コメント一覧 (${comments.length}件)</span><button class="btn sm" onclick="sendAction({action:'clear_comments'})">クリア</button></div>
+      <div id="comment-list-body">`;
     if (comments.length === 0) {
-      html += '<div class="muted">まだコメントがありません</div>';
+      html += '<div class="muted empty-comments-msg">まだコメントがありません</div>';
     } else {
       comments.forEach(c => {
-        const isPicked = picked && picked.id === c.id;
-        html += `<div class="item-row ${isPicked ? 'picked' : ''}">
-          <div class="item-main">
-            <div class="item-author">
-              <span>${esc(c.user_name)}</span>
-              ${c.amount_display ? `<span class="pill warning">${esc(c.amount_display)}</span>` : ''}
-              ${c.user_memo ? `<span class="pill accent">${esc(c.user_memo)}</span>` : ''}
-              ${c.is_first_time ? `<span class="pill success">初見</span>` : ''}
-            </div>
-            <div class="item-msg">${esc(c.message)}</div>
-          </div>
-          <button class="btn sm ${isPicked ? 'primary' : ''}" onclick="sendAction({action:'pick_comment',comment_id:'${esc(c.id)}'})">${isPicked ? '解除' : '📌表示'}</button>
-        </div>`;
+        html += renderCommentRowHtml(c, picked);
       });
     }
-    html += '</div>';
+    html += '</div></div>';
     el.innerHTML = html;
   }
 

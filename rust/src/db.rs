@@ -51,6 +51,10 @@ impl Database {
         self.conn.execute_batch(
             "
             PRAGMA journal_mode = WAL;
+            PRAGMA synchronous = NORMAL;
+            PRAGMA temp_store = MEMORY;
+            PRAGMA cache_size = -16000;
+            PRAGMA busy_timeout = 5000;
             PRAGMA foreign_keys = ON;
 
             CREATE TABLE IF NOT EXISTS app_settings (
@@ -153,6 +157,12 @@ impl Database {
             );
             CREATE INDEX IF NOT EXISTS idx_monetization_ts
                 ON monetization_events(timestamp_ms DESC);
+            CREATE INDEX IF NOT EXISTS idx_users_last_seen
+                ON users(last_seen_ms DESC);
+            CREATE INDEX IF NOT EXISTS idx_users_banned
+                ON users(is_banned) WHERE is_banned = 1;
+            CREATE INDEX IF NOT EXISTS idx_lottery_history_drawn
+                ON lottery_history(drawn_at_ms DESC);
 
             CREATE TABLE IF NOT EXISTS media_reaction_rules (
                 id TEXT PRIMARY KEY,
@@ -472,81 +482,88 @@ impl Database {
     ) -> Result<UserCommentMeta> {
         let platform_str = raw.platform.as_str();
 
-        // 登録前に既存ユーザーかを確認（未登録ユーザー検知のため）
-        let existed: Option<i64> = self
-            .conn
-            .query_row(
-                "SELECT first_time_detected FROM users WHERE user_id = ?1 AND platform = ?2",
-                params![raw.user_id, platform_str],
-                |row| row.get(0),
-            )
-            .optional()?;
-        let was_unregistered = existed.is_none();
+        // 複数クエリを単一の SAVEPOINT トランザクションへ集約し、WAL 同期コストとクエリ回数を最小化
+        self.conn.execute_batch("SAVEPOINT record_user_comment;")?;
+        let res = (|| -> Result<UserCommentMeta> {
+            // 登録前に既存ユーザーか＆BAN/メモ/初見フラグを 1 クエリで取得（後段の再 SELECT を省略）
+            let existing: Option<(i64, String, i64)> = self
+                .conn
+                .query_row(
+                    "SELECT is_banned, memo, first_time_detected FROM users WHERE user_id = ?1 AND platform = ?2",
+                    params![raw.user_id, platform_str],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .optional()?;
 
-        // ユーザーテーブルへ UPSERT
-        self.conn.execute(
-            "INSERT INTO users (
-                user_id, platform, display_name, icon_url,
-                watch_count, total_comment_count, is_banned, ban_reason, memo,
-                first_time_detected, first_seen_ms, last_seen_ms
-            ) VALUES (?1, ?2, ?3, ?4, 0, 1, 0, '', '', 0, ?5, ?5)
-            ON CONFLICT(user_id, platform) DO UPDATE SET
-                display_name = excluded.display_name,
-                icon_url = CASE WHEN excluded.icon_url != '' THEN excluded.icon_url ELSE users.icon_url END,
-                total_comment_count = users.total_comment_count + 1,
-                last_seen_ms = excluded.last_seen_ms",
-            params![
-                raw.user_id,
-                platform_str,
-                raw.user_name,
-                raw.user_icon_url,
-                raw.timestamp_ms
-            ],
-        )?;
+            let (was_unregistered, is_banned, memo, already_first_time_detected) = match existing {
+                Some((b, memo, det)) => (false, b != 0, memo, det != 0),
+                None => (true, false, String::new(), false),
+            };
 
-        // この配信セッションでの参加が初回かを確認
-        let already_in_session: Option<i64> = self
-            .conn
-            .query_row(
-                "SELECT comment_count FROM session_participants
-                 WHERE session_id = ?1 AND user_id = ?2 AND platform = ?3",
-                params![session_id, raw.user_id, platform_str],
-                |row| row.get(0),
-            )
-            .optional()?;
-
-        if already_in_session.is_none() {
+            // ユーザーテーブルへ UPSERT（is_banned / memo / first_time_detected は変更しない）
             self.conn.execute(
-                "INSERT INTO session_participants (session_id, user_id, platform, comment_count)
+                "INSERT INTO users (
+                    user_id, platform, display_name, icon_url,
+                    watch_count, total_comment_count, is_banned, ban_reason, memo,
+                    first_time_detected, first_seen_ms, last_seen_ms
+                ) VALUES (?1, ?2, ?3, ?4, 0, 1, 0, '', '', 0, ?5, ?5)
+                ON CONFLICT(user_id, platform) DO UPDATE SET
+                    display_name = excluded.display_name,
+                    icon_url = CASE WHEN excluded.icon_url != '' THEN excluded.icon_url ELSE users.icon_url END,
+                    total_comment_count = users.total_comment_count + 1,
+                    last_seen_ms = excluded.last_seen_ms",
+                params![
+                    raw.user_id,
+                    platform_str,
+                    raw.user_name,
+                    raw.user_icon_url,
+                    raw.timestamp_ms
+                ],
+            )?;
+
+            // この配信セッションでの参加が初回かを INSERT OR IGNORE で 1 クエリ判定
+            let inserted = self.conn.execute(
+                "INSERT OR IGNORE INTO session_participants (session_id, user_id, platform, comment_count)
                  VALUES (?1, ?2, ?3, 1)",
                 params![session_id, raw.user_id, platform_str],
             )?;
-            // 1配信につき初回コメントで視聴回数 +1
-            self.conn.execute(
-                "UPDATE users SET watch_count = watch_count + 1
-                 WHERE user_id = ?1 AND platform = ?2",
-                params![raw.user_id, platform_str],
-            )?;
-        } else {
-            self.conn.execute(
-                "UPDATE session_participants SET comment_count = comment_count + 1
-                 WHERE session_id = ?1 AND user_id = ?2 AND platform = ?3",
-                params![session_id, raw.user_id, platform_str],
-            )?;
+
+            if inserted > 0 {
+                // 1配信につき初回コメントで視聴回数 +1
+                self.conn.execute(
+                    "UPDATE users SET watch_count = watch_count + 1
+                     WHERE user_id = ?1 AND platform = ?2",
+                    params![raw.user_id, platform_str],
+                )?;
+            } else {
+                self.conn.execute(
+                    "UPDATE session_participants SET comment_count = comment_count + 1
+                     WHERE session_id = ?1 AND user_id = ?2 AND platform = ?3",
+                    params![session_id, raw.user_id, platform_str],
+                )?;
+            }
+
+            Ok(UserCommentMeta {
+                is_banned,
+                memo,
+                was_unregistered,
+                already_first_time_detected,
+            })
+        })();
+
+        match res {
+            Ok(meta) => {
+                self.conn
+                    .execute_batch("RELEASE SAVEPOINT record_user_comment;")?;
+                Ok(meta)
+            }
+            Err(e) => {
+                let _ = self.conn.execute_batch(
+                    "ROLLBACK TO SAVEPOINT record_user_comment; RELEASE SAVEPOINT record_user_comment;",
+                );
+                Err(e)
+            }
         }
-
-        let (is_banned, memo, detected): (i64, String, i64) = self.conn.query_row(
-            "SELECT is_banned, memo, first_time_detected FROM users WHERE user_id = ?1 AND platform = ?2",
-            params![raw.user_id, platform_str],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )?;
-
-        Ok(UserCommentMeta {
-            is_banned: is_banned != 0,
-            memo,
-            was_unregistered,
-            already_first_time_detected: detected != 0,
-        })
     }
 
     /// ユーザー自動記録OFF時に既存のユーザー情報だけを参照する
@@ -611,6 +628,13 @@ impl Database {
             |row| row.get(0),
         )?;
         Ok(count.max(0) as u64)
+    }
+
+    pub fn count_users(&self) -> Result<usize> {
+        let count: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))?;
+        Ok(count.max(0) as usize)
     }
 
     pub fn reset_all_first_time_history(&self) -> Result<()> {

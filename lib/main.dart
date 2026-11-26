@@ -19,40 +19,65 @@ import 'widgets/license_agreement_screen.dart';
 import 'widgets/release_notes_dialog.dart';
 import 'widgets/update_dialog.dart';
 
-void main(List<String> args) {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   final afterUpdate = args.contains('--after-update');
-  runApp(StosupApp(afterUpdate: afterUpdate));
+
+  // ウィンドウ初回表示 (Win32 Show) より前にテーマ設定と利用規約判定を完了させ、
+  // 起動時の白黒フラッシュ・ローディング経由のちらつきを防止する
+  final controller = StosupController();
+  await controller.initialize(afterUpdate: afterUpdate);
+
+  runApp(StosupApp(afterUpdate: afterUpdate, controller: controller));
 }
 
 class StosupApp extends StatefulWidget {
-  const StosupApp({super.key, this.afterUpdate = false});
+  const StosupApp({
+    super.key,
+    this.afterUpdate = false,
+    this.controller,
+  });
 
   final bool afterUpdate;
+  final StosupController? controller;
 
   @override
   State<StosupApp> createState() => _StosupAppState();
 }
 
 class _StosupAppState extends State<StosupApp> {
-  final _controller = StosupController();
+  late final StosupController _controller;
+  late final bool _ownsController;
+  late AppThemeMode _lastThemeMode;
 
   @override
   void initState() {
     super.initState();
+    _ownsController = widget.controller == null;
+    _controller = widget.controller ?? StosupController();
+    _lastThemeMode = _controller.themeMode;
     _controller.addListener(_onChanged);
-    _controller.initialize(afterUpdate: widget.afterUpdate);
+    if (!_controller.isInitialized && _controller.initError == null) {
+      _controller.initialize(afterUpdate: widget.afterUpdate);
+    }
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onChanged);
-    _controller.dispose();
+    if (_ownsController) {
+      _controller.dispose();
+    }
     super.dispose();
   }
 
   void _onChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    // MaterialApp 全体の再ビルドはテーマモードが変わった時のみに限定
+    if (_controller.themeMode != _lastThemeMode) {
+      _lastThemeMode = _controller.themeMode;
+      setState(() {});
+    }
   }
 
   ThemeMode _mapThemeMode(AppThemeMode mode) {
@@ -74,6 +99,8 @@ class _StosupAppState extends State<StosupApp> {
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),
       themeMode: _mapThemeMode(_controller.themeMode),
+      // テーマ切替時のクロスフェード明滅（白⇔黒フラッシュ）を無効化
+      themeAnimationDuration: Duration.zero,
       home: StosupShell(controller: _controller),
     );
   }
@@ -97,6 +124,15 @@ class _StosupShellState extends State<StosupShell> {
     super.initState();
     widget.controller.addListener(_onStateChanged);
     widget.controller.onNotice = _showNotice;
+    widget.controller.setUsersViewActive(
+      _selectedIndex == 8 || _selectedIndex == 9,
+    );
+  }
+
+  void _selectTab(int idx) {
+    if (_selectedIndex == idx) return;
+    setState(() => _selectedIndex = idx);
+    widget.controller.setUsersViewActive(idx == 8 || idx == 9);
   }
 
   @override
@@ -363,7 +399,7 @@ class _StosupShellState extends State<StosupShell> {
                                   ? p.textMuted
                                   : p.success,
                               dimmed: !flags.commentDisplayEnabled,
-                              onTap: () => setState(() => _selectedIndex = 0),
+                              onTap: () => _selectTab(0),
                             ),
                             _NavTile(
                               icon: Icons.volunteer_activism_outlined,
@@ -378,7 +414,7 @@ class _StosupShellState extends State<StosupShell> {
                                   ? p.textMuted
                                   : p.warning,
                               dimmed: !flags.superchatEnabled,
-                              onTap: () => setState(() => _selectedIndex = 1),
+                              onTap: () => _selectTab(1),
                             ),
                             _NavTile(
                               icon: Icons.palette_outlined,
@@ -387,7 +423,7 @@ class _StosupShellState extends State<StosupShell> {
                               badge: !flags.wordHighlightEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.wordHighlightEnabled,
-                              onTap: () => setState(() => _selectedIndex = 2),
+                              onTap: () => _selectTab(2),
                             ),
                             _NavTile(
                               icon: Icons.movie_filter_outlined,
@@ -396,7 +432,7 @@ class _StosupShellState extends State<StosupShell> {
                               badge: !flags.mediaReactionEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.mediaReactionEnabled,
-                              onTap: () => setState(() => _selectedIndex = 3),
+                              onTap: () => _selectTab(3),
                             ),
                             _NavTile(
                               icon: Icons.pin_outlined,
@@ -405,7 +441,7 @@ class _StosupShellState extends State<StosupShell> {
                               badge: !flags.wordCounterEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.wordCounterEnabled,
-                              onTap: () => setState(() => _selectedIndex = 4),
+                              onTap: () => _selectTab(4),
                             ),
                             _NavTile(
                               icon: Icons.waving_hand_outlined,
@@ -420,7 +456,7 @@ class _StosupShellState extends State<StosupShell> {
                                   ? p.textMuted
                                   : p.success,
                               dimmed: !flags.firstTimeCounterEnabled,
-                              onTap: () => setState(() => _selectedIndex = 5),
+                              onTap: () => _selectTab(5),
                             ),
                             _NavTile(
                               icon: Icons.poll_outlined,
@@ -433,7 +469,7 @@ class _StosupShellState extends State<StosupShell> {
                                   ? p.textMuted
                                   : p.success,
                               dimmed: !flags.pollEnabled,
-                              onTap: () => setState(() => _selectedIndex = 6),
+                              onTap: () => _selectTab(6),
                             ),
                             _NavTile(
                               icon: Icons.queue_play_next,
@@ -448,7 +484,7 @@ class _StosupShellState extends State<StosupShell> {
                                   ? p.textMuted
                                   : p.accent,
                               dimmed: !flags.queueEnabled,
-                              onTap: () => setState(() => _selectedIndex = 7),
+                              onTap: () => _selectTab(7),
                             ),
                             _NavTile(
                               icon: Icons.casino_outlined,
@@ -462,7 +498,7 @@ class _StosupShellState extends State<StosupShell> {
                               badgeColor:
                                   allLotteryOff ? p.textMuted : p.warning,
                               dimmed: allLotteryOff,
-                              onTap: () => setState(() => _selectedIndex = 8),
+                              onTap: () => _selectTab(8),
                             ),
                             _NavTile(
                               icon: Icons.people_outline,
@@ -471,7 +507,7 @@ class _StosupShellState extends State<StosupShell> {
                               badge: !flags.userTrackingEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.userTrackingEnabled,
-                              onTap: () => setState(() => _selectedIndex = 9),
+                              onTap: () => _selectTab(9),
                             ),
                             _NavTile(
                               icon: Icons.brush_outlined,
@@ -480,7 +516,7 @@ class _StosupShellState extends State<StosupShell> {
                               badge: !flags.obsOverlayEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.obsOverlayEnabled,
-                              onTap: () => setState(() => _selectedIndex = 10),
+                              onTap: () => _selectTab(10),
                             ),
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 8),
@@ -493,7 +529,7 @@ class _StosupShellState extends State<StosupShell> {
                               badge:
                                   updateInfo?.hasUpdate == true ? 'NEW' : null,
                               badgeColor: p.accent,
-                              onTap: () => setState(() => _selectedIndex = 11),
+                              onTap: () => _selectTab(11),
                             ),
                           ],
                         ),

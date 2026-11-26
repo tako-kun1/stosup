@@ -291,7 +291,7 @@
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${location.host}/ws`);
+    const ws = new WebSocket(`${proto}//${location.host}/ws?channel=lottery`);
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);

@@ -159,7 +159,7 @@ class StosupController extends ChangeNotifier {
 
   RemoteAccessStatus remoteAccessStatus = const RemoteAccessStatus(
     config: RemoteAccessConfig(
-      allowLanAccess: false,
+      allowLanAccess: true,
       remoteControlEnabled: true,
       requirePin: true,
       pinCode: '123456',
@@ -167,7 +167,7 @@ class StosupController extends ChangeNotifier {
     ),
     serverRunning: false,
     port: 18765,
-    boundAddress: '127.0.0.1:18765',
+    boundAddress: '0.0.0.0:18765',
     localIps: [],
     localUrl: 'http://127.0.0.1:18765/remote',
     lanUrls: [],
@@ -229,19 +229,48 @@ class StosupController extends ChangeNotifier {
 
   StreamSubscription<AppEvent>? _eventSub;
   Timer? _usersRefreshDebounce;
+  bool _usersViewActive = false;
+  bool _usersDirty = false;
 
-  Future<void> initialize({required bool afterUpdate}) async {
+  /// ユーザーリスト / ユーザー抽選画面を表示中かどうかを切り替え、非表示時の不要な全件同期を抑止する
+  void setUsersViewActive(bool active) {
+    if (_usersViewActive == active) return;
+    _usersViewActive = active;
+    if (active && _usersDirty) {
+      _usersDirty = false;
+      _usersRefreshDebounce?.cancel();
+      unawaited(refreshUsersNow());
+    }
+  }
+
+  Future<void> refreshUsersNow() async {
+    try {
+      users = await api.listUsers();
+      _usersDirty = false;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void>? _initFuture;
+
+  Future<void> initialize({required bool afterUpdate}) {
+    if (isInitialized) return Future<void>.value();
+    _initFuture ??= _initializeInternal(afterUpdate: afterUpdate);
+    return _initFuture!;
+  }
+
+  Future<void> _initializeInternal({required bool afterUpdate}) async {
     try {
       await RustLib.init();
       await api.initApp(afterUpdate: afterUpdate);
       appVersion = api.getAppVersion();
 
-      await refreshAll();
-      try {
-        licenseStatus = await api.checkLicenseStatus(checkOnline: true);
-      } catch (_) {
-        licenseStatus = await api.checkLicenseStatus(checkOnline: false);
-      }
+      // テーマ・初期データ読込と利用規約チェックを並列完了させてから初回描画を行うことで、
+      // 起動時の白黒フラッシュ（テーマ切替や画面切替のちらつき）を完全に防止する
+      await Future.wait([
+        refreshAll(notify: false),
+        _loadInitialLicenseStatus(),
+      ]);
 
       _eventSub?.cancel();
       _eventSub = api.subscribeEvents().listen(_handleEvent);
@@ -256,6 +285,14 @@ class StosupController extends ChangeNotifier {
     } catch (e) {
       initError = e.toString();
       notifyListeners();
+    }
+  }
+
+  Future<void> _loadInitialLicenseStatus() async {
+    try {
+      licenseStatus = await api.checkLicenseStatus(checkOnline: true);
+    } catch (_) {
+      licenseStatus = await api.checkLicenseStatus(checkOnline: false);
     }
   }
 
@@ -323,7 +360,7 @@ class StosupController extends ChangeNotifier {
     exit(0);
   }
 
-  Future<void> refreshAll() async {
+  Future<void> refreshAll({bool notify = true}) async {
     final results = await Future.wait([
       api.getConnectionState(),
       api.getRecentComments(),
@@ -369,16 +406,18 @@ class StosupController extends ChangeNotifier {
     mediaReactionRules = results[18] as List<MediaReactionRule>;
     mediaReactionConfig = results[19] as MediaReactionConfig;
     remoteAccessStatus = results[20] as RemoteAccessStatus;
-    notifyListeners();
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   void _handleEvent(AppEvent ev) {
     switch (ev.kind) {
       case AppEventKind.commentReceived:
         if (ev.comment != null) {
-          comments = [...comments, ev.comment!];
+          comments.add(ev.comment!);
           if (comments.length > 400) {
-            comments = comments.sublist(comments.length - 400);
+            comments.removeRange(0, comments.length - 400);
           }
           notifyListeners();
         }
@@ -482,12 +521,14 @@ class StosupController extends ChangeNotifier {
   }
 
   void _scheduleUsersRefresh() {
+    // ユーザーリスト／抽選画面を非表示中は FFI 全件取得を保留し、画面を開いた瞬間に同期する
+    if (!_usersViewActive) {
+      _usersDirty = true;
+      return;
+    }
     _usersRefreshDebounce?.cancel();
-    _usersRefreshDebounce = Timer(const Duration(milliseconds: 250), () async {
-      try {
-        users = await api.listUsers();
-        notifyListeners();
-      } catch (_) {}
+    _usersRefreshDebounce = Timer(const Duration(milliseconds: 400), () async {
+      await refreshUsersNow();
     });
   }
 

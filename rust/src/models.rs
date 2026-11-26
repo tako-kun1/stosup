@@ -922,8 +922,8 @@ impl Default for CommentLotteryState {
 /// ローカルネットワーク（LAN）接続・Web リモコン設定
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoteAccessConfig {
-    /// ローカルネットワーク内の他端末からの接続を許可するか（デフォルト: OFF）
-    #[serde(default)]
+    /// ローカルネットワーク内の他端末からの接続を許可するか（デフォルト: ON / 外部IPは常時ブロック＋PIN保護）
+    #[serde(default = "default_true")]
     pub allow_lan_access: bool,
     /// Web リモコン操作画面 (/remote および操作 API) を有効にするか（デフォルト: ON）
     #[serde(default = "default_true")]
@@ -946,7 +946,7 @@ fn default_remote_pin() -> String {
 impl Default for RemoteAccessConfig {
     fn default() -> Self {
         Self {
-            allow_lan_access: false,
+            allow_lan_access: true,
             remote_control_enabled: true,
             require_pin: true,
             pin_code: default_remote_pin(),

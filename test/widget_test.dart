@@ -397,6 +397,7 @@ void main() {
     );
     expect(find.text('LAN 公開中 (0.0.0.0:18765)'), findsOneWidget);
     expect(find.text('http://192.168.1.50:18765/remote'), findsOneWidget);
+    expect(find.text('http://127.0.0.1:18765/remote'), findsNothing);
     expect(find.text('許可コマンドをコピー'), findsOneWidget);
     expect(find.byType(QrCodeView), findsOneWidget);
   });
@@ -453,6 +454,13 @@ void main() {
     await tester.tap(find.text('同意しない（アプリを終了）'));
     await tester.pump();
     expect(declined, isTrue);
+
+    // 初期化済みコントローラーを渡した StosupApp は初回フレームから即座に規約画面を描画する
+    ctrl.isInitialized = true;
+    ctrl.themeMode = AppThemeMode.light;
+    await tester.pumpWidget(StosupApp(controller: ctrl));
+    expect(find.byType(LicenseAgreementScreen), findsOneWidget);
+    expect(find.text('Stosup を起動しています...'), findsNothing);
   });
 
   testWidgets('最小ウィンドウサイズ(1120x720)で全12画面とOBSタブのホイールスクロールが崩れない',

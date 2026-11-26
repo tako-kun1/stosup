@@ -172,7 +172,7 @@ pub async fn remote_state_handler(
     let feature_flags = runtime.feature_flags.read().await.clone();
     let comment_lottery = runtime.comment_lottery.lock().await.clone();
     let user_lottery_won_count = runtime.user_lottery_won_ids.lock().await.len();
-    let users_count = runtime.list_users().await.map(|v| v.len()).unwrap_or(0);
+    let users_count = runtime.count_users().await.unwrap_or(0);
     let overlay_config = runtime.overlay_state.config.read().await.clone();
     let overlay_port = overlay_config.port;
 
@@ -897,7 +897,7 @@ pub async fn remote_action_handler(
                     Json(json!({ "ok": false, "error": "対象キーワードを1つ以上入力してください" })),
                 );
             }
-            let mut counter = WordCounterConfig {
+            let counter = WordCounterConfig {
                 id: c["id"].as_str().unwrap_or("").trim().to_string(),
                 name,
                 keywords,
@@ -910,40 +910,19 @@ pub async fn remote_action_handler(
                 total_count: c["total_count"].as_u64().unwrap_or(0),
                 unique_user_count: c["unique_user_count"].as_u64().unwrap_or(0),
             };
-            if counter.id.is_empty() {
-                counter.id = uuid::Uuid::new_v4().to_string();
-            }
-            let list = {
-                let db = runtime.db.lock().await;
-                db.upsert_word_counter(&counter)
-                    .and_then(|_| db.list_word_counters())
-                    .map_err(|e| e.to_string())
-            };
-            match list {
-                Ok(counters) => {
-                    runtime.overlay_state.update_counters(counters.clone()).await;
-                    runtime.emit(AppEvent::counters_updated(counters.clone()));
-                    Ok(json!({ "message": "ワードカウンターを保存しました", "counters": counters }))
-                }
-                Err(e) => Err(e),
-            }
+            runtime
+                .save_word_counter(counter)
+                .await
+                .map(|counters| json!({ "message": "ワードカウンターを保存しました", "counters": counters }))
+                .map_err(|e| e.to_string())
         }
         "delete_word_counter" => {
             let id = body["id"].as_str().unwrap_or("");
-            let list = {
-                let db = runtime.db.lock().await;
-                db.delete_word_counter(id)
-                    .and_then(|_| db.list_word_counters())
-                    .map_err(|e| e.to_string())
-            };
-            match list {
-                Ok(counters) => {
-                    runtime.overlay_state.update_counters(counters.clone()).await;
-                    runtime.emit(AppEvent::counters_updated(counters.clone()));
-                    Ok(json!({ "message": "ワードカウンターを削除しました", "counters": counters }))
-                }
-                Err(e) => Err(e),
-            }
+            runtime
+                .delete_word_counter(id)
+                .await
+                .map(|counters| json!({ "message": "ワードカウンターを削除しました", "counters": counters }))
+                .map_err(|e| e.to_string())
         }
         "save_highlight_rule" => {
             let r = &body["rule"];
@@ -991,37 +970,19 @@ pub async fn remote_action_handler(
         "adjust_word_counter" => {
             let id = body["id"].as_str().unwrap_or("");
             let delta = body["delta"].as_i64().unwrap_or(0);
-            let list = {
-                let db = runtime.db.lock().await;
-                db.adjust_word_counter(id, delta)
-                    .map_err(|e| e.to_string())
-                    .and_then(|_| db.list_word_counters().map_err(|e| e.to_string()))
-            };
-            match list {
-                Ok(counters) => {
-                    runtime.overlay_state.update_counters(counters.clone()).await;
-                    runtime.emit(crate::models::AppEvent::counters_updated(counters));
-                    Ok(json!({ "message": "カウンターを更新しました" }))
-                }
-                Err(e) => Err(e),
-            }
+            runtime
+                .adjust_word_counter(id, delta)
+                .await
+                .map(|_| json!({ "message": "カウンターを更新しました" }))
+                .map_err(|e| e.to_string())
         }
         "reset_word_counter" => {
             let id = body["id"].as_str().unwrap_or("");
-            let list = {
-                let db = runtime.db.lock().await;
-                db.reset_word_counter(id)
-                    .map_err(|e| e.to_string())
-                    .and_then(|_| db.list_word_counters().map_err(|e| e.to_string()))
-            };
-            match list {
-                Ok(counters) => {
-                    runtime.overlay_state.update_counters(counters.clone()).await;
-                    runtime.emit(crate::models::AppEvent::counters_updated(counters));
-                    Ok(json!({ "message": "カウンターをリセットしました" }))
-                }
-                Err(e) => Err(e),
-            }
+            runtime
+                .reset_word_counter(id)
+                .await
+                .map(|_| json!({ "message": "カウンターをリセットしました" }))
+                .map_err(|e| e.to_string())
         }
         "adjust_first_time" => {
             let delta = body["delta"].as_i64().unwrap_or(0);

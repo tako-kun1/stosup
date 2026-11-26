@@ -57,6 +57,27 @@ void EnableFullDpiSupportIfAvailable(HWND hwnd) {
   FreeLibrary(user32_module);
 }
 
+// Returns true when Windows prefers dark mode for apps (defaults to dark to
+// match Stosup's default palette if the registry key is unavailable).
+bool IsSystemDarkMode() {
+  DWORD light_mode = 0;
+  DWORD light_mode_size = sizeof(light_mode);
+  LSTATUS result = RegGetValue(HKEY_CURRENT_USER, kGetPreferredBrightnessRegKey,
+                               kGetPreferredBrightnessRegValue,
+                               RRF_RT_REG_DWORD, nullptr, &light_mode,
+                               &light_mode_size);
+  if (result == ERROR_SUCCESS) {
+    return light_mode == 0;
+  }
+  return true;
+}
+
+// Background color matching StosupPalette.dark.windowBg (#18181B) and
+// StosupPalette.light.windowBg (#F4F5F7) to prevent white/black startup flash.
+COLORREF GetPreferredBackgroundColor() {
+  return IsSystemDarkMode() ? RGB(0x18, 0x18, 0x1B) : RGB(0xF4, 0xF5, 0xF7);
+}
+
 }  // namespace
 
 // Manages the Win32Window's window class registration.
@@ -86,12 +107,14 @@ class WindowClassRegistrar {
   static WindowClassRegistrar* instance_;
 
   bool class_registered_ = false;
+  HBRUSH background_brush_ = nullptr;
 };
 
 WindowClassRegistrar* WindowClassRegistrar::instance_ = nullptr;
 
 const wchar_t* WindowClassRegistrar::GetWindowClass() {
   if (!class_registered_) {
+    background_brush_ = CreateSolidBrush(GetPreferredBackgroundColor());
     WNDCLASS window_class{};
     window_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
     window_class.lpszClassName = kWindowClassName;
@@ -101,7 +124,7 @@ const wchar_t* WindowClassRegistrar::GetWindowClass() {
     window_class.hInstance = GetModuleHandle(nullptr);
     window_class.hIcon =
         LoadIcon(window_class.hInstance, MAKEINTRESOURCE(IDI_APP_ICON));
-    window_class.hbrBackground = 0;
+    window_class.hbrBackground = background_brush_;
     window_class.lpszMenuName = nullptr;
     window_class.lpfnWndProc = Win32Window::WndProc;
     RegisterClass(&window_class);
@@ -112,6 +135,10 @@ const wchar_t* WindowClassRegistrar::GetWindowClass() {
 
 void WindowClassRegistrar::UnregisterWindowClass() {
   UnregisterClass(kWindowClassName, nullptr);
+  if (background_brush_ != nullptr) {
+    DeleteObject(background_brush_);
+    background_brush_ = nullptr;
+  }
   class_registered_ = false;
 }
 
@@ -227,6 +254,16 @@ Win32Window::MessageHandler(HWND hwnd,
       }
       return 0;
 
+    case WM_ERASEBKGND: {
+      HDC hdc = reinterpret_cast<HDC>(wparam);
+      RECT rect;
+      GetClientRect(hwnd, &rect);
+      HBRUSH brush = CreateSolidBrush(GetPreferredBackgroundColor());
+      FillRect(hdc, &rect, brush);
+      DeleteObject(brush);
+      return 1;
+    }
+
     case WM_DWMCOLORIZATIONCOLORCHANGED:
       UpdateTheme(hwnd);
       return 0;
@@ -287,16 +324,7 @@ void Win32Window::OnDestroy() {
 }
 
 void Win32Window::UpdateTheme(HWND const window) {
-  DWORD light_mode;
-  DWORD light_mode_size = sizeof(light_mode);
-  LSTATUS result = RegGetValue(HKEY_CURRENT_USER, kGetPreferredBrightnessRegKey,
-                               kGetPreferredBrightnessRegValue,
-                               RRF_RT_REG_DWORD, nullptr, &light_mode,
-                               &light_mode_size);
-
-  if (result == ERROR_SUCCESS) {
-    BOOL enable_dark_mode = light_mode == 0;
-    DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE,
-                          &enable_dark_mode, sizeof(enable_dark_mode));
-  }
+  BOOL enable_dark_mode = IsSystemDarkMode() ? TRUE : FALSE;
+  DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE,
+                        &enable_dark_mode, sizeof(enable_dark_mode));
 }

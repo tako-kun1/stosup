@@ -222,7 +222,7 @@
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${location.host}/ws`);
+    const ws = new WebSocket(`${proto}//${location.host}/ws?channel=pickup`);
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);

@@ -713,7 +713,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               secondary: const Icon(Icons.wifi, size: 20),
               title: const Text('ローカルネットワーク内の他端末からの接続を許可する'),
               subtitle: const Text(
-                'ON にすると LAN 内のスマホ・タブレットや 2 PC 配信の別 PC からアクセスできます（初期設定: OFF）',
+                'ON にすると LAN 内のスマホ・タブレットや 2 PC 配信の別 PC から 192.168.x.x 経由でアクセスできます（PIN 認証で保護）',
               ),
               value: cfg.allowLanAccess,
               onChanged: (v) => _updateRemoteConfig(
@@ -858,7 +858,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         QrCodeView(matrix: status.qrCode!, size: 146),
                         const SizedBox(height: 6),
                         Text(
-                          cfg.allowLanAccess ? 'スマホで読み取り' : '同一 PC 用 QR',
+                          status.lanUrls.isNotEmpty ? 'スマホで読み取り' : 'LAN IP 未検出',
                           style:
                               TextStyle(fontSize: 11, color: p.textSecondary),
                         ),
@@ -873,7 +873,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Row(
                           children: [
                             const Text(
-                              'Web リモコン接続 URL',
+                              'Web リモコン接続 URL（LAN IP）',
                               style: TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 13.5),
                             ),
@@ -886,7 +886,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        if (cfg.allowLanAccess && status.lanUrls.isNotEmpty) ...[
+                        if (status.lanUrls.isNotEmpty) ...[
                           ...status.lanUrls.map(
                             (url) => Padding(
                               padding: const EdgeInsets.only(bottom: 6),
@@ -898,7 +898,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       style: TextStyle(
                                         fontFamily: 'Consolas',
                                         color: p.accent,
-                                        fontSize: 13,
+                                        fontSize: 13.5,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -917,46 +917,86 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                           ),
-                        ] else if (cfg.allowLanAccess) ...[
-                          Text(
-                            'LAN IPv4 アドレスを検出できませんでした（Wi-Fi / LAN 接続を確認して「IP を再検出」を押してください）。',
-                            style:
-                                TextStyle(fontSize: 12, color: p.warning),
+                          if (!cfg.allowLanAccess) ...[
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                '※現在「他端末からの接続を許可」が OFF です。LAN IP（${status.localIps.isNotEmpty ? status.localIps.first : status.lanUrls.first}）で接続するには ON にしてください。',
+                                style:
+                                    TextStyle(fontSize: 12, color: p.warning),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 2),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              if (!cfg.allowLanAccess)
+                                FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  onPressed: () => _updateRemoteConfig(
+                                    RemoteAccessConfig(
+                                      allowLanAccess: true,
+                                      remoteControlEnabled:
+                                          cfg.remoteControlEnabled,
+                                      requirePin: cfg.requirePin,
+                                      pinCode: cfg.pinCode,
+                                      embedPinInQr: cfg.embedPinInQr,
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.wifi, size: 14),
+                                  label: const Text('LAN 接続を ON にする'),
+                                ),
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                onPressed: status.serverRunning &&
+                                        cfg.remoteControlEnabled &&
+                                        cfg.allowLanAccess
+                                    ? () => ctrl.openUrl(status.qrTargetUrl)
+                                    : null,
+                                icon: const Icon(Icons.open_in_new, size: 14),
+                                label: const Text('ブラウザで開く'),
+                              ),
+                            ],
                           ),
                         ] else ...[
                           Text(
-                            '現在 LAN 接続は OFF です。同一 PC 内での確認には以下のローカル URL を使用できます。',
-                            style: TextStyle(
-                                fontSize: 12, color: p.textSecondary),
+                            'LAN IPv4 アドレス（192.168.x.x 等）を検出できませんでした（Wi-Fi / LAN 接続を確認して「IP を再検出」を押してください）。',
+                            style: TextStyle(fontSize: 12, color: p.warning),
                           ),
                           const SizedBox(height: 6),
-                        ],
-                        Row(
-                          children: [
-                            Expanded(
-                              child: SelectableText(
-                                status.localUrl,
-                                style: TextStyle(
-                                  fontFamily: 'Consolas',
-                                  color: p.textSecondary,
-                                  fontSize: 12.5,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SelectableText(
+                                  status.localUrl,
+                                  style: TextStyle(
+                                    fontFamily: 'Consolas',
+                                    color: p.textSecondary,
+                                    fontSize: 12.5,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton.icon(
-                              style: FilledButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
+                              const SizedBox(width: 8),
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                onPressed: status.serverRunning &&
+                                        cfg.remoteControlEnabled
+                                    ? () => ctrl.openUrl(status.qrTargetUrl)
+                                    : null,
+                                icon: const Icon(Icons.open_in_new, size: 14),
+                                label: const Text('ブラウザで開く'),
                               ),
-                              onPressed: status.serverRunning &&
-                                      cfg.remoteControlEnabled
-                                  ? () => ctrl.openUrl(status.qrTargetUrl)
-                                  : null,
-                              icon: const Icon(Icons.open_in_new, size: 14),
-                              label: const Text('ブラウザで開く'),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                         if (cfg.allowLanAccess) ...[
                           const Divider(height: 18),
                           Row(

@@ -12,6 +12,17 @@ pub fn process_counters_for_comment(
     message: &str,
 ) -> Result<bool> {
     let counters = db.list_word_counters()?;
+    process_counters_for_comment_with_list(db, &counters, user_id, is_banned, message)
+}
+
+/// キャッシュ済みのワードカウンター一覧を使って評価する（非ヒット時の DB クエリを完全に回避）
+pub fn process_counters_for_comment_with_list(
+    db: &Database,
+    counters: &[WordCounterConfig],
+    user_id: &str,
+    is_banned: bool,
+    message: &str,
+) -> Result<bool> {
     let mut changed = false;
 
     for counter in counters {
@@ -21,7 +32,7 @@ pub fn process_counters_for_comment(
         if counter.exclude_banned && is_banned {
             continue;
         }
-        if matches_counter(message, &counter)
+        if matches_counter(message, counter)
             && db.increment_counter_for_user(&counter.id, user_id, counter.max_per_account)?
         {
             changed = true;

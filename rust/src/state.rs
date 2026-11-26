@@ -52,6 +52,7 @@ pub struct AppRuntime {
     pub media_cooldown: Mutex<MediaCooldownTracker>,
     pub cached_highlight_rules: RwLock<Vec<HighlightRule>>,
     pub cached_media_rules: RwLock<Vec<MediaReactionRule>>,
+    pub cached_word_counters: RwLock<Vec<WordCounterConfig>>,
     pub last_session_id: Mutex<String>,
     pub event_tx: broadcast::Sender<AppEvent>,
     pub comment_tx: mpsc::UnboundedSender<RawIncomingComment>,
@@ -97,8 +98,9 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
         recent_users: Vec::new(),
         config: first_time_config,
     };
+    let initial_word_counters = db.list_word_counters()?;
     let counters = if feature_flags.word_counter_enabled {
-        db.list_word_counters()?
+        initial_word_counters.clone()
     } else {
         Vec::new()
     };
@@ -130,6 +132,7 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
         feature_flags.media_reaction_enabled,
         feature_flags.pickup_enabled,
     ));
+    overlay_state.set_obs_overlay_enabled(feature_flags.obs_overlay_enabled);
     let (event_tx, _) = broadcast::channel::<AppEvent>(512);
     let (comment_tx, comment_rx) = mpsc::unbounded_channel::<RawIncomingComment>();
 
@@ -186,6 +189,7 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
         media_cooldown: Mutex::new(MediaCooldownTracker::default()),
         cached_highlight_rules: RwLock::new(initial_highlight_rules),
         cached_media_rules: RwLock::new(initial_media_rules),
+        cached_word_counters: RwLock::new(initial_word_counters),
         last_session_id: Mutex::new(String::new()),
         event_tx,
         comment_tx,
@@ -227,9 +231,28 @@ impl AppRuntime {
         }
 
         let flags = self.feature_flags.read().await.clone();
-        let ft_config = self.first_time_state.lock().await.config.clone();
 
-        let rules = if flags.word_highlight_enabled {
+        // コメントを利用する全機能が OFF の場合は一切のロック・DB・評価処理を行わず即時終了
+        if !flags.comment_display_enabled
+            && !flags.user_tracking_enabled
+            && !flags.word_counter_enabled
+            && !flags.first_time_counter_enabled
+            && !flags.superchat_enabled
+            && !flags.comment_lottery_enabled
+            && !flags.poll_enabled
+            && !flags.queue_enabled
+            && !flags.media_reaction_enabled
+        {
+            return Ok(());
+        }
+
+        let ft_config = if flags.first_time_counter_enabled {
+            Some(self.first_time_state.lock().await.config.clone())
+        } else {
+            None
+        };
+
+        let rules = if flags.word_highlight_enabled && flags.comment_display_enabled {
             self.cached_highlight_rules.read().await.clone()
         } else {
             Vec::new()
@@ -239,6 +262,26 @@ impl AppRuntime {
         } else {
             Vec::new()
         };
+        let word_counters = if flags.word_counter_enabled {
+            self.cached_word_counters.read().await.clone()
+        } else {
+            Vec::new()
+        };
+
+        // ユーザー記録が OFF のとき、BAN/メモ/初見判定を必要とする他機能もすべて OFF なら DB 参照すら省略
+        let need_user_meta = (flags.comment_display_enabled && flags.user_memo_display_enabled)
+            || flags.comment_display_enabled
+            || flags.first_time_counter_enabled
+            || flags.word_counter_enabled
+            || flags.comment_lottery_enabled
+            || flags.poll_enabled
+            || flags.queue_enabled
+            || flags.media_reaction_enabled;
+        let need_db_step = flags.user_tracking_enabled
+            || need_user_meta
+            || (flags.word_counter_enabled && !word_counters.is_empty())
+            || flags.first_time_counter_enabled
+            || (flags.superchat_enabled && raw.event_kind.is_some());
 
         let (
             user_meta,
@@ -247,15 +290,28 @@ impl AppRuntime {
             first_time_trigger,
             new_all_time_ft,
             updated_monetization,
-        ) = {
+        ) = if need_db_step {
             let db = self.db.lock().await;
             let meta = if flags.user_tracking_enabled {
                 db.record_user_comment(&session_id, &raw)?
-            } else {
+            } else if need_user_meta {
                 db.get_user_comment_meta(&raw.user_id, raw.platform)?
+            } else {
+                crate::db::UserCommentMeta {
+                    is_banned: false,
+                    memo: String::new(),
+                    was_unregistered: false,
+                    already_first_time_detected: false,
+                }
             };
-            let counters_changed = if flags.word_counter_enabled {
-                counter::process_counters_for_comment(&db, &raw.user_id, meta.is_banned, &raw.message)?
+            let counters_changed = if flags.word_counter_enabled && !word_counters.is_empty() {
+                counter::process_counters_for_comment_with_list(
+                    &db,
+                    &word_counters,
+                    &raw.user_id,
+                    meta.is_banned,
+                    &raw.message,
+                )?
             } else {
                 false
             };
@@ -267,19 +323,19 @@ impl AppRuntime {
 
             // 初見検知（生涯でまだ未検知のユーザーかつ BAN 除外条件を満たす場合）
             let mut trigger_reason: Option<&'static str> = None;
-            if flags.first_time_counter_enabled
-                && !meta.already_first_time_detected
-                && (!ft_config.exclude_banned || !meta.is_banned)
-            {
-                let kw_matched = ft_config.detect_keyword
-                    && ft_config
-                        .keywords
-                        .iter()
-                        .any(|kw| matches_pattern(&raw.message, kw, MatchMode::Contains, false));
-                if kw_matched {
-                    trigger_reason = Some("初見ワード");
-                } else if ft_config.detect_unregistered && meta.was_unregistered {
-                    trigger_reason = Some("未登録ユーザー");
+            if let Some(ref ft_cfg) = ft_config {
+                if !meta.already_first_time_detected && (!ft_cfg.exclude_banned || !meta.is_banned)
+                {
+                    let kw_matched = ft_cfg.detect_keyword
+                        && ft_cfg
+                            .keywords
+                            .iter()
+                            .any(|kw| matches_pattern(&raw.message, kw, MatchMode::Contains, false));
+                    if kw_matched {
+                        trigger_reason = Some("初見ワード");
+                    } else if ft_cfg.detect_unregistered && meta.was_unregistered {
+                        trigger_reason = Some("未登録ユーザー");
+                    }
                 }
             }
 
@@ -331,6 +387,20 @@ impl AppRuntime {
                 trigger_reason,
                 new_all_time,
                 updated_monetization,
+            )
+        } else {
+            (
+                crate::db::UserCommentMeta {
+                    is_banned: false,
+                    memo: String::new(),
+                    was_unregistered: false,
+                    already_first_time_detected: false,
+                },
+                false,
+                None,
+                None,
+                None,
+                None,
             )
         };
 
@@ -484,14 +554,17 @@ impl AppRuntime {
         }
 
         if let Some(ft_state) = updated_ft_state {
-            self.overlay_state
-                .update_first_time(ft_state.clone(), flags.first_time_counter_enabled)
-                .await;
+            if flags.obs_overlay_enabled {
+                self.overlay_state
+                    .update_first_time(ft_state.clone(), flags.first_time_counter_enabled)
+                    .await;
+            }
             self.emit(AppEvent::first_time_updated(ft_state));
         }
 
         if counters_changed {
             if let Some(counters) = updated_counters {
+                *self.cached_word_counters.write().await = counters.clone();
                 if flags.obs_overlay_enabled {
                     self.overlay_state.update_counters(counters.clone()).await;
                 }
@@ -504,16 +577,20 @@ impl AppRuntime {
         }
 
         if let Some(m_list) = updated_monetization {
-            self.overlay_state
-                .update_monetization(m_list.clone(), flags.superchat_enabled)
-                .await;
+            if flags.obs_overlay_enabled {
+                self.overlay_state
+                    .update_monetization(m_list.clone(), flags.superchat_enabled)
+                    .await;
+            }
             self.emit(AppEvent::monetization_updated(m_list));
         }
 
         if let Some(p_state) = poll_updated {
-            self.overlay_state
-                .update_poll(p_state.clone(), flags.poll_enabled)
-                .await;
+            if flags.obs_overlay_enabled {
+                self.overlay_state
+                    .update_poll(p_state.clone(), flags.poll_enabled)
+                    .await;
+            }
             self.emit(AppEvent::poll_updated(p_state));
         }
 
@@ -522,9 +599,11 @@ impl AppRuntime {
                 let db = self.db.lock().await;
                 let _ = db.set_queue_state(&q_state);
             }
-            self.overlay_state
-                .update_queue(q_state.clone(), flags.queue_enabled)
-                .await;
+            if flags.obs_overlay_enabled {
+                self.overlay_state
+                    .update_queue(q_state.clone(), flags.queue_enabled)
+                    .await;
+            }
             self.emit(AppEvent::queue_updated(q_state));
         }
 
@@ -540,6 +619,9 @@ impl AppRuntime {
 
     /// 新しい配信セッションへ切り替わった際の初見カウンター自動リセット判定
     async fn maybe_auto_reset_first_time_for_session(&self, session_id: &str) {
+        if !self.feature_flags.read().await.first_time_counter_enabled {
+            return;
+        }
         let mut last = self.last_session_id.lock().await;
         if *last != session_id {
             let is_switch = !last.is_empty();
@@ -747,65 +829,39 @@ impl AppRuntime {
             *srv_guard = None;
         }
 
-        // ワードカウント OFF 時は OBS オーバーレイ側を非表示、ON 復帰時は最新カウントを再同期
-        if new_flags.word_counter_enabled {
-            if let Ok(list) = self.list_word_counters().await {
-                self.overlay_state.update_counters(list).await;
+        // OBS オーバーレイ有効状態を即時反映（OFF 時は接続中の全 OBS WebSocket を即切断・/overlay/* を遮断）
+        self.overlay_state
+            .set_obs_overlay_enabled(new_flags.obs_overlay_enabled);
+
+        // 投票・参加型キュー・コメント抽選を OFF にしたら進行中の受付も自動停止する
+        let poll_snapshot = {
+            let mut pr = self.poll_runtime.lock().await;
+            let stopped = !new_flags.poll_enabled && pr.state.is_active;
+            if stopped {
+                pr.stop();
             }
-        } else {
-            self.overlay_state.update_counters(Vec::new()).await;
+            (pr.state.clone(), stopped)
+        };
+        if poll_snapshot.1 {
+            self.emit(AppEvent::poll_updated(poll_snapshot.0.clone()));
         }
 
-        // 初見カウンター ON/OFF を OBS オーバーレイへ即時同期
-        {
-            let ft = self.first_time_state.lock().await.clone();
-            self.overlay_state
-                .update_first_time(ft, new_flags.first_time_counter_enabled)
-                .await;
-        }
-
-        // スパチャ・投票・ピックアップ・参加型キュー・メディア演出の ON/OFF も OBS へ即時同期
-        {
-            let m_list = {
+        let queue_snapshot = {
+            let mut qr = self.queue_runtime.lock().await;
+            let stopped = !new_flags.queue_enabled && qr.state.config.is_accepting;
+            if stopped {
+                qr.state.config.is_accepting = false;
+            }
+            (qr.state.clone(), stopped)
+        };
+        if queue_snapshot.1 {
+            {
                 let db = self.db.lock().await;
-                db.list_monetization_events(150).unwrap_or_default()
-            };
-            self.overlay_state
-                .update_monetization(m_list, new_flags.superchat_enabled)
-                .await;
-
-            let poll_snapshot = {
-                let mut pr = self.poll_runtime.lock().await;
-                if !new_flags.poll_enabled && pr.state.is_active {
-                    pr.stop();
-                }
-                pr.state.clone()
-            };
-            self.overlay_state
-                .update_poll(poll_snapshot.clone(), new_flags.poll_enabled)
-                .await;
-            self.emit(AppEvent::poll_updated(poll_snapshot));
-
-            let picked_snapshot = self.picked_comment.lock().await.clone();
-            self.overlay_state
-                .update_picked_comment(picked_snapshot, new_flags.pickup_enabled)
-                .await;
-
-            let queue_snapshot = self.queue_runtime.lock().await.state.clone();
-            self.overlay_state
-                .update_queue(queue_snapshot, new_flags.queue_enabled)
-                .await;
-
-            let media_cfg = self.media_config.lock().await.clone();
-            self.overlay_state
-                .update_media_config(media_cfg, new_flags.media_reaction_enabled)
-                .await;
-            if !new_flags.media_reaction_enabled {
-                self.overlay_state.clear_media();
+                let _ = db.set_queue_state(&queue_snapshot.0);
             }
+            self.emit(AppEvent::queue_updated(queue_snapshot.0.clone()));
         }
 
-        // コメント抽選を OFF にしたら進行中の受付も停止
         if !new_flags.comment_lottery_enabled {
             let mut cl = self.comment_lottery.lock().await;
             if cl.is_accepting {
@@ -814,6 +870,58 @@ impl AppRuntime {
                 let updated = cl.clone();
                 drop(cl);
                 self.emit(AppEvent::comment_lottery_updated(updated));
+            }
+        }
+
+        // OBS オーバーレイが有効な場合のみ各オーバーレイ状態を最新同期（OFF 時は不要なロック・DB 読込を省略）
+        if new_flags.obs_overlay_enabled {
+            // ワードカウント OFF 時は OBS オーバーレイ側を非表示、ON 復帰時は最新カウントを再同期
+            if new_flags.word_counter_enabled {
+                if let Ok(list) = self.list_word_counters().await {
+                    self.overlay_state.update_counters(list).await;
+                }
+            } else {
+                self.overlay_state.update_counters(Vec::new()).await;
+            }
+
+            // 初見カウンター ON/OFF を OBS オーバーレイへ即時同期
+            {
+                let ft = self.first_time_state.lock().await.clone();
+                self.overlay_state
+                    .update_first_time(ft, new_flags.first_time_counter_enabled)
+                    .await;
+            }
+
+            // スパチャ・投票・ピックアップ・参加型キュー・メディア演出の ON/OFF も OBS へ即時同期
+            let m_list = if new_flags.superchat_enabled {
+                let db = self.db.lock().await;
+                db.list_monetization_events(150).unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            self.overlay_state
+                .update_monetization(m_list, new_flags.superchat_enabled)
+                .await;
+
+            self.overlay_state
+                .update_poll(poll_snapshot.0, new_flags.poll_enabled)
+                .await;
+
+            let picked_snapshot = self.picked_comment.lock().await.clone();
+            self.overlay_state
+                .update_picked_comment(picked_snapshot, new_flags.pickup_enabled)
+                .await;
+
+            self.overlay_state
+                .update_queue(queue_snapshot.0, new_flags.queue_enabled)
+                .await;
+
+            let media_cfg = self.media_config.lock().await.clone();
+            self.overlay_state
+                .update_media_config(media_cfg, new_flags.media_reaction_enabled)
+                .await;
+            if !new_flags.media_reaction_enabled {
+                self.overlay_state.clear_media();
             }
         }
 
@@ -1173,6 +1281,11 @@ impl AppRuntime {
         db.list_users(if sid.is_empty() { None } else { Some(&sid) })
     }
 
+    pub async fn count_users(&self) -> Result<usize> {
+        let db = self.db.lock().await;
+        db.count_users()
+    }
+
     pub async fn list_highlight_rules(&self) -> Result<Vec<HighlightRule>> {
         Ok(self.cached_highlight_rules.read().await.clone())
     }
@@ -1203,8 +1316,73 @@ impl AppRuntime {
     }
 
     pub async fn list_word_counters(&self) -> Result<Vec<WordCounterConfig>> {
-        let db = self.db.lock().await;
-        db.list_word_counters()
+        Ok(self.cached_word_counters.read().await.clone())
+    }
+
+    async fn sync_counters_to_overlay_and_clients(&self, list: Vec<WordCounterConfig>) {
+        let flags = self.feature_flags.read().await.clone();
+        if flags.word_counter_enabled && flags.obs_overlay_enabled {
+            self.overlay_state.update_counters(list.clone()).await;
+        }
+        self.emit(AppEvent::counters_updated(list));
+    }
+
+    pub async fn save_word_counter(
+        &self,
+        mut counter: WordCounterConfig,
+    ) -> Result<Vec<WordCounterConfig>> {
+        if counter.id.trim().is_empty() {
+            counter.id = uuid::Uuid::new_v4().to_string();
+        }
+        let list = {
+            let db = self.db.lock().await;
+            db.upsert_word_counter(&counter)?;
+            db.list_word_counters()?
+        };
+        *self.cached_word_counters.write().await = list.clone();
+        self.sync_counters_to_overlay_and_clients(list.clone())
+            .await;
+        Ok(list)
+    }
+
+    pub async fn delete_word_counter(&self, id: &str) -> Result<Vec<WordCounterConfig>> {
+        let list = {
+            let db = self.db.lock().await;
+            db.delete_word_counter(id)?;
+            db.list_word_counters()?
+        };
+        *self.cached_word_counters.write().await = list.clone();
+        self.sync_counters_to_overlay_and_clients(list.clone())
+            .await;
+        Ok(list)
+    }
+
+    pub async fn reset_word_counter(&self, id: &str) -> Result<Vec<WordCounterConfig>> {
+        let list = {
+            let db = self.db.lock().await;
+            db.reset_word_counter(id)?;
+            db.list_word_counters()?
+        };
+        *self.cached_word_counters.write().await = list.clone();
+        self.sync_counters_to_overlay_and_clients(list.clone())
+            .await;
+        Ok(list)
+    }
+
+    pub async fn adjust_word_counter(
+        &self,
+        id: &str,
+        delta: i64,
+    ) -> Result<Vec<WordCounterConfig>> {
+        let list = {
+            let db = self.db.lock().await;
+            db.adjust_word_counter(id, delta)?;
+            db.list_word_counters()?
+        };
+        *self.cached_word_counters.write().await = list.clone();
+        self.sync_counters_to_overlay_and_clients(list.clone())
+            .await;
+        Ok(list)
     }
 
     pub async fn draw_user_lottery(&self, req: UserLotteryRequest) -> Result<LotteryResult> {
@@ -1400,6 +1578,12 @@ impl AppRuntime {
         amount_display: &str,
         message: &str,
     ) -> Result<Vec<MonetizationItem>> {
+        let flags = self.feature_flags.read().await.clone();
+        if !flags.superchat_enabled {
+            return Err(anyhow!(
+                "スパチャ / メンバーシップ管理機能は現在オフになっています。機能を有効にしてから実行してください。"
+            ));
+        }
         let now_ms = Utc::now().timestamp_millis();
         let name = if user_name.trim().is_empty() {
             "応援リスナー".to_string()
@@ -1464,10 +1648,11 @@ impl AppRuntime {
             db.list_monetization_events(150)?
         };
 
-        let flags = self.feature_flags.read().await.clone();
-        self.overlay_state
-            .update_monetization(list.clone(), flags.superchat_enabled)
-            .await;
+        if flags.obs_overlay_enabled {
+            self.overlay_state
+                .update_monetization(list.clone(), flags.superchat_enabled)
+                .await;
+        }
         self.emit(AppEvent::monetization_updated(list.clone()));
 
         // コメント欄へも同期表示（配信未接続でもテスト表示可能）
@@ -1775,6 +1960,12 @@ impl AppRuntime {
     }
 
     pub async fn test_media_reaction_rule(&self, id: &str) -> Result<()> {
+        let flags = self.feature_flags.read().await.clone();
+        if !flags.media_reaction_enabled {
+            return Err(anyhow!(
+                "特定ワード反応アニメーション機能は現在オフになっています。機能を有効にしてから実行してください。"
+            ));
+        }
         let rule = {
             self.cached_media_rules
                 .read()
@@ -1792,7 +1983,9 @@ impl AppRuntime {
         let now_ms = Utc::now().timestamp_millis();
         let sample_msg = rule.pattern.lines().next().unwrap_or(&rule.name);
         let trig = build_trigger_event(&rule, "テスト視聴者", sample_msg, now_ms);
-        self.overlay_state.trigger_media(trig.clone());
+        if flags.obs_overlay_enabled {
+            self.overlay_state.trigger_media(trig.clone());
+        }
         self.emit(AppEvent::media_triggered(trig));
         Ok(())
     }

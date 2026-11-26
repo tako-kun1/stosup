@@ -172,44 +172,29 @@ pub async fn list_word_counters() -> Result<Vec<WordCounterConfig>, String> {
 }
 
 pub async fn save_word_counter(
-    mut counter: WordCounterConfig,
+    counter: WordCounterConfig,
 ) -> Result<Vec<WordCounterConfig>, String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;
-    if counter.id.trim().is_empty() {
-        counter.id = uuid::Uuid::new_v4().to_string();
-    }
-    let list = {
-        let db = runtime.db.lock().await;
-        db.upsert_word_counter(&counter).map_err(|e| e.to_string())?;
-        db.list_word_counters().map_err(|e| e.to_string())?
-    };
-    runtime.overlay_state.update_counters(list.clone()).await;
-    runtime.emit(AppEvent::counters_updated(list.clone()));
-    Ok(list)
+    runtime
+        .save_word_counter(counter)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn delete_word_counter(id: String) -> Result<Vec<WordCounterConfig>, String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;
-    let list = {
-        let db = runtime.db.lock().await;
-        db.delete_word_counter(&id).map_err(|e| e.to_string())?;
-        db.list_word_counters().map_err(|e| e.to_string())?
-    };
-    runtime.overlay_state.update_counters(list.clone()).await;
-    runtime.emit(AppEvent::counters_updated(list.clone()));
-    Ok(list)
+    runtime
+        .delete_word_counter(&id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn reset_word_counter(id: String) -> Result<Vec<WordCounterConfig>, String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;
-    let list = {
-        let db = runtime.db.lock().await;
-        db.reset_word_counter(&id).map_err(|e| e.to_string())?;
-        db.list_word_counters().map_err(|e| e.to_string())?
-    };
-    runtime.overlay_state.update_counters(list.clone()).await;
-    runtime.emit(AppEvent::counters_updated(list.clone()));
-    Ok(list)
+    runtime
+        .reset_word_counter(&id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn adjust_word_counter(
@@ -217,14 +202,10 @@ pub async fn adjust_word_counter(
     delta: i64,
 ) -> Result<Vec<WordCounterConfig>, String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;
-    let list = {
-        let db = runtime.db.lock().await;
-        db.adjust_word_counter(&id, delta).map_err(|e| e.to_string())?;
-        db.list_word_counters().map_err(|e| e.to_string())?
-    };
-    runtime.overlay_state.update_counters(list.clone()).await;
-    runtime.emit(AppEvent::counters_updated(list.clone()));
-    Ok(list)
+    runtime
+        .adjust_word_counter(&id, delta)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 // ==================== ユーザーリスト & ローカルBAN ====================
