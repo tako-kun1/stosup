@@ -1,9 +1,9 @@
 mod remote_api;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -23,10 +23,13 @@ use tower_http::cors::CorsLayer;
 
 use crate::media::{content_type_for_file_name, is_safe_stored_file_name};
 use crate::models::{
-    CommentItem, FirstTimeCounterState, LotteryResult, MediaReactionConfig, MediaTriggerEvent,
-    MonetizationItem, OverlayConfig, PickedCommentState, PollState, QueueState, RemoteAccessConfig,
+    CommentItem, FirstTimeCounterConfig, FirstTimeCounterState, FirstTimeUser, LotteryResult,
+    LotteryWinner, MatchMode, MediaReactionConfig, MediaTriggerEvent, MessageRun, MessageRunKind,
+    MonetizationEventKind, MonetizationItem, OverlayConfig, PickedCommentState, PlatformKind,
+    PollState, QueueConfig, QueueEntry, QueueEntryStatus, QueueState, RemoteAccessConfig,
     WordCounterConfig,
 };
+use crate::platform::demo;
 
 const COMMENTS_HTML: &str = include_str!("comments.html");
 const LOTTERY_HTML: &str = include_str!("lottery.html");
@@ -37,24 +40,33 @@ const POLL_HTML: &str = include_str!("poll.html");
 const PICKUP_HTML: &str = include_str!("pickup.html");
 const QUEUE_HTML: &str = include_str!("queue.html");
 const MEDIA_HTML: &str = include_str!("media.html");
+const OVERLAY_COMMON_JS: &str = include_str!("stosup_overlay.js");
 const APP_ICON_ICO: &[u8] = include_bytes!("../../../windows/runner/resources/app_icon.ico");
 
 /// OBS オーバーレイ WebSocket の購読チャンネル種別
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(usize)]
 pub enum OverlayChannel {
-    All,
-    Comments,
-    SuperChat,
-    Pickup,
-    Poll,
-    Queue,
-    Media,
-    Lottery,
-    Counter,
-    FirstTime,
+    All = 0,
+    Comments = 1,
+    SuperChat = 2,
+    Pickup = 3,
+    Poll = 4,
+    Queue = 5,
+    Media = 6,
+    Lottery = 7,
+    Counter = 8,
+    FirstTime = 9,
 }
 
 impl OverlayChannel {
+    pub const COUNT: usize = 10;
+
+    #[inline]
+    pub fn index(self) -> usize {
+        self as usize
+    }
+
     pub fn from_query(s: &str) -> Option<Self> {
         match s.trim().to_ascii_lowercase().as_str() {
             "all" => Some(Self::All),
@@ -80,28 +92,32 @@ impl OverlayChannel {
     }
 }
 
+/// Snapshot ペイロード本体（`OverlayMessage` 列挙体のスタックサイズ肥大化を防ぐため Box 化）
+#[derive(Debug, Clone, Serialize)]
+pub struct OverlaySnapshotPayload {
+    pub config: OverlayConfig,
+    pub comments: Vec<CommentItem>,
+    pub counters: Vec<WordCounterConfig>,
+    pub last_lottery: Option<LotteryResult>,
+    pub first_time: FirstTimeCounterState,
+    pub first_time_enabled: bool,
+    pub monetization_items: Vec<MonetizationItem>,
+    pub superchat_enabled: bool,
+    pub poll_state: PollState,
+    pub poll_enabled: bool,
+    pub picked_comment: PickedCommentState,
+    pub pickup_enabled: bool,
+    pub queue_state: QueueState,
+    pub queue_enabled: bool,
+    pub media_config: MediaReactionConfig,
+    pub media_enabled: bool,
+}
+
 /// オーバーレイ画面へ WebSocket で送信するメッセージ
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum OverlayMessage {
-    Snapshot {
-        config: OverlayConfig,
-        comments: Vec<CommentItem>,
-        counters: Vec<WordCounterConfig>,
-        last_lottery: Option<LotteryResult>,
-        first_time: FirstTimeCounterState,
-        first_time_enabled: bool,
-        monetization_items: Vec<MonetizationItem>,
-        superchat_enabled: bool,
-        poll_state: PollState,
-        poll_enabled: bool,
-        picked_comment: PickedCommentState,
-        pickup_enabled: bool,
-        queue_state: QueueState,
-        queue_enabled: bool,
-        media_config: MediaReactionConfig,
-        media_enabled: bool,
-    },
+    Snapshot(Box<OverlaySnapshotPayload>),
     Comment {
         comment: CommentItem,
     },
@@ -142,14 +158,14 @@ pub enum OverlayMessage {
     },
     ClearMedia,
     ConfigUpdated {
-        config: OverlayConfig,
+        config: Box<OverlayConfig>,
     },
 }
 
 impl OverlayMessage {
     pub fn channel(&self) -> OverlayChannel {
         match self {
-            OverlayMessage::Snapshot { .. } | OverlayMessage::ConfigUpdated { .. } => {
+            OverlayMessage::Snapshot(_) | OverlayMessage::ConfigUpdated { .. } => {
                 OverlayChannel::All
             }
             OverlayMessage::Comment { .. } => OverlayChannel::Comments,
@@ -169,11 +185,360 @@ impl OverlayMessage {
     }
 }
 
+/// 本番データと完全分離されたプレビュー専用（/overlay/preview/*）の状態ストア
+#[derive(Debug, Clone)]
+pub struct PreviewOverlayStore {
+    pub comments: Vec<CommentItem>,
+    pub counters: Vec<WordCounterConfig>,
+    pub last_lottery: Option<LotteryResult>,
+    pub first_time: FirstTimeCounterState,
+    pub monetization_items: Vec<MonetizationItem>,
+    pub poll_state: PollState,
+    pub picked_comment: PickedCommentState,
+    pub queue_state: QueueState,
+    pub media_config: MediaReactionConfig,
+    pub sample_seq: u64,
+}
+
+impl PreviewOverlayStore {
+    /// プレビュー URL を開いた直後からデザイン確認できるよう、初期サンプルデータで初期化する
+    pub fn with_default_samples() -> Self {
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        let stamp_ok = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><rect width='48' height='48' rx='10' fill='%23eab308'/><text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='20'>★</text></svg>".to_string();
+
+        let sample_c1 = CommentItem {
+            id: "preview-init-c1".to_string(),
+            session_id: "preview".to_string(),
+            platform: PlatformKind::Demo,
+            user_id: "preview-u1".to_string(),
+            user_name: "たこやき太郎".to_string(),
+            user_icon_url: demo::make_svg_avatar("%230ea5e9", "た"),
+            user_memo: String::new(),
+            is_first_time: true,
+            message: "初見です！プレビュー環境なので本番配信には影響しません！".to_string(),
+            message_runs: Vec::new(),
+            timestamp_ms: now_ms - 15_000,
+            is_owner: false,
+            is_moderator: false,
+            is_member: false,
+            is_banned: false,
+            is_ng_masked: false,
+            hidden_from_overlay: false,
+            highlight_rule_id: None,
+            bubble_bg_color: None,
+            bubble_text_color: None,
+            bubble_border_color: None,
+            event_kind: None,
+            amount_display: None,
+            event_accent_color: None,
+        };
+        let sample_c2 = CommentItem {
+            id: "preview-init-c2".to_string(),
+            session_id: "preview".to_string(),
+            platform: PlatformKind::Demo,
+            user_id: "preview-u2".to_string(),
+            user_name: "さくらもち".to_string(),
+            user_icon_url: demo::make_svg_avatar("%23ec4899", "さ"),
+            user_memo: String::new(),
+            is_first_time: false,
+            message: "フォント・縁取り・背景透過の見え方を実寸で確認できます！ :star:".to_string(),
+            message_runs: vec![
+                MessageRun {
+                    kind: MessageRunKind::Text,
+                    text: "フォント・縁取り・背景透過の見え方を実寸で確認できます！ ".to_string(),
+                    emoji_url: None,
+                    alt: None,
+                    is_custom_emoji: false,
+                },
+                MessageRun {
+                    kind: MessageRunKind::Emoji,
+                    text: ":star:".to_string(),
+                    emoji_url: Some(stamp_ok),
+                    alt: Some(":star:".to_string()),
+                    is_custom_emoji: true,
+                },
+            ],
+            timestamp_ms: now_ms - 5_000,
+            is_owner: false,
+            is_moderator: false,
+            is_member: true,
+            is_banned: false,
+            is_ng_masked: false,
+            hidden_from_overlay: false,
+            highlight_rule_id: None,
+            bubble_bg_color: None,
+            bubble_text_color: None,
+            bubble_border_color: None,
+            event_kind: None,
+            amount_display: None,
+            event_accent_color: None,
+        };
+
+        let sample_counters = vec![
+            WordCounterConfig {
+                id: "preview-cnt-1".to_string(),
+                name: "草カウンター".to_string(),
+                keywords: vec!["草".to_string(), "www".to_string()],
+                match_mode: MatchMode::Contains,
+                case_sensitive: false,
+                max_per_account: None,
+                exclude_banned: true,
+                accent_color: "#22C55E".to_string(),
+                enabled: true,
+                total_count: 128,
+                unique_user_count: 42,
+            },
+            WordCounterConfig {
+                id: "preview-cnt-2".to_string(),
+                name: "ナイス！".to_string(),
+                keywords: vec!["ナイス".to_string(), "GG".to_string()],
+                match_mode: MatchMode::Contains,
+                case_sensitive: false,
+                max_per_account: Some(1),
+                exclude_banned: true,
+                accent_color: "#38BDF8".to_string(),
+                enabled: true,
+                total_count: 42,
+                unique_user_count: 42,
+            },
+        ];
+
+        let sample_lottery = LotteryResult {
+            id: "preview-init-lot".to_string(),
+            kind: "プレビュー抽選".to_string(),
+            winners: vec![LotteryWinner {
+                user_id: "preview-w1".to_string(),
+                user_name: "ラッキー視聴者".to_string(),
+                user_icon_url: demo::make_svg_avatar("%23eab308", "当"),
+                comment_text: Some("参加希望します！当たりますように！".to_string()),
+                won_at_ms: now_ms,
+            }],
+            candidate_count: 24,
+            drawn_at_ms: now_ms,
+        };
+
+        let mut ft_cfg = FirstTimeCounterConfig::default();
+        ft_cfg.show_first_timer_profile = true;
+        let sample_first_time = FirstTimeCounterState {
+            count: 12,
+            total_detected_all_time: 128,
+            recent_users: vec![
+                FirstTimeUser {
+                    user_id: "preview-ft1".to_string(),
+                    user_name: "初見のねこ".to_string(),
+                    user_icon_url: demo::make_svg_avatar("%23f59e0b", "ね"),
+                    trigger_reason: "初見ワード".to_string(),
+                    detected_at_ms: now_ms - 8_000,
+                },
+                FirstTimeUser {
+                    user_id: "preview-ft2".to_string(),
+                    user_name: "みずいろ".to_string(),
+                    user_icon_url: demo::make_svg_avatar("%23818cf8", "み"),
+                    trigger_reason: "未登録".to_string(),
+                    detected_at_ms: now_ms - 40_000,
+                },
+            ],
+            config: ft_cfg,
+        };
+
+        let sample_sc = vec![
+            MonetizationItem {
+                id: "preview-init-sc1".to_string(),
+                session_id: "preview".to_string(),
+                platform: PlatformKind::Demo,
+                kind: MonetizationEventKind::SuperChat,
+                user_id: "preview-sc1".to_string(),
+                user_name: "さくらもち".to_string(),
+                user_icon_url: demo::make_svg_avatar("%23ec4899", "さ"),
+                amount_display: "¥1,000".to_string(),
+                amount_micros: 1_000_000_000,
+                currency: "JPY".to_string(),
+                tier_color: "#FFCA28".to_string(),
+                message: "プレビュー用の応援スーパーチャットです！".to_string(),
+                message_runs: Vec::new(),
+                timestamp_ms: now_ms - 10_000,
+                is_checked: false,
+                checked_at_ms: None,
+            },
+            MonetizationItem {
+                id: "preview-init-sc2".to_string(),
+                session_id: "preview".to_string(),
+                platform: PlatformKind::Demo,
+                kind: MonetizationEventKind::MembershipNew,
+                user_id: "preview-sc2".to_string(),
+                user_name: "夜ふかし勢".to_string(),
+                user_icon_url: demo::make_svg_avatar("%2322c55e", "夜"),
+                amount_display: "メンバー加入".to_string(),
+                amount_micros: 0,
+                currency: "JPY".to_string(),
+                tier_color: "#2BA640".to_string(),
+                message: "新しくメンバーシップに参加しました！".to_string(),
+                message_runs: Vec::new(),
+                timestamp_ms: now_ms - 35_000,
+                is_checked: false,
+                checked_at_ms: None,
+            },
+        ];
+
+        let mut sample_poll = PollState::default();
+        sample_poll.is_active = true;
+        sample_poll.started_at_ms = Some(now_ms - 60_000);
+        if sample_poll.config.options.len() >= 3 {
+            sample_poll.config.options[0].vote_count = 42;
+            sample_poll.config.options[1].vote_count = 29;
+            sample_poll.config.options[2].vote_count = 15;
+            sample_poll.total_votes = 86;
+        }
+
+        let sample_pickup = PickedCommentState {
+            comment: Some(CommentItem {
+                id: "preview-init-pick".to_string(),
+                session_id: "preview".to_string(),
+                platform: PlatformKind::Demo,
+                user_id: "preview-u1".to_string(),
+                user_name: "たこやき太郎".to_string(),
+                user_icon_url: demo::make_svg_avatar("%230ea5e9", "た"),
+                user_memo: String::new(),
+                is_first_time: false,
+                message: "質問です！今日の配信で一番おすすめしたいポイントはどこですか？".to_string(),
+                message_runs: Vec::new(),
+                timestamp_ms: now_ms,
+                is_owner: false,
+                is_moderator: false,
+                is_member: true,
+                is_banned: false,
+                is_ng_masked: false,
+                hidden_from_overlay: false,
+                highlight_rule_id: None,
+                bubble_bg_color: None,
+                bubble_text_color: None,
+                bubble_border_color: None,
+                event_kind: None,
+                amount_display: None,
+                event_accent_color: None,
+            }),
+            picked_at_ms: Some(now_ms),
+        };
+
+        let sample_queue = QueueState {
+            config: QueueConfig {
+                is_accepting: true,
+                max_active_slots: 3,
+                ..QueueConfig::default()
+            },
+            entries: vec![
+                QueueEntry {
+                    user_id: "preview-q1".to_string(),
+                    platform: PlatformKind::Demo,
+                    user_name: "たこやき太郎".to_string(),
+                    user_icon_url: demo::make_svg_avatar("%230ea5e9", "た"),
+                    status: QueueEntryStatus::Active,
+                    play_count: 1,
+                    is_first_time: true,
+                    note: String::new(),
+                    joined_at_ms: now_ms - 180_000,
+                },
+                QueueEntry {
+                    user_id: "preview-q2".to_string(),
+                    platform: PlatformKind::Demo,
+                    user_name: "さくらもち".to_string(),
+                    user_icon_url: demo::make_svg_avatar("%23ec4899", "さ"),
+                    status: QueueEntryStatus::Active,
+                    play_count: 2,
+                    is_first_time: false,
+                    note: String::new(),
+                    joined_at_ms: now_ms - 150_000,
+                },
+                QueueEntry {
+                    user_id: "preview-q3".to_string(),
+                    platform: PlatformKind::Demo,
+                    user_name: "ゲーマーK".to_string(),
+                    user_icon_url: demo::make_svg_avatar("%2322c55e", "K"),
+                    status: QueueEntryStatus::Waiting,
+                    play_count: 0,
+                    is_first_time: true,
+                    note: String::new(),
+                    joined_at_ms: now_ms - 90_000,
+                },
+                QueueEntry {
+                    user_id: "preview-q4".to_string(),
+                    platform: PlatformKind::Demo,
+                    user_name: "みずいろ".to_string(),
+                    user_icon_url: demo::make_svg_avatar("%23818cf8", "み"),
+                    status: QueueEntryStatus::Waiting,
+                    play_count: 1,
+                    is_first_time: false,
+                    note: String::new(),
+                    joined_at_ms: now_ms - 45_000,
+                },
+            ],
+        };
+
+        Self {
+            comments: vec![sample_c1, sample_c2],
+            counters: sample_counters,
+            last_lottery: Some(sample_lottery),
+            first_time: sample_first_time,
+            monetization_items: sample_sc,
+            poll_state: sample_poll,
+            picked_comment: sample_pickup,
+            queue_state: sample_queue,
+            media_config: MediaReactionConfig::default(),
+            sample_seq: 0,
+        }
+    }
+}
+
+/// チャンネル別 WebSocket 購読者数の RAII ガード（切断時に自動デクリメント）
+struct ChannelSubGuard {
+    counters: Arc<[AtomicUsize; OverlayChannel::COUNT]>,
+    idx: usize,
+}
+
+impl ChannelSubGuard {
+    fn acquire(counters: Arc<[AtomicUsize; OverlayChannel::COUNT]>, ch: OverlayChannel) -> Self {
+        let idx = ch.index();
+        counters[idx].fetch_add(1, Ordering::AcqRel);
+        Self { counters, idx }
+    }
+}
+
+impl Drop for ChannelSubGuard {
+    fn drop(&mut self) {
+        self.counters[self.idx].fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+fn new_channel_counters() -> Arc<[AtomicUsize; OverlayChannel::COUNT]> {
+    Arc::new(std::array::from_fn(|_| AtomicUsize::new(0)))
+}
+
+fn has_subscriber_for_channel(
+    counters: &[AtomicUsize; OverlayChannel::COUNT],
+    total_receivers: usize,
+    channel: OverlayChannel,
+) -> bool {
+    if total_receivers == 0 {
+        return false;
+    }
+    let tracked_total: usize = counters.iter().map(|c| c.load(Ordering::Acquire)).sum();
+    // テスト等からの直接 tx.subscribe()（未計測レシーバ）がある場合は後方互換で配信する
+    if tracked_total < total_receivers {
+        return true;
+    }
+    if channel == OverlayChannel::All {
+        return tracked_total > 0;
+    }
+    counters[OverlayChannel::All.index()].load(Ordering::Acquire) > 0
+        || counters[channel.index()].load(Ordering::Acquire) > 0
+}
+
 pub struct OverlaySharedState {
     pub media_dir: PathBuf,
     pub remote_config: RwLock<RemoteAccessConfig>,
+    allow_lan_access: AtomicBool,
     pub config: RwLock<OverlayConfig>,
-    pub recent_comments: RwLock<Vec<CommentItem>>,
+    pub recent_comments: RwLock<VecDeque<CommentItem>>,
     pub counters: RwLock<Vec<WordCounterConfig>>,
     pub last_lottery: RwLock<Option<LotteryResult>>,
     pub first_time: RwLock<FirstTimeCounterState>,
@@ -191,6 +556,11 @@ pub struct OverlaySharedState {
     pub obs_overlay_enabled: AtomicBool,
     obs_enabled_tx: watch::Sender<bool>,
     pub tx: broadcast::Sender<Arc<(OverlayChannel, String)>>,
+    channel_subs: Arc<[AtomicUsize; OverlayChannel::COUNT]>,
+    /// プレビュー専用（/overlay/preview/*）の独立状態と独立ブロードキャストチャンネル
+    pub preview_store: RwLock<PreviewOverlayStore>,
+    pub preview_tx: broadcast::Sender<Arc<(OverlayChannel, String)>>,
+    preview_channel_subs: Arc<[AtomicUsize; OverlayChannel::COUNT]>,
 }
 
 impl OverlaySharedState {
@@ -213,12 +583,15 @@ impl OverlaySharedState {
         pickup_enabled: bool,
     ) -> Self {
         let (tx, _) = broadcast::channel(512);
+        let (preview_tx, _) = broadcast::channel(256);
         let (obs_enabled_tx, _) = watch::channel(true);
+        let initial_allow_lan = remote_config.allow_lan_access;
         Self {
             media_dir,
             remote_config: RwLock::new(remote_config),
+            allow_lan_access: AtomicBool::new(initial_allow_lan),
             config: RwLock::new(config),
-            recent_comments: RwLock::new(Vec::new()),
+            recent_comments: RwLock::new(VecDeque::new()),
             counters: RwLock::new(counters),
             last_lottery: RwLock::new(None),
             first_time: RwLock::new(first_time),
@@ -236,7 +609,23 @@ impl OverlaySharedState {
             obs_overlay_enabled: AtomicBool::new(true),
             obs_enabled_tx,
             tx,
+            channel_subs: new_channel_counters(),
+            preview_store: RwLock::new(PreviewOverlayStore::with_default_samples()),
+            preview_tx,
+            preview_channel_subs: new_channel_counters(),
         }
+    }
+
+    /// LAN アクセス許可設定を更新（ip_access_guard 用のロックフリー AtomicBool も即時同期）
+    pub async fn update_remote_config(&self, cfg: RemoteAccessConfig) {
+        self.allow_lan_access
+            .store(cfg.allow_lan_access, Ordering::Relaxed);
+        *self.remote_config.write().await = cfg;
+    }
+
+    #[inline]
+    pub fn is_allow_lan_access(&self) -> bool {
+        self.allow_lan_access.load(Ordering::Relaxed)
     }
 
     /// OBS オーバーレイ配信の有効 / 無効を切り替える（OFF 時は接続中の全 OBS WebSocket を即時切断）
@@ -249,23 +638,111 @@ impl OverlaySharedState {
         self.obs_overlay_enabled.load(Ordering::Relaxed)
     }
 
+    #[inline]
+    fn should_broadcast(&self, channel: OverlayChannel) -> bool {
+        self.is_obs_overlay_enabled()
+            && has_subscriber_for_channel(&self.channel_subs, self.tx.receiver_count(), channel)
+    }
+
+    #[inline]
+    fn should_broadcast_preview(&self, channel: OverlayChannel) -> bool {
+        self.is_obs_overlay_enabled()
+            && has_subscriber_for_channel(
+                &self.preview_channel_subs,
+                self.preview_tx.receiver_count(),
+                channel,
+            )
+    }
+
     pub fn broadcast(&self, msg: &OverlayMessage) {
-        // OBS オーバーレイ無効または接続クライアント 0 件のときは JSON シリアライズ自体をスキップ
-        if !self.is_obs_overlay_enabled() || self.tx.receiver_count() == 0 {
+        // OBS オーバーレイ無効または該当チャンネルの購読者 0 件のときは JSON シリアライズ自体をスキップ
+        let channel = msg.channel();
+        if !self.should_broadcast(channel) {
             return;
         }
         if let Ok(json) = serde_json::to_string(msg) {
-            let _ = self.tx.send(Arc::new((msg.channel(), json)));
+            let _ = self.tx.send(Arc::new((channel, json)));
         }
+    }
+
+    /// プレビュー専用チャンネル（/overlay/preview/*）のみにブロードキャスト（本番には一切送信しない）
+    pub fn broadcast_preview(&self, msg: &OverlayMessage) {
+        let channel = msg.channel();
+        if !self.should_broadcast_preview(channel) {
+            return;
+        }
+        if let Ok(json) = serde_json::to_string(msg) {
+            let _ = self.preview_tx.send(Arc::new((channel, json)));
+        }
+    }
+
+    /// プレビュー専用（/overlay/preview/*）の初期 Snapshot を構築する（本番状態は参照しない）
+    pub async fn build_preview_snapshot(&self, channel: Option<OverlayChannel>) -> OverlayMessage {
+        let include = |ch: OverlayChannel| ch.matches(channel);
+        let store = self.preview_store.read().await;
+        OverlayMessage::Snapshot(Box::new(OverlaySnapshotPayload {
+            config: self.config.read().await.clone(),
+            comments: if include(OverlayChannel::Comments) {
+                store.comments.clone()
+            } else {
+                Vec::new()
+            },
+            counters: if include(OverlayChannel::Counter) {
+                store.counters.clone()
+            } else {
+                Vec::new()
+            },
+            last_lottery: if include(OverlayChannel::Lottery) {
+                store.last_lottery.clone()
+            } else {
+                None
+            },
+            first_time: if include(OverlayChannel::FirstTime) {
+                store.first_time.clone()
+            } else {
+                FirstTimeCounterState::default()
+            },
+            first_time_enabled: include(OverlayChannel::FirstTime),
+            monetization_items: if include(OverlayChannel::SuperChat) {
+                store.monetization_items.clone()
+            } else {
+                Vec::new()
+            },
+            superchat_enabled: include(OverlayChannel::SuperChat),
+            poll_state: if include(OverlayChannel::Poll) {
+                store.poll_state.clone()
+            } else {
+                PollState::default()
+            },
+            poll_enabled: include(OverlayChannel::Poll),
+            picked_comment: if include(OverlayChannel::Pickup) {
+                store.picked_comment.clone()
+            } else {
+                PickedCommentState::default()
+            },
+            pickup_enabled: include(OverlayChannel::Pickup),
+            queue_state: if include(OverlayChannel::Queue) {
+                store.queue_state.clone()
+            } else {
+                QueueState::default()
+            },
+            queue_enabled: include(OverlayChannel::Queue),
+            media_config: if include(OverlayChannel::Media) {
+                store.media_config.clone()
+            } else {
+                MediaReactionConfig::default()
+            },
+            media_enabled: include(OverlayChannel::Media),
+        }))
     }
 
     /// 接続先オーバーレイのチャンネルに必要な項目だけを詰め込んだ軽量 Snapshot を構築する
     pub async fn build_snapshot(&self, channel: Option<OverlayChannel>) -> OverlayMessage {
         let include = |ch: OverlayChannel| ch.matches(channel);
-        OverlayMessage::Snapshot {
+        OverlayMessage::Snapshot(Box::new(OverlaySnapshotPayload {
             config: self.config.read().await.clone(),
             comments: if include(OverlayChannel::Comments) {
-                self.recent_comments.read().await.clone()
+                self.recent_comments.read().await.iter().cloned().collect()
             } else {
                 Vec::new()
             },
@@ -339,39 +816,59 @@ impl OverlaySharedState {
             } else {
                 false
             },
-        }
+        }))
     }
 
     pub async fn push_comment(&self, comment: CommentItem) {
         let max_items = self.config.read().await.comment_max_items.max(10) as usize;
-        {
+        let need_send = self.should_broadcast(OverlayChannel::Comments);
+        if need_send {
+            {
+                let mut list = self.recent_comments.write().await;
+                list.push_back(comment.clone());
+                while list.len() > max_items {
+                    list.pop_front();
+                }
+            }
+            self.broadcast(&OverlayMessage::Comment { comment });
+        } else {
             let mut list = self.recent_comments.write().await;
-            list.push(comment.clone());
-            if list.len() > max_items {
-                let drop_count = list.len() - max_items;
-                list.drain(0..drop_count);
+            list.push_back(comment);
+            while list.len() > max_items {
+                list.pop_front();
             }
         }
-        self.broadcast(&OverlayMessage::Comment { comment });
     }
 
     pub async fn update_counters(&self, counters: Vec<WordCounterConfig>) {
-        *self.counters.write().await = counters.clone();
-        self.broadcast(&OverlayMessage::Counters { counters });
+        if self.should_broadcast(OverlayChannel::Counter) {
+            *self.counters.write().await = counters.clone();
+            self.broadcast(&OverlayMessage::Counters { counters });
+        } else {
+            *self.counters.write().await = counters;
+        }
     }
 
     pub async fn update_first_time(&self, state: FirstTimeCounterState, enabled: bool) {
-        *self.first_time.write().await = state.clone();
         *self.first_time_enabled.write().await = enabled;
-        self.broadcast(&OverlayMessage::FirstTime {
-            first_time: state,
-            enabled,
-        });
+        if self.should_broadcast(OverlayChannel::FirstTime) {
+            *self.first_time.write().await = state.clone();
+            self.broadcast(&OverlayMessage::FirstTime {
+                first_time: state,
+                enabled,
+            });
+        } else {
+            *self.first_time.write().await = state;
+        }
     }
 
     pub async fn show_lottery(&self, result: LotteryResult) {
-        *self.last_lottery.write().await = Some(result.clone());
-        self.broadcast(&OverlayMessage::LotteryResult { result });
+        if self.should_broadcast(OverlayChannel::Lottery) {
+            *self.last_lottery.write().await = Some(result.clone());
+            self.broadcast(&OverlayMessage::LotteryResult { result });
+        } else {
+            *self.last_lottery.write().await = Some(result);
+        }
     }
 
     pub async fn clear_lottery(&self) {
@@ -380,15 +877,23 @@ impl OverlaySharedState {
     }
 
     pub async fn update_monetization(&self, items: Vec<MonetizationItem>, enabled: bool) {
-        *self.monetization_items.write().await = items.clone();
         *self.superchat_enabled.write().await = enabled;
-        self.broadcast(&OverlayMessage::SuperChat { items, enabled });
+        if self.should_broadcast(OverlayChannel::SuperChat) {
+            *self.monetization_items.write().await = items.clone();
+            self.broadcast(&OverlayMessage::SuperChat { items, enabled });
+        } else {
+            *self.monetization_items.write().await = items;
+        }
     }
 
     pub async fn update_poll(&self, poll: PollState, enabled: bool) {
-        *self.poll_state.write().await = poll.clone();
         *self.poll_enabled.write().await = enabled;
-        self.broadcast(&OverlayMessage::Poll { poll, enabled });
+        if self.should_broadcast(OverlayChannel::Poll) {
+            *self.poll_state.write().await = poll.clone();
+            self.broadcast(&OverlayMessage::Poll { poll, enabled });
+        } else {
+            *self.poll_state.write().await = poll;
+        }
     }
 
     pub async fn clear_poll(&self) {
@@ -396,28 +901,42 @@ impl OverlaySharedState {
     }
 
     pub async fn update_picked_comment(&self, picked: PickedCommentState, enabled: bool) {
-        *self.picked_comment.write().await = picked.clone();
         *self.pickup_enabled.write().await = enabled;
-        self.broadcast(&OverlayMessage::PickedComment { picked, enabled });
+        if self.should_broadcast(OverlayChannel::Pickup) {
+            *self.picked_comment.write().await = picked.clone();
+            self.broadcast(&OverlayMessage::PickedComment { picked, enabled });
+        } else {
+            *self.picked_comment.write().await = picked;
+        }
     }
 
     pub async fn update_queue(&self, queue: QueueState, enabled: bool) {
-        *self.queue_state.write().await = queue.clone();
         *self.queue_enabled.write().await = enabled;
-        self.broadcast(&OverlayMessage::Queue { queue, enabled });
+        if self.should_broadcast(OverlayChannel::Queue) {
+            *self.queue_state.write().await = queue.clone();
+            self.broadcast(&OverlayMessage::Queue { queue, enabled });
+        } else {
+            *self.queue_state.write().await = queue;
+        }
     }
 
     pub async fn update_media_config(&self, media_config: MediaReactionConfig, enabled: bool) {
-        *self.media_config.write().await = media_config.clone();
         *self.media_enabled.write().await = enabled;
-        self.broadcast(&OverlayMessage::MediaConfig {
-            media_config,
-            enabled,
-        });
+        if self.should_broadcast(OverlayChannel::Media) {
+            *self.media_config.write().await = media_config.clone();
+            self.broadcast(&OverlayMessage::MediaConfig {
+                media_config,
+                enabled,
+            });
+        } else {
+            *self.media_config.write().await = media_config;
+        }
     }
 
     pub fn trigger_media(&self, trigger: MediaTriggerEvent) {
-        self.broadcast(&OverlayMessage::MediaTrigger { trigger });
+        if self.should_broadcast(OverlayChannel::Media) {
+            self.broadcast(&OverlayMessage::MediaTrigger { trigger });
+        }
     }
 
     pub fn clear_media(&self) {
@@ -425,8 +944,92 @@ impl OverlaySharedState {
     }
 
     pub async fn update_config(&self, config: OverlayConfig) {
-        *self.config.write().await = config.clone();
-        self.broadcast(&OverlayMessage::ConfigUpdated { config });
+        let send_prod = self.should_broadcast(OverlayChannel::All);
+        let send_prev = self.should_broadcast_preview(OverlayChannel::All);
+        if send_prod || send_prev {
+            *self.config.write().await = config.clone();
+            let msg = OverlayMessage::ConfigUpdated {
+                config: Box::new(config),
+            };
+            if send_prod {
+                self.broadcast(&msg);
+            }
+            // デザイン・CSS・スタイルの変更はプレビュー環境にもリアルタイム反映する
+            if send_prev {
+                self.broadcast_preview(&msg);
+            }
+        } else {
+            *self.config.write().await = config;
+        }
+    }
+
+    // ==================== プレビュー専用（本番非干渉）更新メソッド ====================
+
+    pub async fn push_preview_comment(&self, comment: CommentItem) {
+        let max_items = self.config.read().await.comment_max_items.max(10) as usize;
+        {
+            let mut store = self.preview_store.write().await;
+            store.comments.push(comment.clone());
+            if store.comments.len() > max_items {
+                let drop_count = store.comments.len() - max_items;
+                store.comments.drain(0..drop_count);
+            }
+        }
+        self.broadcast_preview(&OverlayMessage::Comment { comment });
+    }
+
+    pub async fn update_preview_counters(&self, counters: Vec<WordCounterConfig>) {
+        self.preview_store.write().await.counters = counters.clone();
+        self.broadcast_preview(&OverlayMessage::Counters { counters });
+    }
+
+    pub async fn update_preview_first_time(&self, state: FirstTimeCounterState) {
+        self.preview_store.write().await.first_time = state.clone();
+        self.broadcast_preview(&OverlayMessage::FirstTime {
+            first_time: state,
+            enabled: true,
+        });
+    }
+
+    pub async fn show_preview_lottery(&self, result: LotteryResult) {
+        self.preview_store.write().await.last_lottery = Some(result.clone());
+        self.broadcast_preview(&OverlayMessage::LotteryResult { result });
+    }
+
+    pub async fn update_preview_monetization(&self, items: Vec<MonetizationItem>) {
+        self.preview_store.write().await.monetization_items = items.clone();
+        self.broadcast_preview(&OverlayMessage::SuperChat {
+            items,
+            enabled: true,
+        });
+    }
+
+    pub async fn update_preview_poll(&self, poll: PollState) {
+        self.preview_store.write().await.poll_state = poll.clone();
+        self.broadcast_preview(&OverlayMessage::Poll {
+            poll,
+            enabled: true,
+        });
+    }
+
+    pub async fn update_preview_picked_comment(&self, picked: PickedCommentState) {
+        self.preview_store.write().await.picked_comment = picked.clone();
+        self.broadcast_preview(&OverlayMessage::PickedComment {
+            picked,
+            enabled: true,
+        });
+    }
+
+    pub async fn update_preview_queue(&self, queue: QueueState) {
+        self.preview_store.write().await.queue_state = queue.clone();
+        self.broadcast_preview(&OverlayMessage::Queue {
+            queue,
+            enabled: true,
+        });
+    }
+
+    pub fn trigger_preview_media(&self, trigger: MediaTriggerEvent) {
+        self.broadcast_preview(&OverlayMessage::MediaTrigger { trigger });
     }
 }
 
@@ -469,11 +1072,20 @@ pub fn start_overlay_server(
             .route("/api/remote/state", get(remote_api::remote_state_handler))
             .route("/api/remote/action", post(remote_api::remote_action_handler))
             .route(
+                "/api/trigger/{action}",
+                get(remote_api::stream_deck_trigger_handler)
+                    .post(remote_api::stream_deck_trigger_handler),
+            )
+            .route(
                 "/api/remote/upload_media",
                 post(remote_api::upload_media_handler)
                     .layer(DefaultBodyLimit::max(64 * 1024 * 1024)),
             )
             .route("/ws/remote", get(remote_api::remote_ws_handler))
+            .route(
+                "/overlay/stosup-overlay.js",
+                get(overlay_common_js_handler),
+            )
             .route(
                 "/overlay/comments",
                 get(|st: State<Arc<OverlaySharedState>>| async move {
@@ -528,6 +1140,61 @@ pub fn start_overlay_server(
                     serve_overlay_html(st, MEDIA_HTML)
                 }),
             )
+            // 本番データに一切影響しないプレビュー・テスト専用環境 (/overlay/preview/*)
+            .route(
+                "/overlay/preview/comments",
+                get(|st: State<Arc<OverlaySharedState>>| async move {
+                    serve_overlay_html(st, COMMENTS_HTML)
+                }),
+            )
+            .route(
+                "/overlay/preview/lottery",
+                get(|st: State<Arc<OverlaySharedState>>| async move {
+                    serve_overlay_html(st, LOTTERY_HTML)
+                }),
+            )
+            .route(
+                "/overlay/preview/counter",
+                get(|st: State<Arc<OverlaySharedState>>| async move {
+                    serve_overlay_html(st, COUNTER_HTML)
+                }),
+            )
+            .route(
+                "/overlay/preview/first_time",
+                get(|st: State<Arc<OverlaySharedState>>| async move {
+                    serve_overlay_html(st, FIRST_TIME_HTML)
+                }),
+            )
+            .route(
+                "/overlay/preview/superchat",
+                get(|st: State<Arc<OverlaySharedState>>| async move {
+                    serve_overlay_html(st, SUPERCHAT_HTML)
+                }),
+            )
+            .route(
+                "/overlay/preview/poll",
+                get(|st: State<Arc<OverlaySharedState>>| async move {
+                    serve_overlay_html(st, POLL_HTML)
+                }),
+            )
+            .route(
+                "/overlay/preview/pickup",
+                get(|st: State<Arc<OverlaySharedState>>| async move {
+                    serve_overlay_html(st, PICKUP_HTML)
+                }),
+            )
+            .route(
+                "/overlay/preview/queue",
+                get(|st: State<Arc<OverlaySharedState>>| async move {
+                    serve_overlay_html(st, QUEUE_HTML)
+                }),
+            )
+            .route(
+                "/overlay/preview/media",
+                get(|st: State<Arc<OverlaySharedState>>| async move {
+                    serve_overlay_html(st, MEDIA_HTML)
+                }),
+            )
             .route("/media/{file_name}", get(media_file_handler))
             .route("/ws", get(ws_handler))
             .layer(middleware::from_fn_with_state(
@@ -565,9 +1232,9 @@ fn serve_overlay_html(
         return (
             StatusCode::SERVICE_UNAVAILABLE,
             Html(
-                "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><title>OBS オーバーレイ停止中</title></head>\
+                "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><title>オーバーレイスタジオ停止中</title></head>\
                  <body style='margin:0;background:transparent;color:#a1a1aa;font-family:sans-serif;padding:12px;font-size:13px'>\
-                 Stosup の OBS オーバーレイ機能は現在オフになっています。</body></html>",
+                 Stosup のオーバーレイスタジオ機能は現在オフになっています。</body></html>",
             ),
         );
     }
@@ -578,6 +1245,13 @@ async fn favicon_handler() -> impl IntoResponse {
     (
         [(header::CONTENT_TYPE, "image/x-icon")],
         APP_ICON_ICO,
+    )
+}
+
+async fn overlay_common_js_handler() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        OVERLAY_COMMON_JS,
     )
 }
 
@@ -685,20 +1359,33 @@ async fn media_file_handler(
 
 async fn index_handler() -> Html<&'static str> {
     Html(
-        "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><link rel='icon' href='/favicon.ico'><title>Stosup OBS オーバーレイ</title></head>\
+        "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><link rel='icon' href='/favicon.ico'><title>Stosup オーバーレイスタジオ</title></head>\
          <body style='font-family:sans-serif;background:#18181b;color:#f4f4f5;padding:32px'>\
-         <h1>Stosup OBS オーバーレイ ＆ Web リモコンサーバー稼働中</h1>\
-         <p style='margin:12px 0'><a style='color:#4ade80;font-weight:bold;font-size:18px' href='/remote'>▶ Web リモートコントロールを開く (/remote)</a></p>\
+         <h1>Stosup オーバーレイスタジオ ＆ ポケットスイッチャー稼働中</h1>\
+         <p style='margin:12px 0'><a style='color:#4ade80;font-weight:bold;font-size:18px' href='/remote'>▶ ポケットスイッチャーを開く (/remote)</a></p>\
+         <h2 style='font-size:15px;color:#d4d4d8;margin-top:20px'>本番 OBS 用オーバーレイ</h2>\
          <ul>\
-           <li><a style='color:#60a5fa' href='/overlay/comments'>/overlay/comments (コメント表示)</a></li>\
-           <li><a style='color:#60a5fa' href='/overlay/superchat'>/overlay/superchat (スパチャ・メンバー表示)</a></li>\
-           <li><a style='color:#60a5fa' href='/overlay/pickup'>/overlay/pickup (コメントピックアップ表示)</a></li>\
-           <li><a style='color:#60a5fa' href='/overlay/poll'>/overlay/poll (リアルタイム投票・アンケート)</a></li>\
-           <li><a style='color:#60a5fa' href='/overlay/queue'>/overlay/queue (参加型キュー順番待ち)</a></li>\
-           <li><a style='color:#60a5fa' href='/overlay/media'>/overlay/media (特定ワード反応アニメーション・動画)</a></li>\
-           <li><a style='color:#60a5fa' href='/overlay/lottery'>/overlay/lottery (抽選演出・結果表示)</a></li>\
-           <li><a style='color:#60a5fa' href='/overlay/counter'>/overlay/counter (ワードカウンター表示)</a></li>\
-           <li><a style='color:#60a5fa' href='/overlay/first_time'>/overlay/first_time (初見カウンター表示)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/comments'>/overlay/comments (トークモニター)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/superchat'>/overlay/superchat (エールボックス)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/pickup'>/overlay/pickup (スポットテロップ)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/poll'>/overlay/poll (ライブアンケート)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/queue'>/overlay/queue (エントリーレーン)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/media'>/overlay/media (リアクションステージ)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/lottery'>/overlay/lottery (ドローボックス)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/counter'>/overlay/counter (コールカウンター)</a></li>\
+           <li><a style='color:#60a5fa' href='/overlay/first_time'>/overlay/first_time (ウェルカムカウンター)</a></li>\
+         </ul>\
+         <h2 style='font-size:15px;color:#fbbf24;margin-top:20px'>テスト・プレビュー専用オーバーレイ（本番データ非干渉）</h2>\
+         <ul>\
+           <li><a style='color:#fcd34d' href='/overlay/preview/comments'>/overlay/preview/comments</a></li>\
+           <li><a style='color:#fcd34d' href='/overlay/preview/superchat'>/overlay/preview/superchat</a></li>\
+           <li><a style='color:#fcd34d' href='/overlay/preview/pickup'>/overlay/preview/pickup</a></li>\
+           <li><a style='color:#fcd34d' href='/overlay/preview/poll'>/overlay/preview/poll</a></li>\
+           <li><a style='color:#fcd34d' href='/overlay/preview/queue'>/overlay/preview/queue</a></li>\
+           <li><a style='color:#fcd34d' href='/overlay/preview/media'>/overlay/preview/media</a></li>\
+           <li><a style='color:#fcd34d' href='/overlay/preview/lottery'>/overlay/preview/lottery</a></li>\
+           <li><a style='color:#fcd34d' href='/overlay/preview/counter'>/overlay/preview/counter</a></li>\
+           <li><a style='color:#fcd34d' href='/overlay/preview/first_time'>/overlay/preview/first_time</a></li>\
          </ul></body></html>",
     )
 }
@@ -718,13 +1405,18 @@ async fn ws_handler(
     let channel = query
         .get("channel")
         .and_then(|s| OverlayChannel::from_query(s));
-    ws.on_upgrade(move |socket| handle_socket(socket, state, channel))
+    let is_preview = query
+        .get("preview")
+        .map(|s| s == "1" || s.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    ws.on_upgrade(move |socket| handle_socket(socket, state, channel, is_preview))
 }
 
 async fn handle_socket(
     socket: WebSocket,
     state: Arc<OverlaySharedState>,
     channel: Option<OverlayChannel>,
+    is_preview: bool,
 ) {
     let (mut sender, mut receiver) = socket.split();
     let mut obs_rx = state.obs_enabled_tx.subscribe();
@@ -732,48 +1424,69 @@ async fn handle_socket(
         return;
     }
 
-    let snapshot = state.build_snapshot(channel).await;
+    let mut rx = if is_preview {
+        state.preview_tx.subscribe()
+    } else {
+        state.tx.subscribe()
+    };
+
+    // チャンネル別の購読者数を RAII 追跡（該当チャンネル購読者 0 件時の JSON 化を完全スキップ）
+    let sub_channel = channel.unwrap_or(OverlayChannel::All);
+    let _sub_guard = ChannelSubGuard::acquire(
+        Arc::clone(if is_preview {
+            &state.preview_channel_subs
+        } else {
+            &state.channel_subs
+        }),
+        sub_channel,
+    );
+
+    let snapshot = if is_preview {
+        state.build_preview_snapshot(channel).await
+    } else {
+        state.build_snapshot(channel).await
+    };
     if let Ok(json) = serde_json::to_string(&snapshot) {
         if sender.send(Message::Text(json.into())).await.is_err() {
             return;
         }
     }
 
-    let mut rx = state.tx.subscribe();
-
-    let send_task = tokio::spawn(async move {
-        loop {
-            match rx.recv().await {
-                Ok(payload) => {
-                    if !payload.0.matches(channel) {
-                        continue;
+    // 単一タスクの select! ループで送受信・切断検知を完結（切断時の残留タスクを完全防止）
+    loop {
+        tokio::select! {
+            recv = rx.recv() => {
+                match recv {
+                    Ok(payload) => {
+                        if !payload.0.matches(channel) {
+                            continue;
+                        }
+                        if sender
+                            .send(Message::Text(payload.1.as_str().into()))
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
                     }
-                    if sender
-                        .send(Message::Text(payload.1.as_str().into()))
-                        .await
-                        .is_err()
-                    {
-                        break;
-                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(broadcast::error::RecvError::Closed) => break,
                 }
-                Err(broadcast::error::RecvError::Lagged(_)) => continue,
-                Err(broadcast::error::RecvError::Closed) => break,
+            }
+            ws_msg = receiver.next() => {
+                match ws_msg {
+                    Some(Ok(Message::Close(_))) | None => break,
+                    Some(Err(_)) => break,
+                    Some(Ok(_)) => {}
+                }
+            }
+            changed = obs_rx.changed() => {
+                if changed.is_err() || !*obs_rx.borrow() {
+                    let _ = sender.send(Message::Close(None)).await;
+                    break;
+                }
             }
         }
-    });
-
-    let recv_task = tokio::spawn(async move {
-        while let Some(Ok(msg)) = receiver.next().await {
-            if matches!(msg, Message::Close(_)) {
-                break;
-            }
-        }
-    });
-
-    tokio::select! {
-        _ = send_task => {}
-        _ = recv_task => {}
-        _ = obs_rx.wait_for(|&enabled| !enabled) => {}
     }
 }
 
@@ -835,11 +1548,14 @@ mod tests {
                 user_memo: String::new(),
                 is_first_time: false,
                 message: "hello".to_string(),
+                message_runs: Vec::new(),
                 timestamp_ms: 1000,
                 is_owner: false,
                 is_moderator: false,
                 is_member: false,
                 is_banned: false,
+                is_ng_masked: false,
+                hidden_from_overlay: false,
                 highlight_rule_id: None,
                 bubble_bg_color: None,
                 bubble_text_color: None,
@@ -852,14 +1568,27 @@ mod tests {
 
         // media チャンネル向け Snapshot には comments が含まれない（軽量化）
         match state.build_snapshot(Some(OverlayChannel::Media)).await {
-            OverlayMessage::Snapshot { comments, .. } => assert!(comments.is_empty()),
+            OverlayMessage::Snapshot(snap) => assert!(snap.comments.is_empty()),
             _ => panic!("expected Snapshot"),
         }
         // comments チャンネル向け Snapshot には comments が含まれる
-        match state.build_snapshot(Some(OverlayChannel::Comments)).await {
-            OverlayMessage::Snapshot { comments, .. } => assert_eq!(comments.len(), 1),
+        let comments_snap = state.build_snapshot(Some(OverlayChannel::Comments)).await;
+        match &comments_snap {
+            OverlayMessage::Snapshot(snap) => assert_eq!(snap.comments.len(), 1),
             _ => panic!("expected Snapshot"),
         }
+        // Box 化後も Snapshot / ConfigUpdated のワイヤー JSON 形式がフラットに維持され、enum サイズも軽量であること
+        assert!(std::mem::size_of::<OverlayMessage>() <= 512);
+        let snap_val: serde_json::Value = serde_json::to_value(&comments_snap).unwrap();
+        assert_eq!(snap_val["type"], "snapshot");
+        assert!(snap_val["config"].is_object());
+        assert_eq!(snap_val["comments"].as_array().unwrap().len(), 1);
+        let cfg_val: serde_json::Value = serde_json::to_value(OverlayMessage::ConfigUpdated {
+            config: Box::new(OverlayConfig::default()),
+        })
+        .unwrap();
+        assert_eq!(cfg_val["type"], "config_updated");
+        assert!(cfg_val["config"].is_object());
 
         // 購読中チャンネルのブロードキャストに正しいチャンネルタグが付与される
         let mut rx = state.tx.subscribe();
@@ -875,5 +1604,116 @@ mod tests {
         assert!(!*obs_rx.borrow());
         state.clear_media();
         assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn test_preview_channel_is_isolated_from_production() {
+        let state = make_test_state();
+        let mut prod_rx = state.tx.subscribe();
+        let mut preview_rx = state.preview_tx.subscribe();
+
+        // プレビューへコメントを送っても本番状態・本番チャンネルには一切届かない
+        state
+            .push_preview_comment(CommentItem {
+                id: "prev-1".to_string(),
+                session_id: "preview".to_string(),
+                platform: PlatformKind::Demo,
+                user_id: "pu1".to_string(),
+                user_name: "PreviewTester".to_string(),
+                user_icon_url: String::new(),
+                user_memo: String::new(),
+                is_first_time: false,
+                message: "preview only".to_string(),
+                message_runs: Vec::new(),
+                timestamp_ms: 2000,
+                is_owner: false,
+                is_moderator: false,
+                is_member: false,
+                is_banned: false,
+                is_ng_masked: false,
+                hidden_from_overlay: false,
+                highlight_rule_id: None,
+                bubble_bg_color: None,
+                bubble_text_color: None,
+                bubble_border_color: None,
+                event_kind: None,
+                amount_display: None,
+                event_accent_color: None,
+            })
+            .await;
+
+        assert!(state.recent_comments.read().await.is_empty());
+        assert!(prod_rx.try_recv().is_err());
+        let p_msg = preview_rx.recv().await.unwrap();
+        assert_eq!(p_msg.0, OverlayChannel::Comments);
+        assert!(p_msg.1.contains("preview only"));
+
+        // 本番へコメントを送ってもプレビューチャンネルには一切届かない
+        state
+            .push_comment(CommentItem {
+                id: "prod-1".to_string(),
+                session_id: "live".to_string(),
+                platform: PlatformKind::Demo,
+                user_id: "u-live".to_string(),
+                user_name: "LiveViewer".to_string(),
+                user_icon_url: String::new(),
+                user_memo: String::new(),
+                is_first_time: false,
+                message: "production only".to_string(),
+                message_runs: Vec::new(),
+                timestamp_ms: 3000,
+                is_owner: false,
+                is_moderator: false,
+                is_member: false,
+                is_banned: false,
+                is_ng_masked: false,
+                hidden_from_overlay: false,
+                highlight_rule_id: None,
+                bubble_bg_color: None,
+                bubble_text_color: None,
+                bubble_border_color: None,
+                event_kind: None,
+                amount_display: None,
+                event_accent_color: None,
+            })
+            .await;
+
+        assert!(preview_rx.try_recv().is_err());
+        let live_msg = prod_rx.recv().await.unwrap();
+        assert!(live_msg.1.contains("production only"));
+
+        // デザイン設定変更 (update_config) だけは本番・プレビュー双方に即時配信される
+        state.update_config(OverlayConfig::default()).await;
+        assert!(prod_rx.try_recv().is_ok());
+        assert!(preview_rx.try_recv().is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_per_channel_subscriber_skips_unrelated_broadcasts() {
+        let state = make_test_state();
+        let mut counter_rx = state.tx.subscribe();
+        let guard = ChannelSubGuard::acquire(
+            Arc::clone(&state.channel_subs),
+            OverlayChannel::Counter,
+        );
+
+        // Counter のみ購読中 → Media イベントはシリアライズ・送信ごとスキップされる
+        state.clear_media();
+        assert!(counter_rx.try_recv().is_err());
+
+        // Counter イベントと All (ConfigUpdated) イベントは正常に配信される
+        state.update_counters(Vec::new()).await;
+        let m1 = counter_rx.try_recv().unwrap();
+        assert_eq!(m1.0, OverlayChannel::Counter);
+
+        state.update_config(OverlayConfig::default()).await;
+        let m2 = counter_rx.try_recv().unwrap();
+        assert_eq!(m2.0, OverlayChannel::All);
+
+        drop(guard);
+        assert_eq!(
+            state.channel_subs[OverlayChannel::Counter.index()].load(Ordering::Relaxed),
+            0
+        );
     }
 }

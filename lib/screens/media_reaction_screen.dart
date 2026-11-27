@@ -7,7 +7,7 @@ import '../theme/app_theme.dart';
 import '../widgets/feature_toggle_banner.dart';
 import '../widgets/overlay_bg_picker.dart';
 
-/// WordParty 形式の特定ワード反応演出エディタ画面
+/// リアクションステージ（特定ワード反応アニメーション・動画演出）エディタ画面
 /// 固定表示・クラッカー・落下物・紙吹雪・投てき・環境演出・効果音(SE)・イベント連動に対応
 class MediaReactionScreen extends StatefulWidget {
   const MediaReactionScreen({super.key, required this.controller});
@@ -109,14 +109,14 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
     final url = '${widget.controller.overlayBaseUrl}/overlay/media';
     Clipboard.setData(ClipboardData(text: url));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('WordParty 演出の OBS 用 URL をコピーしました')),
+      const SnackBar(content: Text('リアクションステージの OBS 用 URL をコピーしました')),
     );
   }
 
   Future<void> _openEditor({MediaReactionRule? initial}) async {
     await showDialog<void>(
       context: context,
-      builder: (_) => _WordPartyRuleEditorDialog(
+      builder: (_) => _ReactionStageRuleEditorDialog(
         controller: widget.controller,
         initial: initial,
       ),
@@ -391,7 +391,7 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'WordParty 演出エディタ（ワード反応・動画・パーティクル）',
+                      'リアクションステージ（コメント連動アニメーション・動画演出）',
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
@@ -405,11 +405,11 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
               ),
               const SizedBox(width: 12),
               FeatureToggleSwitch(
-                label: 'ワード演出',
+                label: 'リアクションステージ',
                 enabled: enabled,
                 onChanged: (v) => ctrl.setFeatureEnabled(
                   mediaReaction: v,
-                  featureLabel: 'WordParty 演出',
+                  featureLabel: 'リアクションステージ',
                 ),
               ),
             ],
@@ -447,12 +447,12 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
           const SizedBox(height: 12),
           if (!enabled)
             FeatureDisabledBanner(
-              featureName: 'WordParty 演出',
+              featureName: 'リアクションステージ',
               description:
                   'コメントやイベントによるパーティクル・画像・動画・効果音の自動発動を一時停止しています。',
               onEnable: () => ctrl.setFeatureEnabled(
                 mediaReaction: true,
-                featureLabel: 'WordParty 演出',
+                featureLabel: 'リアクションステージ',
               ),
             ),
 
@@ -576,7 +576,7 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                   ),
                   const Divider(height: 18),
                   OverlayBgPicker(
-                    title: 'WordParty オーバーレイ背景色（選択すると OBS ＆ 全端末へ即時反映）',
+                    title: 'リアクションステージ オーバーレイ背景色（選択すると OBS ＆ 全端末へ即時反映）',
                     compact: true,
                     value: ctrl.overlayConfig.mediaBgColor,
                     onChanged: ctrl.setMediaOverlayBgColor,
@@ -865,8 +865,8 @@ class _ChipTag extends StatelessWidget {
   }
 }
 
-class _WordPartyRuleEditorDialog extends StatefulWidget {
-  const _WordPartyRuleEditorDialog({
+class _ReactionStageRuleEditorDialog extends StatefulWidget {
+  const _ReactionStageRuleEditorDialog({
     required this.controller,
     this.initial,
   });
@@ -875,12 +875,12 @@ class _WordPartyRuleEditorDialog extends StatefulWidget {
   final MediaReactionRule? initial;
 
   @override
-  State<_WordPartyRuleEditorDialog> createState() =>
-      _WordPartyRuleEditorDialogState();
+  State<_ReactionStageRuleEditorDialog> createState() =>
+      _ReactionStageRuleEditorDialogState();
 }
 
-class _WordPartyRuleEditorDialogState
-    extends State<_WordPartyRuleEditorDialog> {
+class _ReactionStageRuleEditorDialogState
+    extends State<_ReactionStageRuleEditorDialog> {
   late TextEditingController _nameCtrl;
   late TextEditingController _patternCtrl;
   late TextEditingController _minScCtrl;
@@ -1085,8 +1085,8 @@ class _WordPartyRuleEditorDialogState
 
     return AlertDialog(
       title: Text(widget.initial == null
-          ? 'WordParty 演出を追加'
-          : 'WordParty 演出を編集'),
+          ? 'リアクションステージ演出を追加'
+          : 'リアクションステージ演出を編集'),
       content: SizedBox(
         width: 640,
         child: SingleChildScrollView(

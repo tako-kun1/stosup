@@ -4,7 +4,9 @@ use chrono::Utc;
 use rand::seq::SliceRandom;
 use tokio::sync::watch;
 
-use crate::models::{MonetizationEventKind, PlatformKind, RawIncomingComment};
+use crate::models::{
+    MessageRun, MessageRunKind, MonetizationEventKind, PlatformKind, RawIncomingComment,
+};
 use crate::platform::{IncomingCommentTx, ProviderConnection};
 
 struct DemoUser {
@@ -93,6 +95,56 @@ pub fn make_svg_avatar(bg_encoded: &str, initial: &str) -> String {
     )
 }
 
+/// オフラインでもスタンプ表示を確認できるデモ用カスタム絵文字 SVG Data URI
+fn make_demo_stamp(bg_hex: &str, glyph: &str) -> String {
+    format!(
+        "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'>\
+         <rect width='48' height='48' rx='10' fill='{}'/>\
+         <text x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' \
+         fill='white' font-family='sans-serif' font-weight='bold' font-size='22'>{}</text></svg>",
+        bg_hex, glyph
+    )
+}
+
+fn build_demo_runs(msg: &str, idx: usize) -> (String, Vec<MessageRun>) {
+    if idx % 3 == 1 {
+        let (code, url) = if idx % 2 == 1 {
+            (":stosup_star:", make_demo_stamp("%23eab308", "★"))
+        } else {
+            (":stosup_gg:", make_demo_stamp("%2310b981", "GG"))
+        };
+        let full = format!("{} {}", msg, code);
+        let runs = vec![
+            MessageRun {
+                kind: MessageRunKind::Text,
+                text: format!("{} ", msg),
+                emoji_url: None,
+                alt: None,
+                is_custom_emoji: false,
+            },
+            MessageRun {
+                kind: MessageRunKind::Emoji,
+                text: code.to_string(),
+                emoji_url: Some(url),
+                alt: Some(code.to_string()),
+                is_custom_emoji: true,
+            },
+        ];
+        (full, runs)
+    } else {
+        (
+            msg.to_string(),
+            vec![MessageRun {
+                kind: MessageRunKind::Text,
+                text: msg.to_string(),
+                emoji_url: None,
+                alt: None,
+                is_custom_emoji: false,
+            }],
+        )
+    }
+}
+
 /// 配信していなくても全機能を検証できるデモ配信プロバイダーを起動する
 pub fn connect_demo(
     stream_id: &str,
@@ -142,13 +194,16 @@ pub fn connect_demo(
                         (None, None, 0u64, String::new(), None, msg.to_string())
                     };
 
+                let (final_msg_with_code, message_runs) = build_demo_runs(&final_msg, idx);
+
                 let raw = RawIncomingComment {
                     id: uuid::Uuid::new_v4().to_string(),
                     platform: PlatformKind::Demo,
                     user_id: user.id.to_string(),
                     user_name: user.name.to_string(),
                     user_icon_url: make_svg_avatar(user.color, user.initial),
-                    message: final_msg,
+                    message: final_msg_with_code,
+                    message_runs,
                     timestamp_ms: Utc::now().timestamp_millis(),
                     is_owner: false,
                     is_moderator: user.is_mod,

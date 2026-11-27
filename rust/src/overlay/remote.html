@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Stosup Web リモートコントロール</title>
+<title>Stosup ポケットスイッチャー</title>
 <link rel="icon" href="/favicon.ico" />
 <style>
   :root {
@@ -373,7 +373,7 @@
 
 <div id="login-screen">
   <div class="login-card">
-    <h1>Stosup Web リモコン</h1>
+    <h1>Stosup ポケットスイッチャー</h1>
     <p>PC 側の Stosup 設定画面に表示されている<br/>アクセス PIN を入力してください</p>
     <input id="pin-input" class="pin-input" type="password" inputmode="numeric" placeholder="••••••" autocomplete="off" />
     <div id="login-err" style="color:#f87171;font-size:12.5px;min-height:18px;margin-bottom:8px;"></div>
@@ -381,11 +381,11 @@
   </div>
 </div>
 
-<!-- WordParty 演出追加・編集モーダル -->
+<!-- リアクションステージ演出追加・編集モーダル -->
 <div id="media-modal" class="modal-backdrop">
   <div class="modal-card">
     <div class="modal-header">
-      <h2 id="mm-title">WordParty 演出を追加</h2>
+      <h2 id="mm-title">リアクションステージ演出を追加</h2>
       <button class="btn sm" onclick="closeMediaModal()">✕</button>
     </div>
     <input type="hidden" id="mm-id" />
@@ -584,7 +584,7 @@
 <div id="poll-modal" class="modal-backdrop">
   <div class="modal-card">
     <div class="modal-header">
-      <h2>リアルタイム投票の設定を編集</h2>
+      <h2>ライブアンケートの設定を編集</h2>
       <button class="btn sm" onclick="closePollModal()">✕</button>
     </div>
     <div class="form-row">
@@ -613,12 +613,12 @@
 </header>
 
 <nav class="tabs" id="tab-bar">
-  <button class="tab-btn active" data-tab="comments">コメント</button>
-  <button class="tab-btn" data-tab="superchat">スパチャ <span id="badge-sc" class="tab-badge" style="display:none">0</span></button>
-  <button class="tab-btn" data-tab="media">WordParty演出 <span id="badge-media" class="tab-badge" style="display:none">0</span></button>
-  <button class="tab-btn" data-tab="poll">投票</button>
-  <button class="tab-btn" data-tab="queue">参加型キュー</button>
-  <button class="tab-btn" data-tab="counters">カウント・抽選</button>
+  <button class="tab-btn active" data-tab="comments">トークモニター</button>
+  <button class="tab-btn" data-tab="superchat">エールボックス <span id="badge-sc" class="tab-badge" style="display:none">0</span></button>
+  <button class="tab-btn" data-tab="media">リアクションステージ <span id="badge-media" class="tab-badge" style="display:none">0</span></button>
+  <button class="tab-btn" data-tab="poll">ライブアンケート</button>
+  <button class="tab-btn" data-tab="queue">エントリーレーン</button>
+  <button class="tab-btn" data-tab="counters">カウント・ドロー</button>
   <button class="tab-btn" data-tab="flags">機能ON/OFF</button>
 </nav>
 
@@ -949,6 +949,23 @@
   }
 
   // ==================== 各タブ描画 ====================
+  function renderRunsHtml(text, runs) {
+    if (!Array.isArray(runs) || !runs.some(r => r && r.kind === 'Emoji' && r.emoji_url)) {
+      return esc(text || '');
+    }
+    return runs.map(r => {
+      if (!r) return '';
+      if (r.kind === 'Emoji' && r.emoji_url) {
+        const u = String(r.emoji_url);
+        if (u.startsWith('https://') || u.startsWith('http://') || u.startsWith('data:image/svg+xml')) {
+          const alt = esc(r.alt || r.text || '');
+          return `<img src="${esc(u)}" alt="${alt}" title="${alt}" style="height:1.3em;width:auto;vertical-align:-0.2em;margin:0 2px;display:inline-block" />`;
+        }
+      }
+      return esc(r.text || '');
+    }).join('');
+  }
+
   function renderCommentRowHtml(c, picked) {
     const isPicked = picked && picked.id === c.id;
     return `<div class="item-row ${isPicked ? 'picked' : ''}">
@@ -959,7 +976,7 @@
           ${c.user_memo ? `<span class="pill accent">${esc(c.user_memo)}</span>` : ''}
           ${c.is_first_time ? `<span class="pill success">初見</span>` : ''}
         </div>
-        <div class="item-msg">${esc(c.message)}</div>
+        <div class="item-msg">${renderRunsHtml(c.message, c.message_runs)}</div>
       </div>
       <button class="btn sm ${isPicked ? 'primary' : ''}" onclick="sendAction({action:'pick_comment',comment_id:'${esc(c.id)}'})">${isPicked ? '解除' : '📌表示'}</button>
     </div>`;
@@ -992,11 +1009,11 @@
     if (picked) {
       html += `<div class="card" style="border-color:var(--accent)">
         <div class="card-title">
-          <span>📌 OBS ピックアップ表示中</span>
+          <span>📌 スポットテロップ表示中</span>
           <button class="btn sm danger" onclick="sendAction({action:'clear_picked_comment'})">解除</button>
         </div>
         <div class="item-author">${esc(picked.user_name)}</div>
-        <div class="item-msg">${esc(picked.message)}</div>
+        <div class="item-msg">${renderRunsHtml(picked.message, picked.message_runs)}</div>
       </div>`;
     }
 
@@ -1035,7 +1052,7 @@
     const unread = items.filter(i => !i.is_checked).length;
     let html = `<div class="card">
       <div class="card-title">
-        <span>スパチャ・メンバー管理（未読 ${unread}件）</span>
+        <span>エールボックス（未読 ${unread}件）</span>
         <button class="btn sm primary" ${unread === 0 ? 'disabled' : ''} onclick="sendAction({action:'mark_all_monetization_checked'})">すべてお礼済み</button>
       </div>`;
     if (items.length === 0) {
@@ -1049,7 +1066,7 @@
               <span class="pill warning">${esc(it.amount_display)}</span>
               ${it.is_checked ? '<span class="pill success">お礼済み</span>' : ''}
             </div>
-            <div class="item-msg">${esc(it.message)}</div>
+            <div class="item-msg">${renderRunsHtml(it.message, it.message_runs)}</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px">
             <button class="btn sm ${it.is_checked ? '' : 'success'}" onclick="sendAction({action:'set_monetization_checked',id:'${esc(it.id)}',checked:${!it.is_checked}})">${it.is_checked ? '未読に戻す' : '✓ お礼済'}</button>
@@ -1073,7 +1090,7 @@
 
     let html = `<div class="card">
       <div class="card-title">
-        <span>WordParty 演出ワンタップ発動</span>
+        <span>リアクションステージ ワンタップ発動</span>
         <div class="btn-row">
           <button class="btn sm danger" onclick="sendAction({action:'clear_overlay_media'})">全停止</button>
           <button class="btn sm primary" onclick="openMediaModal(null)">＋ 演出を追加</button>
@@ -1116,10 +1133,10 @@
       ['白', '#FFFFFF']
     ];
 
-    // WordParty 全体設定（リアルタイム同期）
+    // リアクションステージ全体設定（リアルタイム同期）
     html += `<div class="card">
       <div class="card-title">
-        <span>WordParty 全体設定 ＆ 背景色</span>
+        <span>リアクションステージ 全体設定 ＆ 背景色</span>
         <button class="btn sm primary" onclick="saveMediaConfigFromRemote()">全体設定を保存</button>
       </div>
       <div class="form-grid">
@@ -1144,7 +1161,7 @@
         </div>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
-        <label class="field-label">WordParty オーバーレイ背景色（現在: ${esc(curBg)} / クリックで即時反映）</label>
+        <label class="field-label">リアクションステージ オーバーレイ背景色（現在: ${esc(curBg)} / クリックで即時反映）</label>
         <div class="btn-row" style="margin-bottom:8px">
           ${bgPresets.map(([lbl, val]) => `<button class="btn sm ${curBg.toLowerCase() === val.toLowerCase() ? 'primary' : ''}" onclick="setMediaBgFromRemote('${val}')">${lbl}</button>`).join('')}
         </div>
@@ -1218,7 +1235,7 @@
 
   function openMediaModal(rule) {
     const r = rule || {};
-    document.getElementById('mm-title').textContent = rule ? 'WordParty 演出を編集' : 'WordParty 演出を追加';
+    document.getElementById('mm-title').textContent = rule ? 'リアクションステージ演出を編集' : 'リアクションステージ演出を追加';
     document.getElementById('mm-id').value = r.id || '';
     document.getElementById('mm-effect').value = r.effect_type || 'Cracker';
     document.getElementById('mm-trigger').value = r.trigger_type || 'Keyword';
@@ -1485,7 +1502,7 @@
 
     let html = `<div class="card">
       <div class="card-title">
-        <span>参加型キュー操作</span>
+        <span>エントリーレーン操作</span>
         <span class="pill ${acc ? 'success' : ''}">${acc ? '自動受付中' : '受付停止'}</span>
       </div>
       <div class="btn-row" style="margin-bottom:10px">
@@ -1539,7 +1556,7 @@
     const cl = appState.comment_lottery || { is_accepting: false, entries: [] };
 
     let html = `<div class="card">
-      <div class="card-title"><span>初見カウンター</span><span class="pill success">累計 ${ft.total_detected_all_time || 0}人</span></div>
+      <div class="card-title"><span>ウェルカムカウンター</span><span class="pill success">累計 ${ft.total_detected_all_time || 0}人</span></div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div style="font-size:32px;font-weight:900;color:var(--success)">${ft.count || 0}</div>
         <button class="btn" onclick="sendAction({action:'adjust_first_time',delta:1})">+1</button>
@@ -1549,13 +1566,13 @@
     </div>`;
 
     html += `<div class="card">
-      <div class="card-title"><span>ワードカウンター</span></div>
+      <div class="card-title"><span>コールカウンター</span></div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <input id="wc-add-name" style="flex:1;min-width:130px" placeholder="カウンター名（例: 草カウント）" />
         <input id="wc-add-kw" style="flex:1;min-width:150px" placeholder="対象ワード（カンマ区切り）" />
         <button class="btn primary sm" onclick="addWordCounterFromRemote()">＋ 追加</button>
       </div>`;
-    if (counters.length === 0) html += '<div class="muted">登録されたワードカウンターがありません</div>';
+    if (counters.length === 0) html += '<div class="muted">登録されたコールカウンターがありません</div>';
     counters.forEach(c => {
       html += `<div class="item-row">
         <div class="item-main">
@@ -1573,11 +1590,11 @@
     html += '</div>';
 
     html += `<div class="card">
-      <div class="card-title"><span>抽選システム操作</span><span class="muted">登録ユーザー ${appState.users_count || 0}人</span></div>
+      <div class="card-title"><span>ドローボックス操作</span><span class="muted">リスナー名簿 ${appState.users_count || 0}人</span></div>
       <div class="btn-row" style="margin-bottom:10px">
         <button class="btn primary" onclick="sendAction({action:'draw_user_lottery',current_session_only:true,winner_count:1,repeat_mode:'OnceOnly'})">今回参加者から1名抽選</button>
         <button class="btn" onclick="sendAction({action:'reset_user_lottery_winners'})">既当選リセット</button>
-        <button class="btn" onclick="sendAction({action:'clear_overlay_lottery'})">OBS抽選表示クリア</button>
+        <button class="btn" onclick="sendAction({action:'clear_overlay_lottery'})">OBS表示クリア</button>
       </div>
       <div class="btn-row">
         ${cl.is_accepting
@@ -1606,15 +1623,15 @@
   function renderFlags(el) {
     const f = appState.feature_flags || {};
     const defs = [
-      ['comment_display', 'コメント表示', f.comment_display_enabled],
-      ['superchat', 'スパチャ・メンバー管理', f.superchat_enabled],
-      ['pickup', 'コメントピックアップ', f.pickup_enabled],
-      ['poll', 'リアルタイム投票', f.poll_enabled],
-      ['queue', '参加型キュー', f.queue_enabled],
-      ['media_reaction', 'WordParty 演出・動画', f.media_reaction_enabled],
-      ['word_highlight', 'ワード色反応', f.word_highlight_enabled],
-      ['word_counter', 'ワードカウント', f.word_counter_enabled],
-      ['first_time_counter', '初見カウンター', f.first_time_counter_enabled],
+      ['comment_display', 'トークモニター', f.comment_display_enabled],
+      ['superchat', 'エールボックス', f.superchat_enabled],
+      ['pickup', 'スポットテロップ', f.pickup_enabled],
+      ['poll', 'ライブアンケート', f.poll_enabled],
+      ['queue', 'エントリーレーン', f.queue_enabled],
+      ['media_reaction', 'リアクションステージ', f.media_reaction_enabled],
+      ['word_highlight', 'ハイライトサイン', f.word_highlight_enabled],
+      ['word_counter', 'コールカウンター', f.word_counter_enabled],
+      ['first_time_counter', 'ウェルカムカウンター', f.first_time_counter_enabled],
       ['user_memo_display', '名前メモ表示', f.user_memo_display_enabled],
     ];
     let html = '<div class="card"><div class="card-title"><span>各機能の ON / OFF 切り替え（全端末即時同期）</span></div>';

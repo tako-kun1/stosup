@@ -7,8 +7,48 @@ import '../src/rust/api.dart' as api;
 import '../src/rust/frb_generated.dart';
 import '../src/rust/models.dart';
 
+/// UI 再ビルドのスコープを画面・役割ごとに分離するための通知トピック
+enum StosupTopic {
+  shell,
+  comments,
+  superchat,
+  highlight,
+  media,
+  counters,
+  firstTime,
+  poll,
+  queue,
+  lottery,
+  users,
+  overlay,
+  automation,
+  report,
+  settings,
+}
+
 /// Stosup アプリ全体の状態を管理するコントローラー
 class StosupController extends ChangeNotifier {
+  final List<int> _topicRevisions =
+      List<int>.filled(StosupTopic.values.length, 0);
+
+  /// 指定トピックの変更リビジョンを取得（不変ならその領域の UI 再ビルドを省略できる）
+  int topicRevision(StosupTopic topic) => _topicRevisions[topic.index];
+
+  void _notifyTopics(List<StosupTopic> topics) {
+    for (final t in topics) {
+      _topicRevisions[t.index]++;
+    }
+    super.notifyListeners();
+  }
+
+  /// 既存の notifyListeners() 呼び出しやテストサブクラスとの完全な後方互換性を維持
+  @override
+  void notifyListeners() {
+    for (var i = 0; i < _topicRevisions.length; i++) {
+      _topicRevisions[i]++;
+    }
+    super.notifyListeners();
+  }
   bool isInitialized = false;
   String? initError;
   String appVersion = '0.1.0';
@@ -24,6 +64,7 @@ class StosupController extends ChangeNotifier {
     streamId: '',
     sessionId: '',
     canPostChat: false,
+    reconnectAttempt: 0,
   );
 
   List<CommentItem> comments = [];
@@ -33,6 +74,32 @@ class StosupController extends ChangeNotifier {
   List<String> userLotteryWonIds = [];
   LotteryResult? lastUserLotteryResult;
   List<LotteryResult> lotteryHistory = [];
+  List<ConnectionHistoryItem> connectionHistory = [];
+  List<SavedChannelItem> savedChannels = [];
+  List<NgWordRule> ngWordRules = [];
+  ObsWsConfig obsWsConfig = const ObsWsConfig(
+    enabled: false,
+    host: '127.0.0.1',
+    port: 4455,
+    password: '',
+    autoConnect: false,
+    resetFirstTimeOnStreamStart: false,
+    resetCountersOnStreamStart: false,
+    rules: [],
+  );
+  ObsWsStatus obsWsStatus = const ObsWsStatus(
+    connected: false,
+    connecting: false,
+    obsVersion: '',
+    currentScene: '',
+    scenes: [],
+    sceneSources: {},
+    isStreaming: false,
+  );
+  List<HotkeyBinding> hotkeyBindings = [];
+  List<StreamProfileSummary> streamProfiles = [];
+  List<StreamSessionSummary> streamSessions = [];
+  OnAirReportDto? currentReport;
 
   CommentLotteryState commentLottery = const CommentLotteryState(
     isAccepting: false,
@@ -59,15 +126,15 @@ class StosupController extends ChangeNotifier {
     showTimestamps: false,
     defaultBubbleBg: '#202124E6',
     defaultTextColor: '#F4F4F5',
-    commentsTheme: 'default',
-    lotteryTheme: 'default',
-    counterTheme: 'default',
-    firstTimeTheme: 'default',
-    superchatTheme: 'default',
-    pollTheme: 'default',
-    pickupTheme: 'default',
-    queueTheme: 'default',
-    mediaTheme: 'default',
+    commentsTheme: 'broadcast',
+    lotteryTheme: 'broadcast',
+    counterTheme: 'broadcast',
+    firstTimeTheme: 'broadcast',
+    superchatTheme: 'broadcast',
+    pollTheme: 'broadcast',
+    pickupTheme: 'broadcast',
+    queueTheme: 'broadcast',
+    mediaTheme: 'broadcast',
     commentsBgColor: 'transparent',
     lotteryBgColor: 'transparent',
     counterBgColor: 'transparent',
@@ -95,6 +162,7 @@ class StosupController extends ChangeNotifier {
     pickupCustomCss: '',
     queueCustomCss: '',
     mediaCustomCss: '',
+    visualStyles: {},
   );
 
   List<String> systemFonts = [];
@@ -207,6 +275,7 @@ class StosupController extends ChangeNotifier {
     pickupEnabled: true,
     queueEnabled: true,
     mediaReactionEnabled: true,
+    ngWordFilterEnabled: true,
     obsOverlayEnabled: true,
     autoUpdateCheckEnabled: true,
   );
@@ -229,8 +298,16 @@ class StosupController extends ChangeNotifier {
 
   StreamSubscription<AppEvent>? _eventSub;
   Timer? _usersRefreshDebounce;
+  Timer? _commentNotifyTimer;
   bool _usersViewActive = false;
   bool _usersDirty = false;
+  bool _isDisposed = false;
+  // 起動後の遅延非同期ロードがユーザー操作やリアルタイム更新による最新状態を古い値で上書きしないための世代番号
+  int _usersEpoch = 0;
+  int _lotteryWonEpoch = 0;
+  int _lotteryHistoryEpoch = 0;
+  int _fontsEpoch = 0;
+  int _remoteEpoch = 0;
 
   /// ユーザーリスト / ユーザー抽選画面を表示中かどうかを切り替え、非表示時の不要な全件同期を抑止する
   void setUsersViewActive(bool active) {
@@ -245,9 +322,12 @@ class StosupController extends ChangeNotifier {
 
   Future<void> refreshUsersNow() async {
     try {
-      users = await api.listUsers();
+      final fetched = await api.listUsers();
+      if (_isDisposed) return;
+      users = fetched;
+      _usersEpoch++;
       _usersDirty = false;
-      notifyListeners();
+      _notifyTopics(const [StosupTopic.lottery, StosupTopic.users]);
     } catch (_) {}
   }
 
@@ -265,11 +345,11 @@ class StosupController extends ChangeNotifier {
       await api.initApp(afterUpdate: afterUpdate);
       appVersion = api.getAppVersion();
 
-      // テーマ・初期データ読込と利用規約チェックを並列完了させてから初回描画を行うことで、
-      // 起動時の白黒フラッシュ（テーマ切替や画面切替のちらつき）を完全に防止する
+      // 初回ウィンドウ表示前はローカル高速データとローカル規約判定のみ完了させ、
+      // オンライン通信待機や重い一覧取得（フォント列挙・ipconfig・全ユーザー）による起動遅延を撤廃する
       await Future.wait([
-        refreshAll(notify: false),
-        _loadInitialLicenseStatus(),
+        _refreshStartupCore(),
+        _loadInitialLicenseStatusLocal(),
       ]);
 
       _eventSub?.cancel();
@@ -277,6 +357,10 @@ class StosupController extends ChangeNotifier {
 
       isInitialized = true;
       notifyListeners();
+
+      // 初回描画後に重い補助データとオンライン規約更新チェックを非同期で完了させる
+      unawaited(_loadDeferredStartupData());
+      unawaited(_checkOnlineLicenseInBackground());
 
       // 利用規約に同意済みの場合のみ通常の起動後処理（リリースノート・更新確認）を実行
       if (!needsLicenseAcceptance) {
@@ -288,12 +372,135 @@ class StosupController extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadInitialLicenseStatus() async {
+  Future<void> _loadInitialLicenseStatusLocal() async {
+    licenseStatus = await api.checkLicenseStatus(checkOnline: false);
+  }
+
+  /// 起動表示をブロックせずに GitHub 上の最新利用規約を確認し、改定があれば再同意画面へ切替える
+  Future<void> _checkOnlineLicenseInBackground() async {
     try {
-      licenseStatus = await api.checkLicenseStatus(checkOnline: true);
-    } catch (_) {
-      licenseStatus = await api.checkLicenseStatus(checkOnline: false);
-    }
+      final prevHash = licenseStatus?.contentHash;
+      final prevNeeds = needsLicenseAcceptance;
+      final next = await api.checkLicenseStatus(checkOnline: true);
+      if (_isDisposed) return;
+      licenseStatus = next;
+      if (next.contentHash != prevHash || needsLicenseAcceptance != prevNeeds) {
+        _notifyTopics(const [StosupTopic.shell, StosupTopic.settings]);
+      }
+    } catch (_) {}
+  }
+
+  /// 初回フレーム描画に必要な軽量ローカル状態のみを起動時に読み込む
+  Future<void> _refreshStartupCore() async {
+    final results = await Future.wait([
+      api.getConnectionState(),
+      api.getRecentComments(),
+      api.listHighlightRules(),
+      api.listWordCounters(),
+      api.getCommentLotteryState(),
+      api.getOverlayConfig(),
+      api.getYoutubeOauthStatus(),
+      api.getFeatureFlags(),
+      api.getThemeMode(),
+      api.getFirstTimeState(),
+      api.listMonetizationEvents(limit: 150),
+      api.getPollState(),
+      api.getPickedComment(),
+      api.getQueueState(),
+      api.listMediaReactionRules(),
+      api.getMediaReactionConfig(),
+      api.listConnectionHistory(),
+      api.listSavedChannels(),
+      api.listNgWordRules(),
+      api.getObsWsConfig(),
+      api.getObsWsStatus(),
+      api.listHotkeyBindings(),
+      api.listStreamProfiles(),
+    ]);
+
+    connectionState = results[0] as ConnectionStateDto;
+    comments = List<CommentItem>.from(results[1] as List<CommentItem>);
+    highlightRules = results[2] as List<HighlightRule>;
+    wordCounters = results[3] as List<WordCounterConfig>;
+    commentLottery = results[4] as CommentLotteryState;
+    overlayConfig = results[5] as OverlayConfig;
+    oauthStatus = results[6] as YouTubeOAuthStatus;
+    featureFlags = results[7] as FeatureFlags;
+    themeMode = results[8] as AppThemeMode;
+    firstTimeState = results[9] as FirstTimeCounterState;
+    monetizationItems = results[10] as List<MonetizationItem>;
+    pollState = results[11] as PollState;
+    pickedComment = results[12] as PickedCommentState;
+    queueState = results[13] as QueueState;
+    mediaReactionRules = results[14] as List<MediaReactionRule>;
+    mediaReactionConfig = results[15] as MediaReactionConfig;
+    connectionHistory = results[16] as List<ConnectionHistoryItem>;
+    savedChannels = results[17] as List<SavedChannelItem>;
+    ngWordRules = results[18] as List<NgWordRule>;
+    obsWsConfig = results[19] as ObsWsConfig;
+    obsWsStatus = results[20] as ObsWsStatus;
+    hotkeyBindings = results[21] as List<HotkeyBinding>;
+    streamProfiles = results[22] as List<StreamProfileSummary>;
+  }
+
+  /// 起動直後のバックグラウンドで重い補助データ（フォント列挙・ipconfig・全ユーザー・抽選履歴）を個別に非同期ロード
+  /// 各取得を独立実行して一部失敗の連鎖と遅い処理の道連れを防ぎ、取得中に更新された最新状態は世代番号で保護する
+  Future<void> _loadDeferredStartupData() async {
+    final usersEpoch = _usersEpoch;
+    final wonEpoch = _lotteryWonEpoch;
+    final historyEpoch = _lotteryHistoryEpoch;
+    final fontsEpoch = _fontsEpoch;
+    final remoteEpoch = _remoteEpoch;
+
+    unawaited(() async {
+      try {
+        final fetched = await api.listUsers();
+        if (_isDisposed || _usersEpoch != usersEpoch) return;
+        users = fetched;
+        _usersEpoch++;
+        _notifyTopics(const [StosupTopic.lottery, StosupTopic.users]);
+      } catch (_) {}
+    }());
+
+    unawaited(() async {
+      try {
+        final fetched = await api.getUserLotteryWonIds();
+        if (_isDisposed || _lotteryWonEpoch != wonEpoch) return;
+        userLotteryWonIds = fetched;
+        _lotteryWonEpoch++;
+        _notifyTopics(const [StosupTopic.lottery]);
+      } catch (_) {}
+    }());
+
+    unawaited(() async {
+      try {
+        final fetched = await api.listLotteryHistory(limit: 30);
+        if (_isDisposed || _lotteryHistoryEpoch != historyEpoch) return;
+        lotteryHistory = fetched;
+        _lotteryHistoryEpoch++;
+        _notifyTopics(const [StosupTopic.lottery]);
+      } catch (_) {}
+    }());
+
+    unawaited(() async {
+      try {
+        final fetched = await api.listSystemFonts();
+        if (_isDisposed || _fontsEpoch != fontsEpoch) return;
+        systemFonts = fetched;
+        _fontsEpoch++;
+        _notifyTopics(const [StosupTopic.overlay]);
+      } catch (_) {}
+    }());
+
+    unawaited(() async {
+      try {
+        final fetched = await api.getRemoteAccessStatus();
+        if (_isDisposed || _remoteEpoch != remoteEpoch) return;
+        remoteAccessStatus = fetched;
+        _remoteEpoch++;
+        _notifyTopics(const [StosupTopic.shell, StosupTopic.settings]);
+      } catch (_) {}
+    }());
   }
 
   void _runPostLicenseStartup() {
@@ -361,6 +568,7 @@ class StosupController extends ChangeNotifier {
   }
 
   Future<void> refreshAll({bool notify = true}) async {
+    final shouldFetchFonts = systemFonts.isEmpty;
     final results = await Future.wait([
       api.getConnectionState(),
       api.getRecentComments(),
@@ -375,7 +583,7 @@ class StosupController extends ChangeNotifier {
       api.getFeatureFlags(),
       api.getThemeMode(),
       api.getFirstTimeState(),
-      api.listSystemFonts(),
+      shouldFetchFonts ? api.listSystemFonts() : Future<List<String>>.value(systemFonts),
       api.listMonetizationEvents(limit: 150),
       api.getPollState(),
       api.getPickedComment(),
@@ -383,6 +591,14 @@ class StosupController extends ChangeNotifier {
       api.listMediaReactionRules(),
       api.getMediaReactionConfig(),
       api.getRemoteAccessStatus(),
+      api.listConnectionHistory(),
+      api.listSavedChannels(),
+      api.listNgWordRules(),
+      api.getObsWsConfig(),
+      api.getObsWsStatus(),
+      api.listHotkeyBindings(),
+      api.listStreamProfiles(),
+      api.listStreamSessions(limit: 40),
     ]);
 
     connectionState = results[0] as ConnectionStateDto;
@@ -390,15 +606,19 @@ class StosupController extends ChangeNotifier {
     highlightRules = results[2] as List<HighlightRule>;
     wordCounters = results[3] as List<WordCounterConfig>;
     users = results[4] as List<UserRecord>;
+    _usersEpoch++;
     commentLottery = results[5] as CommentLotteryState;
     userLotteryWonIds = results[6] as List<String>;
+    _lotteryWonEpoch++;
     lotteryHistory = results[7] as List<LotteryResult>;
+    _lotteryHistoryEpoch++;
     overlayConfig = results[8] as OverlayConfig;
     oauthStatus = results[9] as YouTubeOAuthStatus;
     featureFlags = results[10] as FeatureFlags;
     themeMode = results[11] as AppThemeMode;
     firstTimeState = results[12] as FirstTimeCounterState;
     systemFonts = results[13] as List<String>;
+    if (shouldFetchFonts) _fontsEpoch++;
     monetizationItems = results[14] as List<MonetizationItem>;
     pollState = results[15] as PollState;
     pickedComment = results[16] as PickedCommentState;
@@ -406,10 +626,34 @@ class StosupController extends ChangeNotifier {
     mediaReactionRules = results[18] as List<MediaReactionRule>;
     mediaReactionConfig = results[19] as MediaReactionConfig;
     remoteAccessStatus = results[20] as RemoteAccessStatus;
+    _remoteEpoch++;
+    connectionHistory = results[21] as List<ConnectionHistoryItem>;
+    savedChannels = results[22] as List<SavedChannelItem>;
+    ngWordRules = results[23] as List<NgWordRule>;
+    obsWsConfig = results[24] as ObsWsConfig;
+    obsWsStatus = results[25] as ObsWsStatus;
+    hotkeyBindings = results[26] as List<HotkeyBinding>;
+    streamProfiles = results[27] as List<StreamProfileSummary>;
+    streamSessions = results[28] as List<StreamSessionSummary>;
     if (notify) {
       notifyListeners();
     }
   }
+
+  void _scheduleCommentNotify() {
+    // バースト受信したコメント通知を最大 16ms（約 60fps）間隔に統合し、1 フレーム内の多重再ビルドを防ぐ
+    if (_commentNotifyTimer != null) return;
+    _commentNotifyTimer = Timer(const Duration(milliseconds: 16), () {
+      _commentNotifyTimer = null;
+      if (!_isDisposed) {
+        _notifyTopics(const [StosupTopic.comments]);
+      }
+    });
+  }
+
+  /// テスト用エントリーポイント：イベント受信時のトピック通知挙動を検証する
+  @visibleForTesting
+  void handleEventForTest(AppEvent ev) => _handleEvent(ev);
 
   void _handleEvent(AppEvent ev) {
     switch (ev.kind) {
@@ -419,35 +663,41 @@ class StosupController extends ChangeNotifier {
           if (comments.length > 400) {
             comments.removeRange(0, comments.length - 400);
           }
-          notifyListeners();
+          _scheduleCommentNotify();
         }
       case AppEventKind.commentsReplaced:
         if (ev.comments != null) {
+          _commentNotifyTimer?.cancel();
+          _commentNotifyTimer = null;
           comments = List<CommentItem>.from(ev.comments!);
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.comments]);
         }
       case AppEventKind.connectionChanged:
         if (ev.connection != null) {
           connectionState = ev.connection!;
           isConnecting = connectionState.status == ConnectionStatus.connecting;
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.shell, StosupTopic.comments]);
         }
       case AppEventKind.countersUpdated:
         if (ev.counters != null) {
           wordCounters = ev.counters!;
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.comments, StosupTopic.counters]);
         }
       case AppEventKind.firstTimeUpdated:
         if (ev.firstTimeState != null) {
           firstTimeState = ev.firstTimeState!;
-          notifyListeners();
+          _notifyTopics(const [
+            StosupTopic.shell,
+            StosupTopic.comments,
+            StosupTopic.firstTime,
+          ]);
         }
       case AppEventKind.usersUpdated:
         _scheduleUsersRefresh();
       case AppEventKind.commentLotteryUpdated:
         if (ev.commentLottery != null) {
           commentLottery = ev.commentLottery!;
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.shell, StosupTopic.lottery]);
         }
       case AppEventKind.lotteryDrawn:
         if (ev.lotteryResult != null) {
@@ -456,63 +706,98 @@ class StosupController extends ChangeNotifier {
             lastUserLotteryResult = res;
           }
           lotteryHistory = [res, ...lotteryHistory.take(29)];
-          notifyListeners();
+          _lotteryHistoryEpoch++;
+          _notifyTopics(const [StosupTopic.lottery]);
         }
       case AppEventKind.monetizationUpdated:
         if (ev.monetizationItems != null) {
           monetizationItems = ev.monetizationItems!;
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.shell, StosupTopic.superchat]);
         }
       case AppEventKind.pollUpdated:
         if (ev.pollState != null) {
           pollState = ev.pollState!;
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.shell, StosupTopic.poll]);
         }
       case AppEventKind.pickedCommentUpdated:
         if (ev.pickedComment != null) {
           pickedComment = ev.pickedComment!;
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.comments, StosupTopic.superchat]);
         }
       case AppEventKind.queueUpdated:
         if (ev.queueState != null) {
           queueState = ev.queueState!;
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.shell, StosupTopic.queue]);
         }
       case AppEventKind.mediaTriggered:
         if (ev.mediaTrigger != null) {
           lastMediaTrigger = ev.mediaTrigger!;
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.media]);
         }
       case AppEventKind.mediaRulesUpdated:
         if (ev.mediaRules != null) {
           mediaReactionRules = List<MediaReactionRule>.from(ev.mediaRules!);
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.media, StosupTopic.automation]);
         }
       case AppEventKind.mediaConfigUpdated:
         if (ev.mediaConfig != null) {
           mediaReactionConfig = ev.mediaConfig!;
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.media]);
         }
       case AppEventKind.highlightRulesUpdated:
         if (ev.highlightRules != null) {
           highlightRules = List<HighlightRule>.from(ev.highlightRules!);
-          notifyListeners();
+          _notifyTopics(const [StosupTopic.highlight]);
+        }
+      case AppEventKind.ngWordRulesUpdated:
+        if (ev.ngWordRules != null) {
+          ngWordRules = List<NgWordRule>.from(ev.ngWordRules!);
+          // CommentsScreen 上の「NG防御 (件数)」バッジとダイアログへ即時反映する
+          _notifyTopics(const [StosupTopic.comments, StosupTopic.highlight]);
         }
       case AppEventKind.overlayConfigUpdated:
         if (ev.overlayConfig != null) {
           overlayConfig = ev.overlayConfig!;
-          notifyListeners();
+          _notifyTopics(const [
+            StosupTopic.shell,
+            StosupTopic.overlay,
+            StosupTopic.automation,
+            StosupTopic.media,
+            StosupTopic.counters,
+            StosupTopic.firstTime,
+            StosupTopic.superchat,
+            StosupTopic.poll,
+            StosupTopic.queue,
+            StosupTopic.lottery,
+          ]);
         }
       case AppEventKind.userLotteryWinnersUpdated:
         if (ev.userLotteryWonIds != null) {
           userLotteryWonIds = List<String>.from(ev.userLotteryWonIds!);
-          notifyListeners();
+          _lotteryWonEpoch++;
+          _notifyTopics(const [StosupTopic.lottery]);
         }
       case AppEventKind.featureFlagsUpdated:
         if (ev.featureFlags != null) {
           featureFlags = ev.featureFlags!;
           notifyListeners();
         }
+      case AppEventKind.obsWsStatusChanged:
+        if (ev.obsWsStatus != null) {
+          obsWsStatus = ev.obsWsStatus!;
+          _notifyTopics(const [StosupTopic.shell, StosupTopic.automation]);
+        }
+      case AppEventKind.profilesUpdated:
+        if (ev.profiles != null) {
+          streamProfiles = List<StreamProfileSummary>.from(ev.profiles!);
+          _notifyTopics(const [
+            StosupTopic.shell,
+            StosupTopic.automation,
+            StosupTopic.settings,
+          ]);
+        }
+      case AppEventKind.connectionHistoryUpdated:
+        unawaited(refreshConnectionHistory());
       case AppEventKind.systemNotice:
         if (ev.noticeMessage != null) {
           onNotice?.call(ev.noticeLevel ?? 'info', ev.noticeMessage!);
@@ -565,6 +850,7 @@ class StosupController extends ChangeNotifier {
         mode: mode,
       );
       users = await api.listUsers();
+      _usersEpoch++;
       onNotice?.call('success', 'YouTube Live に接続しました: ${connectionState.streamTitle}');
     } catch (e) {
       onNotice?.call('error', e.toString());
@@ -586,6 +872,7 @@ class StosupController extends ChangeNotifier {
         autoGenerate: autoGenerate,
       );
       users = await api.listUsers();
+      _usersEpoch++;
       onNotice?.call('success', 'デモ配信モードを開始しました');
     } catch (e) {
       onNotice?.call('error', e.toString());
@@ -605,9 +892,11 @@ class StosupController extends ChangeNotifier {
   }
 
   Future<void> clearComments() async {
+    _commentNotifyTimer?.cancel();
+    _commentNotifyTimer = null;
     await api.clearRecentComments();
     comments = [];
-    notifyListeners();
+    _notifyTopics(const [StosupTopic.comments]);
   }
 
   Future<void> sendDemoComment(
@@ -638,7 +927,7 @@ class StosupController extends ChangeNotifier {
     try {
       highlightRules = await api.saveHighlightRule(rule: rule);
       notifyListeners();
-      onNotice?.call('success', 'ワード反応ルールを保存しました');
+      onNotice?.call('success', 'ハイライトサインのルールを保存しました');
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
@@ -659,7 +948,7 @@ class StosupController extends ChangeNotifier {
     try {
       wordCounters = await api.saveWordCounter(counter: counter);
       notifyListeners();
-      onNotice?.call('success', 'ワードカウンターを保存しました');
+      onNotice?.call('success', 'コールカウンターを保存しました');
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
@@ -708,6 +997,7 @@ class StosupController extends ChangeNotifier {
         banned: banned,
         reason: reason,
       );
+      _usersEpoch++;
       notifyListeners();
       onNotice?.call(
         banned ? 'warning' : 'info',
@@ -726,6 +1016,7 @@ class StosupController extends ChangeNotifier {
         platform: platform,
         memo: memo,
       );
+      _usersEpoch++;
       notifyListeners();
     } catch (e) {
       onNotice?.call('error', e.toString());
@@ -739,14 +1030,16 @@ class StosupController extends ChangeNotifier {
   }) async {
     try {
       users = await api.deleteUser(userId: userId, platform: platform);
+      _usersEpoch++;
       userLotteryWonIds = await api.getUserLotteryWonIds();
+      _lotteryWonEpoch++;
       firstTimeState = await api.getFirstTimeState();
       notifyListeners();
       onNotice?.call(
         'info',
         displayName != null
-            ? '「$displayName」をユーザーリストから削除しました'
-            : 'ユーザーをリストから削除しました',
+            ? '「$displayName」をリスナー名簿から削除しました'
+            : 'リスナー名簿から削除しました',
       );
     } catch (e) {
       onNotice?.call('error', e.toString());
@@ -756,14 +1049,16 @@ class StosupController extends ChangeNotifier {
   Future<void> resetUsers({required bool keepBanned}) async {
     try {
       users = await api.resetUsers(keepBanned: keepBanned);
+      _usersEpoch++;
       userLotteryWonIds = await api.getUserLotteryWonIds();
+      _lotteryWonEpoch++;
       firstTimeState = await api.getFirstTimeState();
       notifyListeners();
       onNotice?.call(
         'warning',
         keepBanned
-            ? 'ユーザーリストを一括リセットしました（BAN済みユーザーは維持）'
-            : 'BAN済みユーザーを含め、ユーザーリストをすべてリセットしました',
+            ? 'リスナー名簿を一括リセットしました（BAN済みユーザーは維持）'
+            : 'BAN済みユーザーを含め、リスナー名簿をすべてリセットしました',
       );
     } catch (e) {
       onNotice?.call('error', e.toString());
@@ -777,6 +1072,7 @@ class StosupController extends ChangeNotifier {
       final res = await api.drawUserLottery(req: req);
       lastUserLotteryResult = res;
       userLotteryWonIds = await api.getUserLotteryWonIds();
+      _lotteryWonEpoch++;
       notifyListeners();
       return res;
     } catch (e) {
@@ -788,13 +1084,14 @@ class StosupController extends ChangeNotifier {
   Future<void> resetUserLotteryWinners() async {
     await api.resetUserLotteryWinners();
     userLotteryWonIds = [];
+    _lotteryWonEpoch++;
     notifyListeners();
     onNotice?.call('info', 'ユーザー抽選の既当選リストをリセットしました');
   }
 
   Future<void> clearOverlayLottery() async {
     await api.clearOverlayLottery();
-    onNotice?.call('info', 'OBS 抽選オーバーレイの表示をクリアしました');
+    onNotice?.call('info', 'OBS ドローボックスの表示をクリアしました');
   }
 
   // ==================== コメント抽選 ====================
@@ -858,10 +1155,18 @@ class StosupController extends ChangeNotifier {
     String? noticeMessage,
   }) async {
     try {
+      final prevObsEnabled = featureFlags.obsOverlayEnabled;
+      final prevPort = overlayConfig.port;
       featureFlags = await api.saveFeatureFlags(flags: next);
-      // OBSサーバー再起動時にポートが変わる可能性があるため同期
-      overlayConfig = await api.getOverlayConfig();
-      remoteAccessStatus = await api.getRemoteAccessStatus();
+      // OBS サーバー起動/停止が絡む場合のみポート・LAN 状態を再同期（通常トグル時の ipconfig 起動を回避）
+      if (featureFlags.obsOverlayEnabled != prevObsEnabled) {
+        overlayConfig = await api.getOverlayConfig();
+        remoteAccessStatus = await api.getRemoteAccessStatus();
+        _remoteEpoch++;
+      } else if (overlayConfig.port != prevPort) {
+        remoteAccessStatus = await api.getRemoteAccessStatus();
+        _remoteEpoch++;
+      }
       notifyListeners();
       if (noticeMessage != null) {
         onNotice?.call('info', noticeMessage);
@@ -885,6 +1190,7 @@ class StosupController extends ChangeNotifier {
     bool? pickup,
     bool? queue,
     bool? mediaReaction,
+    bool? ngWordFilter,
     bool? obsOverlay,
     bool? autoUpdateCheck,
     String? featureLabel,
@@ -908,6 +1214,7 @@ class StosupController extends ChangeNotifier {
       queueEnabled: queue ?? featureFlags.queueEnabled,
       mediaReactionEnabled:
           mediaReaction ?? featureFlags.mediaReactionEnabled,
+      ngWordFilterEnabled: ngWordFilter ?? featureFlags.ngWordFilterEnabled,
       obsOverlayEnabled: obsOverlay ?? featureFlags.obsOverlayEnabled,
       autoUpdateCheckEnabled:
           autoUpdateCheck ?? featureFlags.autoUpdateCheckEnabled,
@@ -925,6 +1232,7 @@ class StosupController extends ChangeNotifier {
         pickup ??
         queue ??
         mediaReaction ??
+        ngWordFilter ??
         obsOverlay ??
         autoUpdateCheck;
     final msg = (featureLabel != null && switchedValue != null)
@@ -948,6 +1256,7 @@ class StosupController extends ChangeNotifier {
       pickupEnabled: enabled,
       queueEnabled: enabled,
       mediaReactionEnabled: enabled,
+      ngWordFilterEnabled: enabled,
       obsOverlayEnabled: enabled,
       autoUpdateCheckEnabled: enabled,
     );
@@ -1038,7 +1347,7 @@ class StosupController extends ChangeNotifier {
     try {
       pollState = await api.startPoll(config: config);
       notifyListeners();
-      onNotice?.call('success', 'リアルタイム投票の受付を開始しました');
+      onNotice?.call('success', 'ライブアンケートの受付を開始しました');
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
@@ -1067,7 +1376,7 @@ class StosupController extends ChangeNotifier {
   Future<void> clearOverlayPoll() async {
     try {
       await api.clearOverlayPoll();
-      onNotice?.call('info', 'OBS 投票オーバーレイの表示をクリアしました');
+      onNotice?.call('info', 'OBS ライブアンケートの表示をクリアしました');
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
@@ -1083,7 +1392,7 @@ class StosupController extends ChangeNotifier {
     try {
       pickedComment = await api.pickComment(comment: comment);
       notifyListeners();
-      onNotice?.call('success', '${comment.userName} さんのコメントをピックアップ表示しました');
+      onNotice?.call('success', '${comment.userName} さんのコメントをスポットテロップに表示しました');
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
@@ -1093,7 +1402,7 @@ class StosupController extends ChangeNotifier {
     try {
       pickedComment = await api.clearPickedComment();
       notifyListeners();
-      onNotice?.call('info', 'ピックアップ表示を解除しました');
+      onNotice?.call('info', 'スポットテロップ表示を解除しました');
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
@@ -1171,7 +1480,7 @@ class StosupController extends ChangeNotifier {
     try {
       queueState = await api.queueReset(resetPlayCounts: resetPlayCounts);
       notifyListeners();
-      onNotice?.call('warning', '参加型キューをリセットしました');
+      onNotice?.call('warning', 'エントリーレーンをリセットしました');
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
@@ -1212,7 +1521,7 @@ class StosupController extends ChangeNotifier {
     try {
       mediaReactionRules = await api.saveMediaReactionRule(rule: rule);
       notifyListeners();
-      onNotice?.call('success', 'ワード反応アニメーションルールを保存しました');
+      onNotice?.call('success', 'リアクションステージの演出ルールを保存しました');
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
@@ -1250,13 +1559,13 @@ class StosupController extends ChangeNotifier {
   Future<void> clearOverlayMedia() async {
     try {
       await api.clearOverlayMedia();
-      onNotice?.call('info', '再生中のメディア演出をすべて停止しました');
+      onNotice?.call('info', 'リアクションステージの演出をすべて停止しました');
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
   }
 
-  /// WordParty オーバーレイ (/overlay/media) の背景色のみを即時更新・全端末へ同期する
+  /// リアクションステージオーバーレイ (/overlay/media) の背景色のみを即時更新・全端末へ同期する
   Future<void> setMediaOverlayBgColor(String bgColor) async {
     final c = overlayConfig;
     final next = OverlayConfig(
@@ -1303,6 +1612,7 @@ class StosupController extends ChangeNotifier {
       pickupCustomCss: c.pickupCustomCss,
       queueCustomCss: c.queueCustomCss,
       mediaCustomCss: c.mediaCustomCss,
+      visualStyles: c.visualStyles,
     );
     try {
       overlayConfig = await api.saveOverlayConfig(config: next);
@@ -1310,8 +1620,8 @@ class StosupController extends ChangeNotifier {
       onNotice?.call(
         'success',
         bgColor == 'transparent'
-            ? 'WordParty の背景色を透過に戻しました'
-            : 'WordParty の背景色を $bgColor に変更しました',
+            ? 'リアクションステージの背景色を透過に戻しました'
+            : 'リアクションステージの背景色を $bgColor に変更しました',
       );
     } catch (e) {
       onNotice?.call('error', e.toString());
@@ -1324,7 +1634,7 @@ class StosupController extends ChangeNotifier {
     try {
       firstTimeState = await api.saveFirstTimeConfig(config: config);
       notifyListeners();
-      onNotice?.call('success', '初見カウンター設定を保存しました');
+      onNotice?.call('success', 'ウェルカムカウンター設定を保存しました');
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
@@ -1376,10 +1686,15 @@ class StosupController extends ChangeNotifier {
 
   Future<void> saveOverlayConfig(OverlayConfig config) async {
     try {
+      final prevPort = overlayConfig.port;
       overlayConfig = await api.saveOverlayConfig(config: config);
-      remoteAccessStatus = await api.getRemoteAccessStatus();
+      // ポート番号が変わった時だけ LAN/QR 情報を再生成（デザイン・CSS 保存時の ipconfig 起動を回避）
+      if (overlayConfig.port != prevPort) {
+        remoteAccessStatus = await api.getRemoteAccessStatus();
+        _remoteEpoch++;
+      }
       notifyListeners();
-      onNotice?.call('success', 'OBS オーバーレイ設定を保存しました');
+      onNotice?.call('success', 'オーバーレイスタジオ設定を保存しました');
     } catch (e) {
       onNotice?.call('error', e.toString());
     }
@@ -1390,6 +1705,7 @@ class StosupController extends ChangeNotifier {
   Future<void> refreshRemoteAccessStatus() async {
     try {
       remoteAccessStatus = await api.getRemoteAccessStatus();
+      _remoteEpoch++;
       notifyListeners();
     } catch (e) {
       onNotice?.call('error', e.toString());
@@ -1402,6 +1718,7 @@ class StosupController extends ChangeNotifier {
   }) async {
     try {
       remoteAccessStatus = await api.saveRemoteAccessConfig(config: config);
+      _remoteEpoch++;
       overlayConfig = await api.getOverlayConfig();
       notifyListeners();
       onNotice?.call(
@@ -1419,6 +1736,7 @@ class StosupController extends ChangeNotifier {
   Future<void> regenerateRemotePin() async {
     try {
       remoteAccessStatus = await api.regenerateRemotePin();
+      _remoteEpoch++;
       notifyListeners();
       onNotice?.call(
         'info',
@@ -1432,6 +1750,7 @@ class StosupController extends ChangeNotifier {
   Future<void> refreshSystemFonts() async {
     try {
       systemFonts = await api.listSystemFonts();
+      _fontsEpoch++;
       notifyListeners();
       onNotice?.call('info', 'システムフォント一覧を再読み込みしました（${systemFonts.length}種類）');
     } catch (e) {
@@ -1527,10 +1846,328 @@ class StosupController extends ChangeNotifier {
     await api.launchUpdateInstaller(installerPath: path, silent: silent);
   }
 
+  // ==================== 接続履歴・チャンネル自動検出 ====================
+
+  Future<void> refreshConnectionHistory() async {
+    try {
+      connectionHistory = await api.listConnectionHistory();
+      if (!_isDisposed) {
+        _notifyTopics(const [StosupTopic.comments]);
+      }
+    } catch (_) {}
+  }
+
+  Future<ResolvedYouTubeLive?> resolveYouTubeLive(String input) async {
+    try {
+      return await api.resolveYoutubeLive(input: input);
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+      return null;
+    }
+  }
+
+  Future<void> toggleConnectionHistoryFavorite(String id, bool favorite) async {
+    try {
+      connectionHistory = await api.toggleConnectionHistoryFavorite(
+        id: id,
+        favorite: favorite,
+      );
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> deleteConnectionHistory(String id) async {
+    try {
+      connectionHistory = await api.deleteConnectionHistory(id: id);
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> saveSavedChannel(SavedChannelItem item) async {
+    try {
+      savedChannels = await api.saveSavedChannel(item: item);
+      notifyListeners();
+      onNotice?.call('success', '自動検出用チャンネル「${item.label}」を保存しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> deleteSavedChannel(String id) async {
+    try {
+      savedChannels = await api.deleteSavedChannel(id: id);
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== NG ワード防御 ====================
+
+  Future<void> saveNgWordRule(NgWordRule rule) async {
+    try {
+      ngWordRules = await api.saveNgWordRule(rule: rule);
+      notifyListeners();
+      onNotice?.call('success', 'NG ワードルールを保存しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> deleteNgWordRule(String id) async {
+    try {
+      ngWordRules = await api.deleteNgWordRule(id: id);
+      notifyListeners();
+      onNotice?.call('info', 'NG ワードルールを削除しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== OBS WebSocket 連携 ====================
+
+  Future<void> saveObsWsConfig(ObsWsConfig config) async {
+    try {
+      obsWsConfig = await api.saveObsWsConfig(config: config);
+      notifyListeners();
+      onNotice?.call('success', 'OBS WebSocket 連携設定を保存しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> connectObsWs() async {
+    try {
+      obsWsStatus = await api.connectObsWs();
+      notifyListeners();
+      onNotice?.call('success', 'OBS WebSocket に接続しました (${obsWsStatus.obsVersion})');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> disconnectObsWs() async {
+    try {
+      obsWsStatus = await api.disconnectObsWs();
+      notifyListeners();
+      onNotice?.call('info', 'OBS WebSocket から切断しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> refreshObsScenes() async {
+    try {
+      await api.refreshObsScenes();
+      onNotice?.call('info', 'OBS シーン・ソース一覧を更新しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> testObsRule(String ruleId) async {
+    try {
+      await api.testObsRule(ruleId: ruleId);
+      onNotice?.call('success', 'OBS 自動連動ルールをテスト実行しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== グローバルホットキー / Stream Deck ====================
+
+  Future<void> saveHotkeyBindings(List<HotkeyBinding> bindings) async {
+    try {
+      hotkeyBindings = await api.saveHotkeyBindings(bindings: bindings);
+      notifyListeners();
+      onNotice?.call('success', 'ホットキー・オートメーション設定を保存しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> executeAutomationAction(
+    AutomationActionKind action, {
+    String targetId = '',
+    String secondaryTarget = '',
+  }) async {
+    try {
+      final msg = await api.executeAutomationAction(
+        action: action,
+        targetId: targetId,
+        secondaryTarget: secondaryTarget,
+      );
+      onNotice?.call('success', msg);
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== 配信プロファイル切替 ====================
+
+  Future<void> saveCurrentAsProfile({
+    String? id,
+    required String name,
+    String description = '',
+  }) async {
+    try {
+      streamProfiles = await api.saveCurrentAsProfile(
+        id: id,
+        name: name,
+        description: description,
+      );
+      notifyListeners();
+      onNotice?.call('success', '配信プロファイル「$name」を保存しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> createTemplateProfile(String templateId, String name) async {
+    try {
+      streamProfiles = await api.createTemplateProfile(
+        templateId: templateId,
+        name: name,
+      );
+      notifyListeners();
+      onNotice?.call('success', 'テンプレートプロファイル「$name」を作成しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> applyStreamProfile(String id) async {
+    try {
+      streamProfiles = await api.applyStreamProfile(id: id);
+      await refreshAll();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> deleteStreamProfile(String id) async {
+    try {
+      streamProfiles = await api.deleteStreamProfile(id: id);
+      notifyListeners();
+      onNotice?.call('info', '配信プロファイルを削除しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== バックアップ / 引っ越し (ZIP) ====================
+
+  Future<BackupExportResult?> exportBackupWithDialog() async {
+    try {
+      final path = await api.pickBackupSavePath();
+      if (path == null || path.isEmpty) return null;
+      final res = await api.exportBackupZip(destPath: path);
+      onNotice?.call(
+        'success',
+        'バックアップを書き出しました（素材 ${res.mediaFileCount} 件）: ${res.filePath}',
+      );
+      return res;
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+      return null;
+    }
+  }
+
+  Future<BackupImportResult?> importBackupWithDialog() async {
+    try {
+      final path = await api.pickBackupOpenPath();
+      if (path == null || path.isEmpty) return null;
+      final res = await api.importBackupZip(zipPath: path);
+      await refreshAll();
+      onNotice?.call(
+        'success',
+        'バックアップから復元しました（素材 ${res.mediaFileCount} 件 / 退避ファイル保存済み）',
+      );
+      return res;
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+      return null;
+    }
+  }
+
+  // ==================== オンエアレポート ====================
+
+  Future<void> refreshStreamSessions() async {
+    try {
+      streamSessions = await api.listStreamSessions(limit: 50);
+      notifyListeners();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<OnAirReportDto?> loadOnAirReport(String sessionId) async {
+    try {
+      currentReport = await api.getOnAirReport(sessionId: sessionId);
+      notifyListeners();
+      return currentReport;
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+      return null;
+    }
+  }
+
+  Future<void> deleteStreamSession(String sessionId) async {
+    try {
+      streamSessions = await api.deleteStreamSession(sessionId: sessionId);
+      if (currentReport?.session.sessionId == sessionId) {
+        currentReport = null;
+      }
+      notifyListeners();
+      onNotice?.call('info', '配信セッション履歴を削除しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> exportReportCsv(String sessionId) async {
+    try {
+      final saved = await api.exportReportCsvWithDialog(sessionId: sessionId);
+      if (saved != null) {
+        onNotice?.call('success', 'CSV レポートを書き出しました: $saved');
+      }
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> exportReportJson(String sessionId) async {
+    try {
+      final saved = await api.exportReportJsonWithDialog(sessionId: sessionId);
+      if (saved != null) {
+        onNotice?.call('success', 'JSON レポートを書き出しました: $saved');
+      }
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== オーバーレイテスト発火 ====================
+
+  Future<void> sendOverlayTestEvent(String target) async {
+    try {
+      final msg = await api.sendOverlayTestEvent(target: target);
+      onNotice?.call('info', msg);
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
   @override
   void dispose() {
+    _isDisposed = true;
     _eventSub?.cancel();
     _usersRefreshDebounce?.cancel();
+    _commentNotifyTimer?.cancel();
     super.dispose();
   }
 }

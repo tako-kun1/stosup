@@ -5,6 +5,7 @@ import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/feature_toggle_banner.dart';
+import '../widgets/rich_comment_text.dart';
 import '../widgets/user_avatar.dart';
 
 enum _MonetizationFilter { all, unread, checked, superchat, membership }
@@ -67,11 +68,14 @@ class _SuperchatScreenState extends State<SuperchatScreen> {
       userMemo: '',
       isFirstTime: false,
       message: it.message,
+      messageRuns: it.messageRuns,
       timestampMs: it.timestampMs,
       isOwner: false,
       isModerator: false,
       isMember: !_isSuperchatKind(it.kind),
       isBanned: false,
+      isNgMasked: false,
+      hiddenFromOverlay: false,
       eventKind: it.kind,
       amountDisplay: it.amountDisplay,
       eventAccentColor: it.tierColor,
@@ -158,24 +162,24 @@ class _SuperchatScreenState extends State<SuperchatScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'スーパーチャット / メンバーシップ ＆ 読み忘れチェック',
+                      'エールボックス（スパチャ・メンバー ＆ お礼チェック）',
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '届いたスパチャ・ステッカー・メンバー加入を一覧管理し、お礼済みチェックや OBS ピックアップ表示ができます。',
+                      '届いたスパチャ・ステッカー・メンバー加入を一覧管理し、お礼済みチェックやスポットテロップ表示ができます。',
                       style: TextStyle(color: p.textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
               ),
               FeatureToggleSwitch(
-                label: 'スパチャ管理',
+                label: 'エールボックス',
                 enabled: enabled,
                 onChanged: (v) => ctrl.setFeatureEnabled(
                   superchat: v,
-                  featureLabel: 'スパチャ / メンバーシップ管理',
+                  featureLabel: 'エールボックス',
                 ),
               ),
               const SizedBox(width: 10),
@@ -187,12 +191,12 @@ class _SuperchatScreenState extends State<SuperchatScreen> {
           const SizedBox(height: 12),
           if (!enabled)
             FeatureDisabledBanner(
-              featureName: 'スパチャ / メンバーシップ管理',
+              featureName: 'エールボックス',
               description:
-                  '新規スパチャ・メンバー加入の専用記録と OBS スパチャオーバーレイを一時停止しています。',
+                  '新規スパチャ・メンバー加入の専用記録と OBS エールボックス表示を一時停止しています。',
               onEnable: () => ctrl.setFeatureEnabled(
                 superchat: true,
-                featureLabel: 'スパチャ / メンバーシップ管理',
+                featureLabel: 'エールボックス',
               ),
             ),
 
@@ -224,13 +228,13 @@ class _SuperchatScreenState extends State<SuperchatScreen> {
                 label: const Text('テスト送信'),
               ),
               OutlinedButton.icon(
-                onPressed: () => _copyUrl(overlayUrl, 'スパチャ・メンバー表示'),
+                onPressed: () => _copyUrl(overlayUrl, 'エールボックス'),
                 icon: const Icon(Icons.copy, size: 15),
                 label: const Text('OBS URL'),
               ),
               OutlinedButton.icon(
                 onPressed: () =>
-                    _copyUrl('$overlayUrl?unread_only=1', '未読のみスパチャ表示'),
+                    _copyUrl('$overlayUrl?unread_only=1', '未読のみエールボックス'),
                 icon: const Icon(Icons.copy_all, size: 15),
                 label: const Text('未読のみURL'),
               ),
@@ -417,8 +421,10 @@ class _SuperchatScreenState extends State<SuperchatScreen> {
                                                 ),
                                                 if (it.message.isNotEmpty) ...[
                                                   const SizedBox(height: 5),
-                                                  Text(
-                                                    it.message,
+                                                  RichCommentText(
+                                                    message: it.message,
+                                                    runs: it.messageRuns,
+                                                    emojiSize: 22,
                                                     style: TextStyle(
                                                       fontSize: 14,
                                                       color: p.textPrimary,
@@ -433,8 +439,8 @@ class _SuperchatScreenState extends State<SuperchatScreen> {
                                           if (ctrl.featureFlags.pickupEnabled)
                                             IconButton(
                                               tooltip: isPicked
-                                                  ? 'ピックアップ解除'
-                                                  : 'OBS にピックアップ表示',
+                                                  ? 'スポットテロップ解除'
+                                                  : 'スポットテロップに表示',
                                               onPressed: () =>
                                                   ctrl.togglePickComment(
                                                       _toCommentItem(it)),

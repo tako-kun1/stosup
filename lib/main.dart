@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'screens/automation_screen.dart';
 import 'screens/comments_screen.dart';
 import 'screens/counters_screen.dart';
 import 'screens/first_time_screen.dart';
@@ -9,6 +10,7 @@ import 'screens/media_reaction_screen.dart';
 import 'screens/overlay_screen.dart';
 import 'screens/poll_screen.dart';
 import 'screens/queue_screen.dart';
+import 'screens/report_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/superchat_screen.dart';
 import 'screens/users_screen.dart';
@@ -118,10 +120,12 @@ class StosupShell extends StatefulWidget {
 class _StosupShellState extends State<StosupShell> {
   int _selectedIndex = 0;
   bool _startupNotesShown = false;
+  late int _lastShellRevision;
 
   @override
   void initState() {
     super.initState();
+    _lastShellRevision = widget.controller.topicRevision(StosupTopic.shell);
     widget.controller.addListener(_onStateChanged);
     widget.controller.onNotice = _showNotice;
     widget.controller.setUsersViewActive(
@@ -143,7 +147,13 @@ class _StosupShellState extends State<StosupShell> {
 
   void _onStateChanged() {
     if (!mounted) return;
-    setState(() {});
+    // サイドバーやシェル全体に影響するトピック（shell）が変わった時だけシェルを再ビルドし、
+    // コメント受信等でサイドバー全体や他画面が巻き込み再ビルドされるのを完全に防止する
+    final nextShellRev = widget.controller.topicRevision(StosupTopic.shell);
+    if (nextShellRev != _lastShellRevision) {
+      _lastShellRevision = nextShellRev;
+      setState(() {});
+    }
 
     // アップデート後の初回起動時に自動でリリースノートダイアログを表示（規約同意完了後のみ）
     if (!widget.controller.needsLicenseAcceptance &&
@@ -193,36 +203,81 @@ class _StosupShellState extends State<StosupShell> {
     );
   }
 
+  StosupTopic _topicForIndex(int idx) {
+    switch (idx) {
+      case 0:
+        return StosupTopic.comments;
+      case 1:
+        return StosupTopic.superchat;
+      case 2:
+        return StosupTopic.highlight;
+      case 3:
+        return StosupTopic.media;
+      case 4:
+        return StosupTopic.counters;
+      case 5:
+        return StosupTopic.firstTime;
+      case 6:
+        return StosupTopic.poll;
+      case 7:
+        return StosupTopic.queue;
+      case 8:
+        return StosupTopic.lottery;
+      case 9:
+        return StosupTopic.users;
+      case 10:
+        return StosupTopic.overlay;
+      case 11:
+        return StosupTopic.automation;
+      case 12:
+        return StosupTopic.report;
+      case 13:
+        return StosupTopic.settings;
+      default:
+        return StosupTopic.comments;
+    }
+  }
+
   Widget _buildBody() {
     final c = widget.controller;
-    switch (_selectedIndex) {
-      case 0:
-        return CommentsScreen(controller: c);
-      case 1:
-        return SuperchatScreen(controller: c);
-      case 2:
-        return HighlightRulesScreen(controller: c);
-      case 3:
-        return MediaReactionScreen(controller: c);
-      case 4:
-        return CountersScreen(controller: c);
-      case 5:
-        return FirstTimeScreen(controller: c);
-      case 6:
-        return PollScreen(controller: c);
-      case 7:
-        return QueueScreen(controller: c);
-      case 8:
-        return LotteryScreen(controller: c);
-      case 9:
-        return UsersScreen(controller: c);
-      case 10:
-        return OverlayScreen(controller: c);
-      case 11:
-        return SettingsScreen(controller: c);
-      default:
-        return CommentsScreen(controller: c);
-    }
+    return _TopicScopedScreen(
+      controller: c,
+      topic: _topicForIndex(_selectedIndex),
+      builder: () {
+        switch (_selectedIndex) {
+          case 0:
+            return CommentsScreen(controller: c);
+          case 1:
+            return SuperchatScreen(controller: c);
+          case 2:
+            return HighlightRulesScreen(controller: c);
+          case 3:
+            return MediaReactionScreen(controller: c);
+          case 4:
+            return CountersScreen(controller: c);
+          case 5:
+            return FirstTimeScreen(controller: c);
+          case 6:
+            return PollScreen(controller: c);
+          case 7:
+            return QueueScreen(controller: c);
+          case 8:
+            return LotteryScreen(controller: c);
+          case 9:
+            return UsersScreen(controller: c);
+          case 10:
+            return OverlayScreen(controller: c);
+          case 11:
+            return AutomationScreen(controller: c);
+          case 12:
+            return ReportScreen(controller: c);
+          case 13:
+            return SettingsScreen(controller: c);
+          default:
+            return CommentsScreen(controller: c);
+        }
+      },
+    );
   }
 
   @override
@@ -330,6 +385,7 @@ class _StosupShellState extends State<StosupShell> {
 
           Expanded(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // 左サイドバー（落ち着いたデスクトップツール調）
                 Container(
@@ -390,7 +446,7 @@ class _StosupShellState extends State<StosupShell> {
                           children: [
                             _NavTile(
                               icon: Icons.chat_bubble_outline,
-                              label: 'コメント表示',
+                              label: 'トークモニター',
                               selected: _selectedIndex == 0,
                               badge: !flags.commentDisplayEnabled
                                   ? 'OFF'
@@ -403,7 +459,7 @@ class _StosupShellState extends State<StosupShell> {
                             ),
                             _NavTile(
                               icon: Icons.volunteer_activism_outlined,
-                              label: 'スパチャ・メンバー',
+                              label: 'エールボックス',
                               selected: _selectedIndex == 1,
                               badge: !flags.superchatEnabled
                                   ? 'OFF'
@@ -418,7 +474,7 @@ class _StosupShellState extends State<StosupShell> {
                             ),
                             _NavTile(
                               icon: Icons.palette_outlined,
-                              label: 'ワード色反応',
+                              label: 'ハイライトサイン',
                               selected: _selectedIndex == 2,
                               badge: !flags.wordHighlightEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
@@ -427,7 +483,7 @@ class _StosupShellState extends State<StosupShell> {
                             ),
                             _NavTile(
                               icon: Icons.movie_filter_outlined,
-                              label: 'ワード演出・動画',
+                              label: 'リアクションステージ',
                               selected: _selectedIndex == 3,
                               badge: !flags.mediaReactionEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
@@ -436,7 +492,7 @@ class _StosupShellState extends State<StosupShell> {
                             ),
                             _NavTile(
                               icon: Icons.pin_outlined,
-                              label: 'ワードカウント',
+                              label: 'コールカウンター',
                               selected: _selectedIndex == 4,
                               badge: !flags.wordCounterEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
@@ -445,7 +501,7 @@ class _StosupShellState extends State<StosupShell> {
                             ),
                             _NavTile(
                               icon: Icons.waving_hand_outlined,
-                              label: '初見カウンター',
+                              label: 'ウェルカムカウンター',
                               selected: _selectedIndex == 5,
                               badge: !flags.firstTimeCounterEnabled
                                   ? 'OFF'
@@ -460,7 +516,7 @@ class _StosupShellState extends State<StosupShell> {
                             ),
                             _NavTile(
                               icon: Icons.poll_outlined,
-                              label: '投票・アンケート',
+                              label: 'ライブアンケート',
                               selected: _selectedIndex == 6,
                               badge: !flags.pollEnabled
                                   ? 'OFF'
@@ -473,7 +529,7 @@ class _StosupShellState extends State<StosupShell> {
                             ),
                             _NavTile(
                               icon: Icons.queue_play_next,
-                              label: '参加型キュー',
+                              label: 'エントリーレーン',
                               selected: _selectedIndex == 7,
                               badge: !flags.queueEnabled
                                   ? 'OFF'
@@ -488,7 +544,7 @@ class _StosupShellState extends State<StosupShell> {
                             ),
                             _NavTile(
                               icon: Icons.casino_outlined,
-                              label: '抽選システム',
+                              label: 'ドローボックス',
                               selected: _selectedIndex == 8,
                               badge: allLotteryOff
                                   ? 'OFF'
@@ -502,7 +558,7 @@ class _StosupShellState extends State<StosupShell> {
                             ),
                             _NavTile(
                               icon: Icons.people_outline,
-                              label: 'ユーザー / BAN',
+                              label: 'リスナー名簿',
                               selected: _selectedIndex == 9,
                               badge: !flags.userTrackingEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
@@ -511,12 +567,26 @@ class _StosupShellState extends State<StosupShell> {
                             ),
                             _NavTile(
                               icon: Icons.brush_outlined,
-                              label: 'OBS・デザイン',
+                              label: 'オーバーレイスタジオ',
                               selected: _selectedIndex == 10,
                               badge: !flags.obsOverlayEnabled ? 'OFF' : null,
                               badgeColor: p.textMuted,
                               dimmed: !flags.obsOverlayEnabled,
                               onTap: () => _selectTab(10),
+                            ),
+                            _NavTile(
+                              icon: Icons.auto_mode_outlined,
+                              label: '連携・オートメーション',
+                              selected: _selectedIndex == 11,
+                              badge: ctrl.obsWsStatus.connected ? 'OBS' : null,
+                              badgeColor: p.success,
+                              onTap: () => _selectTab(11),
+                            ),
+                            _NavTile(
+                              icon: Icons.analytics_outlined,
+                              label: 'オンエアレポート',
+                              selected: _selectedIndex == 12,
+                              onTap: () => _selectTab(12),
                             ),
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 8),
@@ -525,15 +595,65 @@ class _StosupShellState extends State<StosupShell> {
                             _NavTile(
                               icon: Icons.settings_outlined,
                               label: '設定・機能管理',
-                              selected: _selectedIndex == 11,
+                              selected: _selectedIndex == 13,
                               badge:
                                   updateInfo?.hasUpdate == true ? 'NEW' : null,
                               badgeColor: p.accent,
-                              onTap: () => _selectTab(11),
+                              onTap: () => _selectTab(13),
                             ),
                           ],
                         ),
                       ),
+                      // クイック配信プロファイル切替バー
+                      if (ctrl.streamProfiles.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: p.cardBg,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: p.border),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                isExpanded: true,
+                                isDense: true,
+                                value: ctrl.streamProfiles
+                                        .any((e) => e.isActive)
+                                    ? ctrl.streamProfiles
+                                        .firstWhere((e) => e.isActive)
+                                        .id
+                                    : null,
+                                hint: Text(
+                                  'プロファイル切替...',
+                                  style: TextStyle(
+                                      fontSize: 11.5, color: p.textSecondary),
+                                ),
+                                style: TextStyle(
+                                    fontSize: 12, color: p.textPrimary),
+                                dropdownColor: p.cardBg,
+                                items: ctrl.streamProfiles
+                                    .map(
+                                      (pr) => DropdownMenuItem(
+                                        value: pr.id,
+                                        child: Text(
+                                          pr.name,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (id) {
+                                  if (id != null) {
+                                    ctrl.applyStreamProfile(id);
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
                       // 下部ステータス ＆ クイックライト/ダーク切替
                       Container(
                         margin: const EdgeInsets.all(8),
@@ -614,6 +734,64 @@ class _StosupShellState extends State<StosupShell> {
   }
 }
 
+/// 対象トピックのリビジョンが変化したときだけ画面本体を再ビルドするスコープ境界
+class _TopicScopedScreen extends StatefulWidget {
+  const _TopicScopedScreen({
+    required this.controller,
+    required this.topic,
+    required this.builder,
+  });
+
+  final StosupController controller;
+  final StosupTopic topic;
+  final Widget Function() builder;
+
+  @override
+  State<_TopicScopedScreen> createState() => _TopicScopedScreenState();
+}
+
+class _TopicScopedScreenState extends State<_TopicScopedScreen> {
+  late int _lastRev;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastRev = widget.controller.topicRevision(widget.topic);
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TopicScopedScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onControllerChanged);
+      widget.controller.addListener(_onControllerChanged);
+    }
+    if (oldWidget.topic != widget.topic ||
+        oldWidget.controller != widget.controller) {
+      _lastRev = widget.controller.topicRevision(widget.topic);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (!mounted) return;
+    final nextRev = widget.controller.topicRevision(widget.topic);
+    if (nextRev != _lastRev) {
+      _lastRev = nextRev;
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder();
+}
+
 class _NavTile extends StatelessWidget {
   const _NavTile({
     required this.icon,
@@ -665,8 +843,10 @@ class _NavTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12.5,
                       fontWeight:
                           selected ? FontWeight.w700 : FontWeight.w500,
                       color: selected

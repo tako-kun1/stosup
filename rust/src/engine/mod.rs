@@ -2,20 +2,23 @@ pub mod counter;
 pub mod highlight;
 pub mod lottery;
 pub mod media_reaction;
+pub mod ng_word;
 pub mod poll;
 pub mod queue;
 
 use std::collections::HashMap;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
 
 use crate::models::MatchMode;
 
-/// コンパイル済み正規表現のキャッシュ（毎コメント再コンパイルを防止）
+/// コンパイル済み正規表現のキャッシュ（大文字小文字区別あり・なしを分離し `&str` ゼロアロケーション検索に対応）
 const MAX_REGEX_CACHE_ENTRIES: usize = 512;
-static REGEX_CACHE: Lazy<RwLock<HashMap<(String, bool), Option<Regex>>>> =
+static REGEX_CACHE_CS: Lazy<RwLock<HashMap<String, Option<Arc<Regex>>>>> =
+    Lazy::new(|| RwLock::new(HashMap::new()));
+static REGEX_CACHE_CI: Lazy<RwLock<HashMap<String, Option<Arc<Regex>>>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
 
 /// Unicode 仕様上、大文字・小文字の区別を持たず他の文字の小文字化結果にもならない安全な文字集合
@@ -29,6 +32,12 @@ fn is_case_invariant_char(c: char) -> bool {
         || ('\u{FF3B}'..='\u{FF40}').contains(&c)
         || ('\u{FF5B}'..='\u{FF65}').contains(&c)
         || ('\u{1F000}'..='\u{1FAFF}').contains(&c)
+}
+
+/// 文字列全体が大文字・小文字の区別を持たない文字のみで構成されるか判定する
+#[inline]
+pub(crate) fn is_case_invariant_str(s: &str) -> bool {
+    s.chars().all(is_case_invariant_char)
 }
 
 /// ASCII バイト列の高速な大文字小文字無視部分一致（ヒープ確保なし）
@@ -45,30 +54,39 @@ fn contains_ascii_ignore_case(haystack: &[u8], needle: &[u8]) -> bool {
         .any(|w| w.eq_ignore_ascii_case(needle))
 }
 
-fn match_regex_cached(text: &str, pattern: &str, case_sensitive: bool) -> bool {
-    let key = (pattern.to_string(), case_sensitive);
-    if let Ok(cache) = REGEX_CACHE.read() {
-        if let Some(entry) = cache.get(&key) {
-            return entry.as_ref().map(|re| re.is_match(text)).unwrap_or(false);
+/// キャッシュからコンパイル済み正規表現を取得する（キャッシュヒット時はヒープ確保なし）
+pub fn get_or_compile_regex(pattern: &str, case_sensitive: bool) -> Option<Arc<Regex>> {
+    let cache_lock = if case_sensitive {
+        &REGEX_CACHE_CS
+    } else {
+        &REGEX_CACHE_CI
+    };
+
+    if let Ok(cache) = cache_lock.read() {
+        if let Some(entry) = cache.get(pattern) {
+            return entry.clone();
         }
     }
 
     let compiled = RegexBuilder::new(pattern)
         .case_insensitive(!case_sensitive)
         .build()
-        .ok();
-    let matched = compiled
-        .as_ref()
-        .map(|re| re.is_match(text))
-        .unwrap_or(false);
+        .ok()
+        .map(Arc::new);
 
-    if let Ok(mut cache) = REGEX_CACHE.write() {
+    if let Ok(mut cache) = cache_lock.write() {
         if cache.len() >= MAX_REGEX_CACHE_ENTRIES {
             cache.clear();
         }
-        cache.insert(key, compiled);
+        cache.insert(pattern.to_string(), compiled.clone());
     }
-    matched
+    compiled
+}
+
+fn match_regex_cached(text: &str, pattern: &str, case_sensitive: bool) -> bool {
+    get_or_compile_regex(pattern, case_sensitive)
+        .map(|re| re.is_match(text))
+        .unwrap_or(false)
 }
 
 /// 共通テキストマッチング判定関数

@@ -404,3 +404,140 @@ Future<LicenseAgreementStatus> acceptLicenseAgreement({
 /// 利用規約に不同意の場合などにアプリケーションプロセスを即座に終了（タスクキル）する
 void terminateAppProcess() =>
     RustLib.instance.api.crateApiTerminateAppProcess();
+
+Future<ResolvedYouTubeLive> resolveYoutubeLive({required String input}) =>
+    RustLib.instance.api.crateApiResolveYoutubeLive(input: input);
+
+Future<List<ConnectionHistoryItem>> listConnectionHistory() =>
+    RustLib.instance.api.crateApiListConnectionHistory();
+
+Future<List<ConnectionHistoryItem>> toggleConnectionHistoryFavorite({
+  required String id,
+  required bool favorite,
+}) => RustLib.instance.api.crateApiToggleConnectionHistoryFavorite(
+  id: id,
+  favorite: favorite,
+);
+
+Future<List<ConnectionHistoryItem>> deleteConnectionHistory({
+  required String id,
+}) => RustLib.instance.api.crateApiDeleteConnectionHistory(id: id);
+
+Future<List<SavedChannelItem>> listSavedChannels() =>
+    RustLib.instance.api.crateApiListSavedChannels();
+
+Future<List<SavedChannelItem>> saveSavedChannel({
+  required SavedChannelItem item,
+}) => RustLib.instance.api.crateApiSaveSavedChannel(item: item);
+
+Future<List<SavedChannelItem>> deleteSavedChannel({required String id}) =>
+    RustLib.instance.api.crateApiDeleteSavedChannel(id: id);
+
+Future<List<NgWordRule>> listNgWordRules() =>
+    RustLib.instance.api.crateApiListNgWordRules();
+
+Future<List<NgWordRule>> saveNgWordRule({required NgWordRule rule}) =>
+    RustLib.instance.api.crateApiSaveNgWordRule(rule: rule);
+
+Future<List<NgWordRule>> deleteNgWordRule({required String id}) =>
+    RustLib.instance.api.crateApiDeleteNgWordRule(id: id);
+
+Future<ObsWsConfig> getObsWsConfig() =>
+    RustLib.instance.api.crateApiGetObsWsConfig();
+
+Future<ObsWsConfig> saveObsWsConfig({required ObsWsConfig config}) =>
+    RustLib.instance.api.crateApiSaveObsWsConfig(config: config);
+
+Future<ObsWsStatus> getObsWsStatus() =>
+    RustLib.instance.api.crateApiGetObsWsStatus();
+
+Future<ObsWsStatus> connectObsWs() =>
+    RustLib.instance.api.crateApiConnectObsWs();
+
+Future<ObsWsStatus> disconnectObsWs() =>
+    RustLib.instance.api.crateApiDisconnectObsWs();
+
+Future<void> refreshObsScenes() =>
+    RustLib.instance.api.crateApiRefreshObsScenes();
+
+Future<void> testObsRule({required String ruleId}) =>
+    RustLib.instance.api.crateApiTestObsRule(ruleId: ruleId);
+
+Future<List<HotkeyBinding>> listHotkeyBindings() =>
+    RustLib.instance.api.crateApiListHotkeyBindings();
+
+Future<List<HotkeyBinding>> saveHotkeyBindings({
+  required List<HotkeyBinding> bindings,
+}) => RustLib.instance.api.crateApiSaveHotkeyBindings(bindings: bindings);
+
+Future<String> executeAutomationAction({
+  required AutomationActionKind action,
+  required String targetId,
+  required String secondaryTarget,
+}) => RustLib.instance.api.crateApiExecuteAutomationAction(
+  action: action,
+  targetId: targetId,
+  secondaryTarget: secondaryTarget,
+);
+
+Future<List<StreamProfileSummary>> listStreamProfiles() =>
+    RustLib.instance.api.crateApiListStreamProfiles();
+
+Future<List<StreamProfileSummary>> saveCurrentAsProfile({
+  String? id,
+  required String name,
+  required String description,
+}) => RustLib.instance.api.crateApiSaveCurrentAsProfile(
+  id: id,
+  name: name,
+  description: description,
+);
+
+Future<List<StreamProfileSummary>> createTemplateProfile({
+  required String templateId,
+  required String name,
+}) => RustLib.instance.api.crateApiCreateTemplateProfile(
+  templateId: templateId,
+  name: name,
+);
+
+Future<List<StreamProfileSummary>> applyStreamProfile({required String id}) =>
+    RustLib.instance.api.crateApiApplyStreamProfile(id: id);
+
+Future<List<StreamProfileSummary>> deleteStreamProfile({required String id}) =>
+    RustLib.instance.api.crateApiDeleteStreamProfile(id: id);
+
+Future<String?> pickBackupSavePath() =>
+    RustLib.instance.api.crateApiPickBackupSavePath();
+
+Future<String?> pickBackupOpenPath() =>
+    RustLib.instance.api.crateApiPickBackupOpenPath();
+
+Future<BackupExportResult> exportBackupZip({required String destPath}) =>
+    RustLib.instance.api.crateApiExportBackupZip(destPath: destPath);
+
+Future<BackupImportResult> importBackupZip({required String zipPath}) =>
+    RustLib.instance.api.crateApiImportBackupZip(zipPath: zipPath);
+
+Future<List<StreamSessionSummary>> listStreamSessions({required int limit}) =>
+    RustLib.instance.api.crateApiListStreamSessions(limit: limit);
+
+Future<OnAirReportDto> getOnAirReport({required String sessionId}) =>
+    RustLib.instance.api.crateApiGetOnAirReport(sessionId: sessionId);
+
+Future<List<StreamSessionSummary>> deleteStreamSession({
+  required String sessionId,
+}) => RustLib.instance.api.crateApiDeleteStreamSession(sessionId: sessionId);
+
+Future<String?> exportReportCsvWithDialog({required String sessionId}) =>
+    RustLib.instance.api.crateApiExportReportCsvWithDialog(
+      sessionId: sessionId,
+    );
+
+Future<String?> exportReportJsonWithDialog({required String sessionId}) =>
+    RustLib.instance.api.crateApiExportReportJsonWithDialog(
+      sessionId: sessionId,
+    );
+
+Future<String> sendOverlayTestEvent({required String target}) =>
+    RustLib.instance.api.crateApiSendOverlayTestEvent(target: target);

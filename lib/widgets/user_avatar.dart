@@ -49,11 +49,16 @@ class UserAvatar extends StatelessWidget {
     final size = radius * 2;
     Widget inner;
     if (_isHttpUrl(iconUrl)) {
+      final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0;
+      final decodePx = (size * dpr).round().clamp(16, 256);
       inner = ClipOval(
         child: Image.network(
           iconUrl,
           width: size,
           height: size,
+          cacheWidth: decodePx,
+          cacheHeight: decodePx,
+          gaplessPlayback: true,
           fit: BoxFit.cover,
           errorBuilder: (_, _, _) => _buildFallback(size),
         ),

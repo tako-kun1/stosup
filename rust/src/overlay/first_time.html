@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Stosup 初見カウンターオーバーレイ</title>
+<title>Stosup ウェルカムカウンター</title>
 <link rel="icon" href="/favicon.ico" />
+<script src="/overlay/stosup-overlay.js"></script>
 <style id="stosup-base-css">
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -12,7 +13,8 @@
     height: 100%;
     background: var(--page-bg, transparent) !important;
     overflow: hidden;
-    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
+    font-family: var(--font-family, "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", sans-serif);
+    -webkit-font-smoothing: antialiased;
   }
   #wrap {
     display: flex;
@@ -21,30 +23,35 @@
     gap: 10px;
     padding: 14px;
   }
+
+  /* ==================== 既定: broadcast (オンエア小窓) ==================== */
   .ft-card {
-    background: rgba(24, 24, 27, 0.92);
-    border: 1.5px solid var(--accent, #16a34a);
-    border-radius: 10px;
-    padding: 12px 20px;
+    background: rgba(17, 19, 23, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-left: 5px solid var(--accent, #22a06b);
+    border-radius: 2px;
+    padding: 11px 20px 12px;
     min-width: 220px;
-    color: #f4f4f5;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    color: #f7f8fa;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.36);
+    contain: layout style;
   }
   .ft-title {
-    font-size: 13.5px;
-    font-weight: 700;
-    color: #d4d4d8;
-    margin-bottom: 4px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: #b4bac6;
+    margin-bottom: 3px;
   }
   .ft-count {
-    font-size: 42px;
+    font-size: 44px;
     font-weight: 900;
-    line-height: 1.1;
-    color: var(--accent, #16a34a);
+    line-height: 1.05;
+    color: #ffffff;
     font-variant-numeric: tabular-nums;
-    transition: transform 0.16s ease;
+    transition: transform 0.16s ease, color 0.16s ease;
   }
-  .ft-count.bump { transform: scale(1.16); }
+  .ft-count.bump { transform: scale(1.14); color: var(--accent, #22a06b); }
   .ft-profiles {
     display: flex;
     flex-direction: column;
@@ -56,24 +63,26 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    background: rgba(24, 24, 27, 0.9);
-    border: 1px solid var(--accent, #16a34a);
-    border-radius: 8px;
-    padding: 8px 12px;
-    color: #f4f4f5;
-    animation: fadeSlide 0.28s ease forwards;
+    background: rgba(17, 19, 23, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 4px solid var(--accent, #22a06b);
+    border-radius: 2px;
+    padding: 7px 12px;
+    color: #f7f8fa;
+    contain: layout style;
+    animation: fadeSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   }
   @keyframes fadeSlide {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
   .ft-avatar {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    border-radius: 3px;
     object-fit: cover;
-    border: 2px solid var(--accent, #16a34a);
-    background: #3f3f46;
+    border: 1.5px solid var(--accent, #22a06b);
+    background: #1f232b;
   }
   .ft-user-name {
     font-size: 14px;
@@ -83,63 +92,109 @@
     white-space: nowrap;
   }
   .ft-user-badge {
-    font-size: 10.5px;
+    font-size: 10px;
     padding: 1px 6px;
-    border-radius: 4px;
-    background: var(--accent, #16a34a);
+    border-radius: 2px;
+    background: var(--accent, #22a06b);
     color: #ffffff;
-    font-weight: 700;
+    font-weight: 800;
     margin-left: auto;
     flex-shrink: 0;
   }
 
-  /* プリセット: compact */
-  body[data-theme="compact"] .ft-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: auto;
-    padding: 8px 18px;
-    border-radius: 999px;
+  /* ==================== editorial ==================== */
+  body[data-theme="editorial"] .ft-card,
+  body[data-theme="editorial"] .ft-user {
+    background: rgba(248, 245, 239, 0.97);
+    color: #1c1b18;
+    border: 1px solid #d4cdc0;
+    border-left: 4px solid var(--accent, #1d6f42);
+    box-shadow: 0 4px 14px rgba(28, 27, 24, 0.1);
   }
-  body[data-theme="compact"] .ft-title { margin-bottom: 0; }
-  body[data-theme="compact"] .ft-count { font-size: 28px; }
+  body[data-theme="editorial"] .ft-title { color: #5c574f; }
+  body[data-theme="editorial"] .ft-count { color: #1c1b18; }
+  body[data-theme="editorial"] .ft-avatar { border-radius: 50%; }
 
-  /* プリセット: scoreboard */
-  body[data-theme="scoreboard"] .ft-card {
-    background: #111214;
-    border: 2px solid #3f3f46;
-    border-top: 5px solid var(--accent, #16a34a);
-    border-radius: 4px;
-    text-align: center;
+  /* ==================== tactical ==================== */
+  body[data-theme="tactical"] .ft-card,
+  body[data-theme="tactical"] .ft-user {
+    background: rgba(18, 20, 23, 0.95);
+    color: #edebe4;
+    border: 1px solid rgba(237, 235, 228, 0.22);
+    border-top: 3px solid var(--accent, #e5a93b);
+    border-left: 1px solid rgba(237, 235, 228, 0.22);
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+    box-shadow: none;
   }
-  body[data-theme="scoreboard"] .ft-count {
+  body[data-theme="tactical"] .ft-count {
     font-family: "Consolas", monospace;
-    font-size: 52px;
+    color: var(--accent, #e5a93b);
+    font-size: 48px;
   }
 
-  /* プリセット: neon */
-  body[data-theme="neon"] .ft-card,
-  body[data-theme="neon"] .ft-user {
-    background: rgba(9, 11, 20, 0.9);
-    border: 2px solid var(--accent, #22d3ee);
-    border-radius: 6px;
-    box-shadow: 0 0 18px rgba(34, 211, 238, 0.28);
+  /* ==================== variety ==================== */
+  body[data-theme="variety"] .ft-card,
+  body[data-theme="variety"] .ft-user {
+    background: #fffdf7;
+    color: #182033;
+    border: 3px solid #182033;
+    border-radius: 12px;
+    box-shadow: 5px 5px 0 #182033;
   }
-  body[data-theme="neon"] .ft-count {
-    text-shadow: 0 0 14px var(--accent, #22d3ee);
+  body[data-theme="variety"] .ft-title { color: #182033; }
+  body[data-theme="variety"] .ft-count { color: #182033; }
+
+  /* ==================== cinema ==================== */
+  body[data-theme="cinema"] .ft-card,
+  body[data-theme="cinema"] .ft-user {
+    background: transparent;
+    border: none;
+    border-left: 3.5px solid var(--accent, #34d399);
+    padding: 4px 12px;
+    box-shadow: none;
+  }
+  body[data-theme="cinema"] .ft-title,
+  body[data-theme="cinema"] .ft-count,
+  body[data-theme="cinema"] .ft-user-name {
+    color: #ffffff;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 3.5px rgba(10, 12, 16, 0.94);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
   }
 
-  /* プリセット: pastel */
-  body[data-theme="pastel"] .ft-card,
-  body[data-theme="pastel"] .ft-user {
-    background: rgba(255, 255, 255, 0.96);
-    color: #27272a;
-    border: 2.5px solid var(--accent, #f472b6);
-    border-radius: 18px;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+  /* ==================== edge_glow (エッジ・グロウ) ==================== */
+  body[data-theme="edge_glow"] .ft-card,
+  body[data-theme="edge_glow"] .ft-user {
+    background: rgba(9, 13, 22, 0.78);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-left: 3px solid var(--accent, #38bdf8);
+    border-radius: 5px;
+    box-shadow: 0 8px 22px rgba(2, 6, 23, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
-  body[data-theme="pastel"] .ft-title { color: #52525b; }
+  body[data-theme="edge_glow"] .ft-title,
+  body[data-theme="edge_glow"] .ft-user-name {
+    color: #e0f2fe;
+    text-shadow:
+      1px 0 2px rgba(56, 189, 248, 0.72),
+      -1px 0 2px rgba(56, 189, 248, 0.72),
+      0 1px 2px rgba(56, 189, 248, 0.72),
+      0 -1px 2px rgba(56, 189, 248, 0.72),
+      0 0 8px rgba(56, 189, 248, 0.52);
+  }
+  body[data-theme="edge_glow"] .ft-count {
+    color: #f8fafc;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 2px rgba(8, 13, 24, 0.88);
+    text-shadow:
+      2px 0 3px rgba(56, 189, 248, 0.8),
+      -2px 0 3px rgba(56, 189, 248, 0.8),
+      0 2px 3px rgba(56, 189, 248, 0.8),
+      0 -2px 3px rgba(56, 189, 248, 0.8),
+      0 0 12px rgba(56, 189, 248, 0.65),
+      0 0 24px rgba(56, 189, 248, 0.38);
+  }
 
   body.has-custom-font,
   body.has-custom-font * {
@@ -148,138 +203,152 @@
 </style>
 <style id="stosup-custom-css"></style>
 </head>
-<body data-theme="default">
+<body data-theme="broadcast">
   <div id="wrap"></div>
 <script>
   const wrap = document.getElementById('wrap');
   const customStyleEl = document.getElementById('stosup-custom-css');
   const params = new URLSearchParams(location.search);
-  const urlThemeOverride = params.get('theme');
-  const urlBgOverride = params.get('bg');
-  const urlFontOverride = params.get('font');
+  const urlTheme = params.get('theme');
+  const urlBg = params.get('bg');
+  const urlFont = params.get('font');
 
   let prevCount = null;
-  let enabled = true;
-  let ftState = {
-    count: 0,
-    total_detected_all_time: 0,
-    recent_users: [],
-    config: { show_first_timer_profile: false, accent_color: '#16A34A' }
-  };
+  let ftState = null;
+  let ftEnabled = true;
   let config = {
-    first_time_theme: 'default',
+    first_time_theme: 'broadcast',
     first_time_bg_color: 'transparent',
     first_time_font_family: '',
-    first_time_custom_css: ''
+    first_time_custom_css: '',
+    visual_styles: {}
   };
 
-  function applyFontFamily(rawFont) {
-    const f = (rawFont || '').trim();
-    if (f) {
-      const safe = f.replace(/["\\]/g, '');
-      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
-      document.body.classList.add('has-custom-font');
-    } else {
-      document.documentElement.style.removeProperty('--font-family');
-      document.body.classList.remove('has-custom-font');
-    }
-  }
-
-  function resolveBg(raw) {
-    const val = (raw || 'transparent').trim();
-    if (!val || val.toLowerCase() === 'transparent') return 'transparent';
-    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return '#' + val;
-    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return val;
-    return 'transparent';
-  }
-
   function applyDesign() {
-    document.body.dataset.theme = urlThemeOverride || config.first_time_theme || 'default';
-    const bg = resolveBg(urlBgOverride || config.first_time_bg_color);
-    document.documentElement.style.setProperty('--page-bg', bg);
-    applyFontFamily(urlFontOverride || config.first_time_font_family);
-    customStyleEl.textContent = config.first_time_custom_css || '';
+    document.body.dataset.theme = StosupOverlay.normalizeTheme(urlTheme || config.first_time_theme);
+    document.documentElement.style.setProperty('--page-bg', StosupOverlay.resolveBg(urlBg || config.first_time_bg_color));
+    StosupOverlay.applyFont(urlFont || config.first_time_font_family);
+    StosupOverlay.applyOverlayVisualStyle('first_time', config, {
+      card: '.ft-card',
+      text: '.ft-count, .ft-title',
+      author: '.ft-title',
+      animate: '.ft-card'
+    });
+    StosupOverlay.applyCustomCss(customStyleEl, config.first_time_custom_css);
   }
 
-  function fallbackAvatar(name) {
-    const ch = (name || '?').slice(0, 1);
-    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%2352525b'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
-  }
+  let ftDom = null;
+  let bumpTimer = null;
+  let lastProfilesSig = '';
 
   function render() {
-    wrap.innerHTML = '';
-    if (!enabled) return;
+    if (!ftEnabled || !ftState) {
+      if (bumpTimer) { clearTimeout(bumpTimer); bumpTimer = null; }
+      wrap.innerHTML = '';
+      ftDom = null;
+      lastProfilesSig = '';
+      return;
+    }
+    const accent = (ftState.config && ftState.config.accent_color) || '#22a06b';
+    if (document.documentElement.style.getPropertyValue('--accent') !== accent) {
+      document.documentElement.style.setProperty('--accent', accent);
+    }
 
-    const accent = (ftState.config && ftState.config.accent_color) || '#16A34A';
-    wrap.style.setProperty('--accent', accent);
+    // カード本体を再利用し、カウント更新時の DOM 全破棄・再アニメーションを防止しつつ bump を正確に発火
+    if (!ftDom) {
+      const card = document.createElement('div');
+      card.className = 'ft-card';
 
-    const card = document.createElement('div');
-    card.className = 'ft-card';
+      const title = document.createElement('div');
+      title.className = 'ft-title';
+      title.textContent = 'WELCOME — 本日の初見さん';
 
-    const title = document.createElement('div');
-    title.className = 'ft-title';
-    title.textContent = '本日の初見さん';
+      const countEl = document.createElement('div');
+      countEl.className = 'ft-count';
 
-    const countEl = document.createElement('div');
-    countEl.className = 'ft-count';
-    countEl.textContent = String(ftState.count || 0);
+      card.appendChild(title);
+      card.appendChild(countEl);
+      wrap.appendChild(card);
+      ftDom = { card, countEl, profilesEl: null };
+    }
+
+    const nextCountText = String(ftState.count || 0);
+    if (ftDom.countEl.textContent !== nextCountText) {
+      ftDom.countEl.textContent = nextCountText;
+    }
     if (prevCount !== null && prevCount !== ftState.count) {
-      countEl.classList.add('bump');
-      setTimeout(() => countEl.classList.remove('bump'), 200);
+      ftDom.countEl.classList.remove('bump');
+      void ftDom.countEl.offsetWidth;
+      ftDom.countEl.classList.add('bump');
+      if (bumpTimer) clearTimeout(bumpTimer);
+      bumpTimer = setTimeout(() => {
+        if (ftDom) ftDom.countEl.classList.remove('bump');
+        bumpTimer = null;
+      }, 220);
     }
     prevCount = ftState.count;
 
-    card.appendChild(title);
-    card.appendChild(countEl);
-    wrap.appendChild(card);
-
-    // オプション（デフォルトOFF）：初見の人のアイコンと名前を表示
-    if (ftState.config && ftState.config.show_first_timer_profile && Array.isArray(ftState.recent_users) && ftState.recent_users.length > 0) {
-      const profiles = document.createElement('div');
-      profiles.className = 'ft-profiles';
-
-      ftState.recent_users.slice(0, 5).forEach((u) => {
-        const row = document.createElement('div');
-        row.className = 'ft-user';
-
-        const img = document.createElement('img');
-        img.className = 'ft-avatar';
-        img.src = u.user_icon_url || fallbackAvatar(u.user_name);
-        img.onerror = () => { img.src = fallbackAvatar(u.user_name); };
-
-        const name = document.createElement('div');
-        name.className = 'ft-user-name';
-        name.textContent = u.user_name;
-
-        const badge = document.createElement('span');
-        badge.className = 'ft-user-badge';
-        badge.textContent = '初見';
-
-        row.appendChild(img);
-        row.appendChild(name);
-        row.appendChild(badge);
-        profiles.appendChild(row);
-      });
-
-      wrap.appendChild(profiles);
+    const showProfiles = !!(
+      ftState.config &&
+      ftState.config.show_first_timer_profile &&
+      ftState.recent_users &&
+      ftState.recent_users.length > 0
+    );
+    if (showProfiles) {
+      const topUsers = ftState.recent_users.slice(0, 3);
+      const sig = topUsers
+        .map(u => `${u.user_id || ''}|${u.user_name || ''}|${u.user_icon_url || ''}`)
+        .join('||');
+      if (sig !== lastProfilesSig || !ftDom.profilesEl) {
+        lastProfilesSig = sig;
+        if (ftDom.profilesEl) ftDom.profilesEl.remove();
+        const profiles = document.createElement('div');
+        profiles.className = 'ft-profiles';
+        const frag = document.createDocumentFragment();
+        for (const u of topUsers) {
+          const row = document.createElement('div');
+          row.className = 'ft-user';
+          const img = document.createElement('img');
+          img.className = 'ft-avatar';
+          img.src = u.user_icon_url || StosupOverlay.fallbackAvatar(u.user_name);
+          img.onerror = () => { img.src = StosupOverlay.fallbackAvatar(u.user_name); };
+          const name = document.createElement('div');
+          name.className = 'ft-user-name';
+          name.textContent = u.user_name;
+          const badge = document.createElement('span');
+          badge.className = 'ft-user-badge';
+          badge.textContent = 'NEW';
+          row.appendChild(img);
+          row.appendChild(name);
+          row.appendChild(badge);
+          frag.appendChild(row);
+        }
+        profiles.appendChild(frag);
+        wrap.appendChild(profiles);
+        ftDom.profilesEl = profiles;
+      }
+    } else if (ftDom.profilesEl) {
+      ftDom.profilesEl.remove();
+      ftDom.profilesEl = null;
+      lastProfilesSig = '';
     }
   }
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${location.host}/ws?channel=first_time`);
+    const ws = new WebSocket(window.StosupOverlay.buildWsUrl('first_time'));
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
         if (data.type === 'snapshot') {
           config = Object.assign(config, data.config || {});
-          if (data.first_time) ftState = data.first_time;
-          if (typeof data.first_time_enabled === 'boolean') enabled = data.first_time_enabled;
+          ftState = data.first_time || null;
+          if (typeof data.first_time_enabled === 'boolean') ftEnabled = data.first_time_enabled;
           applyDesign();
           render();
         } else if (data.type === 'first_time') {
-          if (data.first_time) ftState = data.first_time;
-          if (typeof data.enabled === 'boolean') enabled = data.enabled;
+          ftState = data.first_time || null;
+          if (typeof data.enabled === 'boolean') ftEnabled = data.enabled;
           render();
         } else if (data.type === 'config_updated') {
           config = Object.assign(config, data.config || {});
@@ -290,6 +359,7 @@
     ws.onclose = () => setTimeout(connect, 2000);
     ws.onerror = () => ws.close();
   }
+
   applyDesign();
   connect();
 </script>

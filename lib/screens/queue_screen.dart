@@ -70,7 +70,7 @@ class _QueueScreenState extends State<QueueScreen> {
     final url = '${widget.controller.overlayBaseUrl}/overlay/queue';
     Clipboard.setData(ClipboardData(text: url));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('参加型キューの OBS 用 URL をコピーしました')),
+      const SnackBar(content: Text('エントリーレーンの OBS 用 URL をコピーしました')),
     );
   }
 
@@ -119,7 +119,7 @@ class _QueueScreenState extends State<QueueScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      '参加型キュー（順番待ちリスト）管理',
+                      'エントリーレーン（参加型順番待ち管理）',
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
@@ -132,11 +132,11 @@ class _QueueScreenState extends State<QueueScreen> {
                 ),
               ),
               FeatureToggleSwitch(
-                label: '参加型キュー',
+                label: 'エントリーレーン',
                 enabled: enabled,
                 onChanged: (v) => ctrl.setFeatureEnabled(
                   queue: v,
-                  featureLabel: '参加型キュー管理',
+                  featureLabel: 'エントリーレーン',
                 ),
               ),
               const SizedBox(width: 8),
@@ -150,12 +150,12 @@ class _QueueScreenState extends State<QueueScreen> {
           const SizedBox(height: 12),
           if (!enabled)
             FeatureDisabledBanner(
-              featureName: '参加型キュー管理',
+              featureName: 'エントリーレーン',
               description:
-                  'コメントからの自動登録および OBS 参加型キューオーバーレイを一時停止しています。',
+                  'コメントからの自動登録および OBS エントリーレーン表示を一時停止しています。',
               onEnable: () => ctrl.setFeatureEnabled(
                 queue: true,
-                featureLabel: '参加型キュー管理',
+                featureLabel: 'エントリーレーン',
               ),
             ),
 

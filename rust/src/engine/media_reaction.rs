@@ -108,19 +108,19 @@ fn matches_trigger(rule: &MediaReactionRule, ctx: &MediaEvalContext<'_>) -> bool
             )
         ),
         MediaTriggerType::Keyword => {
-            // WordParty と同様に 1行1パターン（空欄時はすべてのコメントに反応）
-            let lines: Vec<&str> = rule
-                .pattern
-                .lines()
-                .map(|l| l.trim())
-                .filter(|l| !l.is_empty())
-                .collect();
-            if lines.is_empty() {
-                return true;
+            // WordParty と同様に 1行1パターン（空欄時はすべてのコメントに反応・Vec 確保なしの単一走査）
+            let mut has_pattern = false;
+            for raw_line in rule.pattern.lines() {
+                let pat = raw_line.trim();
+                if pat.is_empty() {
+                    continue;
+                }
+                has_pattern = true;
+                if matches_pattern(ctx.message, pat, rule.match_mode, rule.case_sensitive) {
+                    return true;
+                }
             }
-            lines.iter().any(|pat| {
-                matches_pattern(ctx.message, pat, rule.match_mode, rule.case_sensitive)
-            })
+            !has_pattern
         }
     }
 }

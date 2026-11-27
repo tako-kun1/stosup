@@ -28,6 +28,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException dco_decode_AnyhowException(dynamic raw);
 
   @protected
+  Map<String, List<String>> dco_decode_Map_String_list_String_None(dynamic raw);
+
+  @protected
+  Map<String, OverlayVisualStyle>
+  dco_decode_Map_String_overlay_visual_style_None(dynamic raw);
+
+  @protected
   RustStreamSink<AppEvent> dco_decode_StreamSink_app_event_Sse(dynamic raw);
 
   @protected
@@ -45,6 +52,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AppThemeMode dco_decode_app_theme_mode(dynamic raw);
+
+  @protected
+  AutomationActionKind dco_decode_automation_action_kind(dynamic raw);
+
+  @protected
+  BackupExportResult dco_decode_backup_export_result(dynamic raw);
+
+  @protected
+  BackupImportResult dco_decode_backup_import_result(dynamic raw);
 
   @protected
   bool dco_decode_bool(dynamic raw);
@@ -100,6 +116,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  NgWordRule dco_decode_box_autoadd_ng_word_rule(dynamic raw);
+
+  @protected
+  ObsWsConfig dco_decode_box_autoadd_obs_ws_config(dynamic raw);
+
+  @protected
+  ObsWsStatus dco_decode_box_autoadd_obs_ws_status(dynamic raw);
+
+  @protected
   OverlayConfig dco_decode_box_autoadd_overlay_config(dynamic raw);
 
   @protected
@@ -122,6 +147,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RemoteAccessConfig dco_decode_box_autoadd_remote_access_config(dynamic raw);
+
+  @protected
+  SavedChannelItem dco_decode_box_autoadd_saved_channel_item(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
@@ -148,6 +176,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CommentLotteryState dco_decode_comment_lottery_state(dynamic raw);
 
   @protected
+  ConnectionHistoryItem dco_decode_connection_history_item(dynamic raw);
+
+  @protected
   ConnectionMode dco_decode_connection_mode(dynamic raw);
 
   @protected
@@ -170,6 +201,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   HighlightRule dco_decode_highlight_rule(dynamic raw);
+
+  @protected
+  HotkeyBinding dco_decode_hotkey_binding(dynamic raw);
 
   @protected
   int dco_decode_i_32(dynamic raw);
@@ -196,10 +230,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<CommentLotteryEntry> dco_decode_list_comment_lottery_entry(dynamic raw);
 
   @protected
+  List<ConnectionHistoryItem> dco_decode_list_connection_history_item(
+    dynamic raw,
+  );
+
+  @protected
   List<FirstTimeUser> dco_decode_list_first_time_user(dynamic raw);
 
   @protected
   List<HighlightRule> dco_decode_list_highlight_rule(dynamic raw);
+
+  @protected
+  List<HotkeyBinding> dco_decode_list_hotkey_binding(dynamic raw);
 
   @protected
   List<LotteryResult> dco_decode_list_lottery_result(dynamic raw);
@@ -211,7 +253,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<MediaReactionRule> dco_decode_list_media_reaction_rule(dynamic raw);
 
   @protected
+  List<MessageRun> dco_decode_list_message_run(dynamic raw);
+
+  @protected
   List<MonetizationItem> dco_decode_list_monetization_item(dynamic raw);
+
+  @protected
+  List<NgWordRule> dco_decode_list_ng_word_rule(dynamic raw);
+
+  @protected
+  List<ObsAutomationRule> dco_decode_list_obs_automation_rule(dynamic raw);
 
   @protected
   List<PollOption> dco_decode_list_poll_option(dynamic raw);
@@ -221,6 +272,40 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<QueueEntry> dco_decode_list_queue_entry(dynamic raw);
+
+  @protected
+  List<(String, List<String>)> dco_decode_list_record_string_list_string(
+    dynamic raw,
+  );
+
+  @protected
+  List<(String, OverlayVisualStyle)>
+  dco_decode_list_record_string_overlay_visual_style(dynamic raw);
+
+  @protected
+  List<ReportMinuteBucket> dco_decode_list_report_minute_bucket(dynamic raw);
+
+  @protected
+  List<ReportPeakItem> dco_decode_list_report_peak_item(dynamic raw);
+
+  @protected
+  List<ReportUserRank> dco_decode_list_report_user_rank(dynamic raw);
+
+  @protected
+  List<ReportWordRank> dco_decode_list_report_word_rank(dynamic raw);
+
+  @protected
+  List<SavedChannelItem> dco_decode_list_saved_channel_item(dynamic raw);
+
+  @protected
+  List<StreamProfileSummary> dco_decode_list_stream_profile_summary(
+    dynamic raw,
+  );
+
+  @protected
+  List<StreamSessionSummary> dco_decode_list_stream_session_summary(
+    dynamic raw,
+  );
 
   @protected
   List<UserRecord> dco_decode_list_user_record(dynamic raw);
@@ -268,10 +353,40 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MediaTriggerType dco_decode_media_trigger_type(dynamic raw);
 
   @protected
+  MessageRun dco_decode_message_run(dynamic raw);
+
+  @protected
+  MessageRunKind dco_decode_message_run_kind(dynamic raw);
+
+  @protected
   MonetizationEventKind dco_decode_monetization_event_kind(dynamic raw);
 
   @protected
   MonetizationItem dco_decode_monetization_item(dynamic raw);
+
+  @protected
+  NgWordAction dco_decode_ng_word_action(dynamic raw);
+
+  @protected
+  NgWordRule dco_decode_ng_word_rule(dynamic raw);
+
+  @protected
+  ObsActionType dco_decode_obs_action_type(dynamic raw);
+
+  @protected
+  ObsAutomationRule dco_decode_obs_automation_rule(dynamic raw);
+
+  @protected
+  ObsTriggerType dco_decode_obs_trigger_type(dynamic raw);
+
+  @protected
+  ObsWsConfig dco_decode_obs_ws_config(dynamic raw);
+
+  @protected
+  ObsWsStatus dco_decode_obs_ws_status(dynamic raw);
+
+  @protected
+  OnAirReportDto dco_decode_on_air_report_dto(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -319,6 +434,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ObsWsStatus? dco_decode_opt_box_autoadd_obs_ws_status(dynamic raw);
+
+  @protected
   OverlayConfig? dco_decode_opt_box_autoadd_overlay_config(dynamic raw);
 
   @protected
@@ -357,10 +475,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<MonetizationItem>? dco_decode_opt_list_monetization_item(dynamic raw);
 
   @protected
+  List<NgWordRule>? dco_decode_opt_list_ng_word_rule(dynamic raw);
+
+  @protected
+  List<StreamProfileSummary>? dco_decode_opt_list_stream_profile_summary(
+    dynamic raw,
+  );
+
+  @protected
   List<WordCounterConfig>? dco_decode_opt_list_word_counter_config(dynamic raw);
 
   @protected
   OverlayConfig dco_decode_overlay_config(dynamic raw);
+
+  @protected
+  OverlayVisualStyle dco_decode_overlay_visual_style(dynamic raw);
 
   @protected
   PickedCommentState dco_decode_picked_comment_state(dynamic raw);
@@ -396,6 +525,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   QueueState dco_decode_queue_state(dynamic raw);
 
   @protected
+  (String, List<String>) dco_decode_record_string_list_string(dynamic raw);
+
+  @protected
+  (String, OverlayVisualStyle) dco_decode_record_string_overlay_visual_style(
+    dynamic raw,
+  );
+
+  @protected
   ReleaseNotesInfo dco_decode_release_notes_info(dynamic raw);
 
   @protected
@@ -403,6 +540,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RemoteAccessStatus dco_decode_remote_access_status(dynamic raw);
+
+  @protected
+  ReportMinuteBucket dco_decode_report_minute_bucket(dynamic raw);
+
+  @protected
+  ReportPeakItem dco_decode_report_peak_item(dynamic raw);
+
+  @protected
+  ReportUserRank dco_decode_report_user_rank(dynamic raw);
+
+  @protected
+  ReportWordRank dco_decode_report_word_rank(dynamic raw);
+
+  @protected
+  ResolvedYouTubeLive dco_decode_resolved_you_tube_live(dynamic raw);
+
+  @protected
+  SavedChannelItem dco_decode_saved_channel_item(dynamic raw);
+
+  @protected
+  StreamProfileSummary dco_decode_stream_profile_summary(dynamic raw);
+
+  @protected
+  StreamSessionSummary dco_decode_stream_session_summary(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -441,6 +602,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
+  Map<String, List<String>> sse_decode_Map_String_list_String_None(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Map<String, OverlayVisualStyle>
+  sse_decode_Map_String_overlay_visual_style_None(SseDeserializer deserializer);
+
+  @protected
   RustStreamSink<AppEvent> sse_decode_StreamSink_app_event_Sse(
     SseDeserializer deserializer,
   );
@@ -462,6 +632,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   AppThemeMode sse_decode_app_theme_mode(SseDeserializer deserializer);
+
+  @protected
+  AutomationActionKind sse_decode_automation_action_kind(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BackupExportResult sse_decode_backup_export_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BackupImportResult sse_decode_backup_import_result(
+    SseDeserializer deserializer,
+  );
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
@@ -533,6 +718,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  NgWordRule sse_decode_box_autoadd_ng_word_rule(SseDeserializer deserializer);
+
+  @protected
+  ObsWsConfig sse_decode_box_autoadd_obs_ws_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ObsWsStatus sse_decode_box_autoadd_obs_ws_status(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   OverlayConfig sse_decode_box_autoadd_overlay_config(
     SseDeserializer deserializer,
   );
@@ -561,6 +759,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RemoteAccessConfig sse_decode_box_autoadd_remote_access_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SavedChannelItem sse_decode_box_autoadd_saved_channel_item(
     SseDeserializer deserializer,
   );
 
@@ -599,6 +802,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ConnectionHistoryItem sse_decode_connection_history_item(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ConnectionMode sse_decode_connection_mode(SseDeserializer deserializer);
 
   @protected
@@ -627,6 +835,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   HighlightRule sse_decode_highlight_rule(SseDeserializer deserializer);
+
+  @protected
+  HotkeyBinding sse_decode_hotkey_binding(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -659,12 +870,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ConnectionHistoryItem> sse_decode_list_connection_history_item(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<FirstTimeUser> sse_decode_list_first_time_user(
     SseDeserializer deserializer,
   );
 
   @protected
   List<HighlightRule> sse_decode_list_highlight_rule(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<HotkeyBinding> sse_decode_list_hotkey_binding(
     SseDeserializer deserializer,
   );
 
@@ -684,7 +905,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<MessageRun> sse_decode_list_message_run(SseDeserializer deserializer);
+
+  @protected
   List<MonetizationItem> sse_decode_list_monetization_item(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<NgWordRule> sse_decode_list_ng_word_rule(SseDeserializer deserializer);
+
+  @protected
+  List<ObsAutomationRule> sse_decode_list_obs_automation_rule(
     SseDeserializer deserializer,
   );
 
@@ -696,6 +928,52 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<QueueEntry> sse_decode_list_queue_entry(SseDeserializer deserializer);
+
+  @protected
+  List<(String, List<String>)> sse_decode_list_record_string_list_string(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<(String, OverlayVisualStyle)>
+  sse_decode_list_record_string_overlay_visual_style(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReportMinuteBucket> sse_decode_list_report_minute_bucket(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReportPeakItem> sse_decode_list_report_peak_item(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReportUserRank> sse_decode_list_report_user_rank(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ReportWordRank> sse_decode_list_report_word_rank(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SavedChannelItem> sse_decode_list_saved_channel_item(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<StreamProfileSummary> sse_decode_list_stream_profile_summary(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<StreamSessionSummary> sse_decode_list_stream_session_summary(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<UserRecord> sse_decode_list_user_record(SseDeserializer deserializer);
@@ -757,12 +1035,44 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MediaTriggerType sse_decode_media_trigger_type(SseDeserializer deserializer);
 
   @protected
+  MessageRun sse_decode_message_run(SseDeserializer deserializer);
+
+  @protected
+  MessageRunKind sse_decode_message_run_kind(SseDeserializer deserializer);
+
+  @protected
   MonetizationEventKind sse_decode_monetization_event_kind(
     SseDeserializer deserializer,
   );
 
   @protected
   MonetizationItem sse_decode_monetization_item(SseDeserializer deserializer);
+
+  @protected
+  NgWordAction sse_decode_ng_word_action(SseDeserializer deserializer);
+
+  @protected
+  NgWordRule sse_decode_ng_word_rule(SseDeserializer deserializer);
+
+  @protected
+  ObsActionType sse_decode_obs_action_type(SseDeserializer deserializer);
+
+  @protected
+  ObsAutomationRule sse_decode_obs_automation_rule(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ObsTriggerType sse_decode_obs_trigger_type(SseDeserializer deserializer);
+
+  @protected
+  ObsWsConfig sse_decode_obs_ws_config(SseDeserializer deserializer);
+
+  @protected
+  ObsWsStatus sse_decode_obs_ws_status(SseDeserializer deserializer);
+
+  @protected
+  OnAirReportDto sse_decode_on_air_report_dto(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
@@ -812,6 +1122,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MonetizationEventKind? sse_decode_opt_box_autoadd_monetization_event_kind(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ObsWsStatus? sse_decode_opt_box_autoadd_obs_ws_status(
     SseDeserializer deserializer,
   );
 
@@ -870,12 +1185,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<NgWordRule>? sse_decode_opt_list_ng_word_rule(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<StreamProfileSummary>? sse_decode_opt_list_stream_profile_summary(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<WordCounterConfig>? sse_decode_opt_list_word_counter_config(
     SseDeserializer deserializer,
   );
 
   @protected
   OverlayConfig sse_decode_overlay_config(SseDeserializer deserializer);
+
+  @protected
+  OverlayVisualStyle sse_decode_overlay_visual_style(
+    SseDeserializer deserializer,
+  );
 
   @protected
   PickedCommentState sse_decode_picked_comment_state(
@@ -913,6 +1243,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   QueueState sse_decode_queue_state(SseDeserializer deserializer);
 
   @protected
+  (String, List<String>) sse_decode_record_string_list_string(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  (String, OverlayVisualStyle) sse_decode_record_string_overlay_visual_style(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ReleaseNotesInfo sse_decode_release_notes_info(SseDeserializer deserializer);
 
   @protected
@@ -922,6 +1262,38 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RemoteAccessStatus sse_decode_remote_access_status(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReportMinuteBucket sse_decode_report_minute_bucket(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ReportPeakItem sse_decode_report_peak_item(SseDeserializer deserializer);
+
+  @protected
+  ReportUserRank sse_decode_report_user_rank(SseDeserializer deserializer);
+
+  @protected
+  ReportWordRank sse_decode_report_word_rank(SseDeserializer deserializer);
+
+  @protected
+  ResolvedYouTubeLive sse_decode_resolved_you_tube_live(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SavedChannelItem sse_decode_saved_channel_item(SseDeserializer deserializer);
+
+  @protected
+  StreamProfileSummary sse_decode_stream_profile_summary(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StreamSessionSummary sse_decode_stream_session_summary(
     SseDeserializer deserializer,
   );
 
@@ -973,6 +1345,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_Map_String_list_String_None(
+    Map<String, List<String>> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_Map_String_overlay_visual_style_None(
+    Map<String, OverlayVisualStyle> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_app_event_Sse(
     RustStreamSink<AppEvent> self,
     SseSerializer serializer,
@@ -995,6 +1379,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_app_theme_mode(AppThemeMode self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_automation_action_kind(
+    AutomationActionKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_backup_export_result(
+    BackupExportResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_backup_import_result(
+    BackupImportResult self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
@@ -1084,6 +1486,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_ng_word_rule(
+    NgWordRule self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_obs_ws_config(
+    ObsWsConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_obs_ws_status(
+    ObsWsStatus self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_overlay_config(
     OverlayConfig self,
     SseSerializer serializer,
@@ -1132,6 +1552,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_saved_channel_item(
+    SavedChannelItem self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
@@ -1167,6 +1593,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_comment_lottery_state(
     CommentLotteryState self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_connection_history_item(
+    ConnectionHistoryItem self,
     SseSerializer serializer,
   );
 
@@ -1210,6 +1642,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_highlight_rule(HighlightRule self, SseSerializer serializer);
 
   @protected
+  void sse_encode_hotkey_binding(HotkeyBinding self, SseSerializer serializer);
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
@@ -1246,6 +1681,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_connection_history_item(
+    List<ConnectionHistoryItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_first_time_user(
     List<FirstTimeUser> self,
     SseSerializer serializer,
@@ -1254,6 +1695,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_highlight_rule(
     List<HighlightRule> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_hotkey_binding(
+    List<HotkeyBinding> self,
     SseSerializer serializer,
   );
 
@@ -1276,8 +1723,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_message_run(
+    List<MessageRun> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_monetization_item(
     List<MonetizationItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_ng_word_rule(
+    List<NgWordRule> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_obs_automation_rule(
+    List<ObsAutomationRule> self,
     SseSerializer serializer,
   );
 
@@ -1296,6 +1761,60 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_queue_entry(
     List<QueueEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_string_list_string(
+    List<(String, List<String>)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_record_string_overlay_visual_style(
+    List<(String, OverlayVisualStyle)> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_report_minute_bucket(
+    List<ReportMinuteBucket> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_report_peak_item(
+    List<ReportPeakItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_report_user_rank(
+    List<ReportUserRank> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_report_word_rank(
+    List<ReportWordRank> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_saved_channel_item(
+    List<SavedChannelItem> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_stream_profile_summary(
+    List<StreamProfileSummary> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_stream_session_summary(
+    List<StreamSessionSummary> self,
     SseSerializer serializer,
   );
 
@@ -1375,6 +1894,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_message_run(MessageRun self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_message_run_kind(
+    MessageRunKind self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_monetization_event_kind(
     MonetizationEventKind self,
     SseSerializer serializer,
@@ -1383,6 +1911,39 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_monetization_item(
     MonetizationItem self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_ng_word_action(NgWordAction self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ng_word_rule(NgWordRule self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_obs_action_type(ObsActionType self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_obs_automation_rule(
+    ObsAutomationRule self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_obs_trigger_type(
+    ObsTriggerType self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_obs_ws_config(ObsWsConfig self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_obs_ws_status(ObsWsStatus self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_on_air_report_dto(
+    OnAirReportDto self,
     SseSerializer serializer,
   );
 
@@ -1450,6 +2011,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_obs_ws_status(
+    ObsWsStatus? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_overlay_config(
     OverlayConfig? self,
     SseSerializer serializer,
@@ -1513,6 +2080,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_list_ng_word_rule(
+    List<NgWordRule>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_list_stream_profile_summary(
+    List<StreamProfileSummary>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_list_word_counter_config(
     List<WordCounterConfig>? self,
     SseSerializer serializer,
@@ -1520,6 +2099,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_overlay_config(OverlayConfig self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_overlay_visual_style(
+    OverlayVisualStyle self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_picked_comment_state(
@@ -1561,6 +2146,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_queue_state(QueueState self, SseSerializer serializer);
 
   @protected
+  void sse_encode_record_string_list_string(
+    (String, List<String>) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_record_string_overlay_visual_style(
+    (String, OverlayVisualStyle) self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_release_notes_info(
     ReleaseNotesInfo self,
     SseSerializer serializer,
@@ -1575,6 +2172,54 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_remote_access_status(
     RemoteAccessStatus self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_report_minute_bucket(
+    ReportMinuteBucket self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_report_peak_item(
+    ReportPeakItem self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_report_user_rank(
+    ReportUserRank self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_report_word_rank(
+    ReportWordRank self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_resolved_you_tube_live(
+    ResolvedYouTubeLive self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_saved_channel_item(
+    SavedChannelItem self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_stream_profile_summary(
+    StreamProfileSummary self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_stream_session_summary(
+    StreamSessionSummary self,
     SseSerializer serializer,
   );
 

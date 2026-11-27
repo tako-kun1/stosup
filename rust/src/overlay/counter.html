@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Stosup ワードカウンターオーバーレイ</title>
+<title>Stosup コールカウンター</title>
 <link rel="icon" href="/favicon.ico" />
+<script src="/overlay/stosup-overlay.js"></script>
 <style id="stosup-base-css">
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -12,7 +13,8 @@
     height: 100%;
     background: var(--page-bg, transparent) !important;
     overflow: hidden;
-    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
+    font-family: var(--font-family, "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", sans-serif);
+    -webkit-font-smoothing: antialiased;
   }
   #counters {
     display: flex;
@@ -20,19 +22,24 @@
     gap: 12px;
     padding: 14px;
   }
+
+  /* ==================== 既定: broadcast (オンエア計器プレート) ==================== */
   .card {
-    background: rgba(24, 24, 27, 0.92);
-    border-radius: 10px;
-    border: 1.5px solid var(--accent, #2b7de9);
-    padding: 12px 18px;
-    min-width: 210px;
-    color: #f4f4f5;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    background: rgba(17, 19, 23, 0.95);
+    border-radius: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-left: 5px solid var(--accent, #d93829);
+    padding: 11px 18px 12px;
+    min-width: 215px;
+    color: #f7f8fa;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.36);
+    contain: layout style;
   }
   .label {
-    font-size: 13.5px;
-    font-weight: 700;
-    color: #d4d4d8;
+    font-size: 12.5px;
+    font-weight: 800;
+    color: #c7ccd6;
+    letter-spacing: 0.04em;
     margin-bottom: 4px;
     display: flex;
     align-items: center;
@@ -40,80 +47,118 @@
     gap: 8px;
   }
   .mode-tag {
-    font-size: 11px;
-    padding: 2px 7px;
-    border-radius: 4px;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 2px;
     background: rgba(255, 255, 255, 0.1);
-    color: #e4e4e7;
+    color: #e4e7ee;
+    font-weight: 800;
   }
   .value {
-    font-size: 40px;
+    font-size: 44px;
     font-weight: 900;
-    line-height: 1.1;
-    color: var(--accent, #2b7de9);
+    line-height: 1.05;
+    color: #ffffff;
     font-variant-numeric: tabular-nums;
-    transition: transform 0.15s ease;
+    transition: transform 0.14s ease;
   }
-  .value.bump { transform: scale(1.14); }
+  .value.bump { transform: scale(1.12); color: var(--accent, #d93829); }
   .sub {
     margin-top: 4px;
-    font-size: 12px;
-    color: #a1a1aa;
+    font-size: 11.5px;
+    color: #9aa2b1;
+    font-variant-numeric: tabular-nums;
   }
 
-  /* プリセット: compact (コンパクト・バッジ) */
-  body[data-theme="compact"] .card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: auto;
-    padding: 8px 16px;
-    border-radius: 999px;
+  /* ==================== editorial ==================== */
+  body[data-theme="editorial"] .card {
+    background: rgba(248, 245, 239, 0.97);
+    color: #1c1b18;
+    border: 1px solid #d4cdc0;
+    border-left: 4px solid var(--accent, #c2593f);
+    box-shadow: 0 4px 14px rgba(28, 27, 24, 0.1);
   }
-  body[data-theme="compact"] .label { margin-bottom: 0; font-size: 14px; }
-  body[data-theme="compact"] .mode-tag,
-  body[data-theme="compact"] .sub { display: none; }
-  body[data-theme="compact"] .value { font-size: 26px; }
+  body[data-theme="editorial"] .label { color: #5c574f; }
+  body[data-theme="editorial"] .mode-tag { background: #e7e1d6; color: #3f3c36; }
+  body[data-theme="editorial"] .value { color: #1c1b18; }
+  body[data-theme="editorial"] .sub { color: #6e6a62; }
 
-  /* プリセット: scoreboard (スコアボード・デジタル) */
-  body[data-theme="scoreboard"] .card {
-    background: #111214;
-    border: 2px solid #3f3f46;
-    border-top: 5px solid var(--accent, #2b7de9);
-    border-radius: 4px;
-    min-width: 220px;
-    text-align: center;
-    padding: 10px 18px 14px;
+  /* ==================== tactical ==================== */
+  body[data-theme="tactical"] .card {
+    background: rgba(18, 20, 23, 0.95);
+    color: #edebe4;
+    border: 1px solid rgba(237, 235, 228, 0.22);
+    border-top: 3px solid var(--accent, #e5a93b);
+    border-left: 1px solid rgba(237, 235, 228, 0.22);
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+    box-shadow: none;
   }
-  body[data-theme="scoreboard"] .label { justify-content: center; letter-spacing: 0.04em; }
-  body[data-theme="scoreboard"] .value {
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 52px;
-    margin: 4px 0;
-  }
-
-  /* プリセット: neon (ネオン・フレーム) */
-  body[data-theme="neon"] .card {
-    background: rgba(9, 11, 20, 0.9);
-    border: 2px solid var(--accent, #22d3ee);
-    border-radius: 6px;
-    box-shadow: 0 0 18px rgba(34, 211, 238, 0.28);
-  }
-  body[data-theme="neon"] .value {
-    text-shadow: 0 0 14px var(--accent, #22d3ee);
+  body[data-theme="tactical"] .value {
+    font-family: "Consolas", "Cascadia Mono", monospace;
+    color: var(--accent, #e5a93b);
+    font-size: 48px;
   }
 
-  /* プリセット: pastel (パステル・やわらか) */
-  body[data-theme="pastel"] .card {
-    background: rgba(255, 255, 255, 0.95);
-    color: #27272a;
-    border: 3px solid var(--accent, #f472b6);
-    border-radius: 20px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  /* ==================== variety ==================== */
+  body[data-theme="variety"] .card {
+    background: #fffdf7;
+    color: #182033;
+    border: 3px solid #182033;
+    border-radius: 12px;
+    box-shadow: 5px 5px 0 #182033;
   }
-  body[data-theme="pastel"] .label { color: #3f3f46; }
-  body[data-theme="pastel"] .mode-tag { background: #f4f4f5; color: #52525b; }
-  body[data-theme="pastel"] .sub { color: #71717a; }
+  body[data-theme="variety"] .label { color: #182033; }
+  body[data-theme="variety"] .mode-tag { background: #f5c518; color: #182033; border-radius: 4px; }
+  body[data-theme="variety"] .value { color: #182033; }
+  body[data-theme="variety"] .sub { color: #3b465e; }
+
+  /* ==================== cinema ==================== */
+  body[data-theme="cinema"] .card {
+    background: transparent;
+    border: none;
+    border-left: 3.5px solid var(--accent, #f5c518);
+    padding: 4px 12px;
+    box-shadow: none;
+  }
+  body[data-theme="cinema"] .label,
+  body[data-theme="cinema"] .value,
+  body[data-theme="cinema"] .sub {
+    color: #ffffff;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 3.5px rgba(10, 12, 16, 0.94);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
+  }
+
+  /* ==================== edge_glow (エッジ・グロウ) ==================== */
+  body[data-theme="edge_glow"] .card {
+    background: rgba(9, 13, 22, 0.78);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-top: 3px solid var(--accent, #38bdf8);
+    border-radius: 5px;
+    box-shadow: 0 8px 22px rgba(2, 6, 23, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  body[data-theme="edge_glow"] .label {
+    color: #bae6fd;
+    text-shadow: 0 0 5px rgba(56, 189, 248, 0.7), 0 0 12px rgba(56, 189, 248, 0.35);
+  }
+  body[data-theme="edge_glow"] .value {
+    color: #f8fafc;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 2px rgba(8, 13, 24, 0.88);
+    text-shadow:
+      2px 0 3px rgba(56, 189, 248, 0.78),
+      -2px 0 3px rgba(56, 189, 248, 0.78),
+      0 2px 3px rgba(56, 189, 248, 0.78),
+      0 -2px 3px rgba(56, 189, 248, 0.78),
+      0 0 10px rgba(56, 189, 248, 0.62),
+      0 0 22px rgba(56, 189, 248, 0.36);
+  }
+  body[data-theme="edge_glow"] .sub {
+    color: #cbd5e1;
+    text-shadow: 0 0 6px rgba(56, 189, 248, 0.4);
+  }
 
   body.has-custom-font,
   body.has-custom-font * {
@@ -122,97 +167,147 @@
 </style>
 <style id="stosup-custom-css"></style>
 </head>
-<body data-theme="default">
+<body data-theme="broadcast">
   <div id="counters"></div>
 <script>
   const container = document.getElementById('counters');
   const customStyleEl = document.getElementById('stosup-custom-css');
   const params = new URLSearchParams(location.search);
   const filterId = params.get('id');
-  const urlThemeOverride = params.get('theme');
-  const urlBgOverride = params.get('bg');
-  const urlFontOverride = params.get('font');
-  const prevValues = new Map();
-  let config = { counter_theme: 'default', counter_bg_color: 'transparent', counter_font_family: '', counter_custom_css: '' };
+  const urlTheme = params.get('theme');
+  const urlBg = params.get('bg');
+  const urlFont = params.get('font');
 
-  function applyFontFamily(rawFont) {
-    const f = (rawFont || '').trim();
-    if (f) {
-      const safe = f.replace(/["\\]/g, '');
-      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
-      document.body.classList.add('has-custom-font');
-    } else {
-      document.documentElement.style.removeProperty('--font-family');
-      document.body.classList.remove('has-custom-font');
-    }
-  }
-
-  function resolvePageBg(raw) {
-    const val = (raw || 'transparent').trim();
-    if (!val || val.toLowerCase() === 'transparent') return 'transparent';
-    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return '#' + val;
-    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return val;
-    return 'transparent';
-  }
+  let prevValues = {};
+  let config = {
+    counter_theme: 'broadcast',
+    counter_bg_color: 'transparent',
+    counter_font_family: '',
+    counter_custom_css: '',
+    visual_styles: {}
+  };
 
   function applyDesign() {
-    document.body.dataset.theme = urlThemeOverride || config.counter_theme || 'default';
-    document.documentElement.style.setProperty('--page-bg', resolvePageBg(urlBgOverride || config.counter_bg_color));
-    applyFontFamily(urlFontOverride || config.counter_font_family);
-    customStyleEl.textContent = config.counter_custom_css || '';
+    document.body.dataset.theme = StosupOverlay.normalizeTheme(urlTheme || config.counter_theme);
+    document.documentElement.style.setProperty('--page-bg', StosupOverlay.resolveBg(urlBg || config.counter_bg_color));
+    StosupOverlay.applyFont(urlFont || config.counter_font_family);
+    StosupOverlay.applyOverlayVisualStyle('counter', config, {
+      card: '.card',
+      text: '.value, .label',
+      author: '.label',
+      animate: '.card'
+    });
+    StosupOverlay.applyCustomCss(customStyleEl, config.counter_custom_css);
   }
 
-  function renderCounters(list) {
-    const visible = (list || []).filter((c) => c.enabled && (!filterId || c.id === filterId));
-    container.innerHTML = '';
+  // id キーでカード DOM を再利用し、高頻度カウント時の全 DOM 破棄・再構築を排除
+  const cardMap = new Map();
 
-    visible.forEach((c) => {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.style.setProperty('--accent', c.accent_color || '#2b7de9');
+  function render(counters) {
+    const list = (counters || []).filter(c => c.enabled && (!filterId || c.id === filterId));
+    const activeIds = new Set(list.map(c => c.id));
 
-      const label = document.createElement('div');
-      label.className = 'label';
-      const title = document.createElement('span');
-      title.textContent = c.name;
-      const tag = document.createElement('span');
-      tag.className = 'mode-tag';
-      tag.textContent = c.max_per_account != null ? `1人${c.max_per_account}回まで` : '上限なし';
-      label.appendChild(title);
-      label.appendChild(tag);
-
-      const val = document.createElement('div');
-      val.className = 'value';
-      val.textContent = String(c.total_count);
-      if (prevValues.has(c.id) && prevValues.get(c.id) !== c.total_count) {
-        val.classList.add('bump');
-        setTimeout(() => val.classList.remove('bump'), 180);
+    // 先に削除・無効化されたカードを除去することで、残存カードへの不要な insertBefore（再アニメーション）を防止
+    for (const [id, entry] of cardMap.entries()) {
+      if (!activeIds.has(id)) {
+        if (entry.bumpTimer) clearTimeout(entry.bumpTimer);
+        entry.card.remove();
+        cardMap.delete(id);
+        delete prevValues[id];
       }
-      prevValues.set(c.id, c.total_count);
+    }
 
-      const sub = document.createElement('div');
-      sub.className = 'sub';
-      sub.textContent = `対象: ${(c.keywords || []).join(', ')} / 参加 ${c.unique_user_count}人`;
+    const bumpedEntries = [];
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      let entry = cardMap.get(c.id);
+      if (!entry) {
+        const card = document.createElement('div');
+        card.className = 'card';
 
-      card.appendChild(label);
-      card.appendChild(val);
-      card.appendChild(sub);
-      container.appendChild(card);
-    });
+        const label = document.createElement('div');
+        label.className = 'label';
+        const title = document.createElement('span');
+        const tag = document.createElement('span');
+        tag.className = 'mode-tag';
+        label.appendChild(title);
+        label.appendChild(tag);
+
+        const val = document.createElement('div');
+        val.className = 'value';
+
+        const sub = document.createElement('div');
+        sub.className = 'sub';
+
+        card.appendChild(label);
+        card.appendChild(val);
+        card.appendChild(sub);
+
+        entry = { card, title, tag, val, sub, bumpTimer: null };
+        cardMap.set(c.id, entry);
+      }
+
+      const accent = c.accent_color || '#d93829';
+      if (entry.card.style.getPropertyValue('--accent') !== accent) {
+        entry.card.style.setProperty('--accent', accent);
+      }
+      if (entry.title.textContent !== c.name) {
+        entry.title.textContent = c.name;
+      }
+      const modeText = c.max_per_account != null ? `1人${c.max_per_account}回` : '上限なし';
+      if (entry.tag.textContent !== modeText) {
+        entry.tag.textContent = modeText;
+      }
+      const nextValText = String(c.total_count || 0);
+      if (entry.val.textContent !== nextValText) {
+        entry.val.textContent = nextValText;
+      }
+      if (prevValues[c.id] !== undefined && prevValues[c.id] !== c.total_count) {
+        entry.val.classList.remove('bump');
+        bumpedEntries.push(entry);
+      }
+      prevValues[c.id] = c.total_count;
+
+      const subText = `参加 ${c.unique_user_count || 0} 人 / ワード: ${(c.keywords || []).join(', ')}`;
+      if (entry.sub.textContent !== subText) {
+        entry.sub.textContent = subText;
+      }
+
+      // 並び順が変わった場合や新規追加時のみ DOM 挿入
+      const expectedAtIndex = container.children[i];
+      if (expectedAtIndex !== entry.card) {
+        container.insertBefore(entry.card, expectedAtIndex || null);
+      }
+    }
+
+    // 複数カウンター同時更新時のレイアウトスラッシングを防ぐため、DOM 書き込み完了後にまとめて再フロー・bump 付与
+    if (bumpedEntries.length > 0) {
+      for (const entry of bumpedEntries) {
+        void entry.val.offsetWidth;
+      }
+      for (const entry of bumpedEntries) {
+        entry.val.classList.add('bump');
+        if (entry.bumpTimer) clearTimeout(entry.bumpTimer);
+        entry.bumpTimer = setTimeout(() => {
+          entry.val.classList.remove('bump');
+          entry.bumpTimer = null;
+        }, 200);
+      }
+    }
   }
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${location.host}/ws?channel=counter`);
+    const ws = new WebSocket(window.StosupOverlay.buildWsUrl('counter'));
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
         if (data.type === 'snapshot') {
           config = Object.assign(config, data.config || {});
           applyDesign();
-          renderCounters(data.counters);
+          render(data.counters);
         } else if (data.type === 'counters') {
-          renderCounters(data.counters);
+          render(data.counters);
         } else if (data.type === 'config_updated') {
           config = Object.assign(config, data.config || {});
           applyDesign();
@@ -222,6 +317,7 @@
     ws.onclose = () => setTimeout(connect, 2000);
     ws.onerror = () => ws.close();
   }
+
   applyDesign();
   connect();
 </script>

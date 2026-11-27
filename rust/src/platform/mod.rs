@@ -74,6 +74,75 @@ pub fn extract_youtube_video_id(input: &str) -> Result<String> {
     ))
 }
 
+/// YouTube 入力の解析種別（動画ID直接指定 または チャンネルURL/ハンドルからの自動検出）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum YouTubeInputTarget {
+    VideoId(String),
+    ChannelLiveUrl(String),
+}
+
+/// 入力文字列が 動画ID/配信URL か、チャンネルURL/@ハンドル かを判定する
+pub fn parse_youtube_input_target(input: &str) -> Result<YouTubeInputTarget> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err(anyhow!(
+            "YouTube 配信URL・動画ID・またはチャンネルURL（@ハンドル）を入力してください"
+        ));
+    }
+
+    if let Ok(vid) = extract_youtube_video_id(trimmed) {
+        return Ok(YouTubeInputTarget::VideoId(vid));
+    }
+
+    // @handle 直接入力
+    if trimmed.starts_with('@') && trimmed.len() >= 2 && !trimmed.contains(char::is_whitespace) {
+        let handle = trimmed.trim_end_matches('/');
+        return Ok(YouTubeInputTarget::ChannelLiveUrl(format!(
+            "https://www.youtube.com/{}/live",
+            handle
+        )));
+    }
+
+    // UC... チャンネルID直接入力 (24文字)
+    let ch_id_re = Regex::new(r"^UC[A-Za-z0-9_-]{22}$").unwrap();
+    if ch_id_re.is_match(trimmed) {
+        return Ok(YouTubeInputTarget::ChannelLiveUrl(format!(
+            "https://www.youtube.com/channel/{}/live",
+            trimmed
+        )));
+    }
+
+    // チャンネルURL (/channel/UC..., /@handle, /c/..., /user/...)
+    if let Ok(parsed) = url::Url::parse(trimmed) {
+        let host = parsed.host_str().unwrap_or("").to_ascii_lowercase();
+        if host.contains("youtube.com") {
+            let segs: Vec<&str> = parsed
+                .path_segments()
+                .map(|s| s.filter(|p| !p.is_empty()).collect())
+                .unwrap_or_default();
+            if let Some(first) = segs.first() {
+                if first.starts_with('@') {
+                    return Ok(YouTubeInputTarget::ChannelLiveUrl(format!(
+                        "https://www.youtube.com/{}/live",
+                        first
+                    )));
+                }
+                if matches!(*first, "channel" | "c" | "user") && segs.len() >= 2 {
+                    return Ok(YouTubeInputTarget::ChannelLiveUrl(format!(
+                        "https://www.youtube.com/{}/{}/live",
+                        first, segs[1]
+                    )));
+                }
+            }
+        }
+    }
+
+    Err(anyhow!(
+        "有効な YouTube 配信URL・動画ID・またはチャンネルURL（@ハンドル）を認識できませんでした: {}",
+        trimmed
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,5 +172,27 @@ mod tests {
             "dQw4w9WgXcQ"
         );
         assert!(extract_youtube_video_id("https://example.com/not-youtube").is_err());
+    }
+
+    #[test]
+    fn test_parse_youtube_input_target_channel() {
+        assert_eq!(
+            parse_youtube_input_target("@takokun_ch").unwrap(),
+            YouTubeInputTarget::ChannelLiveUrl("https://www.youtube.com/@takokun_ch/live".to_string())
+        );
+        assert_eq!(
+            parse_youtube_input_target("https://www.youtube.com/@takokun_ch/streams").unwrap(),
+            YouTubeInputTarget::ChannelLiveUrl("https://www.youtube.com/@takokun_ch/live".to_string())
+        );
+        assert_eq!(
+            parse_youtube_input_target("UC1234567890123456789012").unwrap(),
+            YouTubeInputTarget::ChannelLiveUrl(
+                "https://www.youtube.com/channel/UC1234567890123456789012/live".to_string()
+            )
+        );
+        assert_eq!(
+            parse_youtube_input_target("dQw4w9WgXcQ").unwrap(),
+            YouTubeInputTarget::VideoId("dQw4w9WgXcQ".to_string())
+        );
     }
 }

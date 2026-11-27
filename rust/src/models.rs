@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 /// 対応配信プラットフォーム（将来の拡張を前提とした列挙型）
@@ -39,6 +41,7 @@ pub enum ConnectionStatus {
     Disconnected,
     Connecting,
     Connected,
+    Reconnecting,
     Error,
 }
 
@@ -52,6 +55,8 @@ pub struct ConnectionStateDto {
     pub session_id: String,
     pub error_message: Option<String>,
     pub can_post_chat: bool,
+    #[serde(default)]
+    pub reconnect_attempt: u32,
 }
 
 impl Default for ConnectionStateDto {
@@ -65,8 +70,62 @@ impl Default for ConnectionStateDto {
             session_id: String::new(),
             error_message: None,
             can_post_chat: false,
+            reconnect_attempt: 0,
         }
     }
+}
+
+/// 過去の配信接続履歴
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionHistoryItem {
+    pub id: String,
+    pub platform: PlatformKind,
+    pub stream_id: String,
+    pub input_url: String,
+    pub stream_title: String,
+    pub mode: ConnectionMode,
+    pub last_connected_ms: i64,
+    pub is_favorite: bool,
+}
+
+/// 自動検出用のお気に入り登録チャンネル
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SavedChannelItem {
+    pub id: String,
+    pub label: String,
+    /// 例: "@mychannel", "https://www.youtube.com/@mychannel", "UCxxxxxxxx"
+    pub channel_input: String,
+    pub last_video_id: String,
+    pub last_checked_ms: i64,
+}
+
+/// チャンネルから自動解決した配信枠情報
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolvedYouTubeLive {
+    pub video_id: String,
+    pub title: String,
+    pub is_live: bool,
+    pub is_upcoming: bool,
+    pub source_input: String,
+}
+
+/// コメント本文を構成するテキスト / 絵文字・スタンプ要素
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MessageRunKind {
+    Text,
+    Emoji,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MessageRun {
+    pub kind: MessageRunKind,
+    pub text: String,
+    #[serde(default)]
+    pub emoji_url: Option<String>,
+    #[serde(default)]
+    pub alt: Option<String>,
+    #[serde(default)]
+    pub is_custom_emoji: bool,
 }
 
 /// ワードの一致判定方式
@@ -154,11 +213,17 @@ pub struct CommentItem {
     pub user_memo: String,
     pub is_first_time: bool,
     pub message: String,
+    #[serde(default)]
+    pub message_runs: Vec<MessageRun>,
     pub timestamp_ms: i64,
     pub is_owner: bool,
     pub is_moderator: bool,
     pub is_member: bool,
     pub is_banned: bool,
+    #[serde(default)]
+    pub is_ng_masked: bool,
+    #[serde(default)]
+    pub hidden_from_overlay: bool,
     pub highlight_rule_id: Option<String>,
     pub bubble_bg_color: Option<String>,
     pub bubble_text_color: Option<String>,
@@ -189,6 +254,8 @@ pub struct MonetizationItem {
     pub currency: String,
     pub tier_color: String,
     pub message: String,
+    #[serde(default)]
+    pub message_runs: Vec<MessageRun>,
     pub timestamp_ms: i64,
     pub is_checked: bool,
     pub checked_at_ms: Option<i64>,
@@ -1141,6 +1208,198 @@ pub struct OverlayConfig {
     /// ワード反応メディア用ユーザーカスタム CSS
     #[serde(default)]
     pub media_custom_css: String,
+    /// 各オーバーレイ別の GUI ビジュアルスタイル設定（キー: "comments", "superchat", "pickup", "poll", "queue", "media", "lottery", "counter", "first_time"）
+    #[serde(default)]
+    pub visual_styles: HashMap<String, OverlayVisualStyle>,
+}
+
+/// ソフト単体で高度なデザイン・テキスト装飾を行うための構造化スタイル
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OverlayVisualStyle {
+    /// true のとき GUI スタイルをプリセットに上書き適用する
+    #[serde(default)]
+    pub enabled: bool,
+    /// 本文フォントサイズ (px / 0 = プリセット既定)
+    #[serde(default)]
+    pub font_size: u32,
+    /// フォントウェイト (0 = プリセット既定, 300..=900)
+    #[serde(default)]
+    pub font_weight: u32,
+    /// 字間 (0.1px 単位: 例 5 = 0.5px, -5 = -0.5px)
+    #[serde(default)]
+    pub letter_spacing_tenths: i32,
+    /// 行間 (% 単位: 0 = プリセット既定, 例 145 = 1.45)
+    #[serde(default)]
+    pub line_height_percent: u32,
+    /// 文字色（空文字 = プリセット既定）
+    #[serde(default)]
+    pub text_color: String,
+    /// 文字2色グラデーションを有効にするか
+    #[serde(default)]
+    pub use_text_gradient: bool,
+    #[serde(default = "default_grad_start")]
+    pub text_gradient_start: String,
+    #[serde(default = "default_grad_end")]
+    pub text_gradient_end: String,
+    /// グラデーション角度 (0..=360)
+    #[serde(default = "default_grad_angle")]
+    pub text_gradient_angle: u32,
+    /// 投稿者名・見出し色（空文字 = プリセット既定）
+    #[serde(default)]
+    pub author_color: String,
+    /// アクセント色（空文字 = プリセット既定）
+    #[serde(default)]
+    pub accent_color: String,
+    /// 内側縁取り（袋文字）太さ (px / 0 = なし)
+    #[serde(default)]
+    pub stroke_width: u32,
+    #[serde(default = "default_stroke_color")]
+    pub stroke_color: String,
+    /// 外側二重縁取り太さ (px / 0 = なし)
+    #[serde(default)]
+    pub outer_stroke_width: u32,
+    #[serde(default = "default_outer_stroke_color")]
+    pub outer_stroke_color: String,
+    /// 文字ドロップシャドウ
+    #[serde(default)]
+    pub text_shadow_enabled: bool,
+    #[serde(default = "default_shadow_color")]
+    pub text_shadow_color: String,
+    #[serde(default = "default_shadow_blur")]
+    pub text_shadow_blur: u32,
+    #[serde(default = "default_shadow_offset")]
+    pub text_shadow_offset_x: i32,
+    #[serde(default = "default_shadow_offset")]
+    pub text_shadow_offset_y: i32,
+    /// テキストのエッジ発光（Edge Glow）を有効にするか
+    #[serde(default)]
+    pub text_glow_enabled: bool,
+    /// エッジ発光色 (HEX)
+    #[serde(default = "default_glow_color")]
+    pub text_glow_color: String,
+    /// エッジ発光の広がり（ぼかし半径: 1..=40px）
+    #[serde(default = "default_glow_radius")]
+    pub text_glow_radius: u32,
+    /// エッジ発光の強度（10..=200%）
+    #[serde(default = "default_glow_intensity")]
+    pub text_glow_intensity: u32,
+    /// エッジ発光の芯・輪郭にじみ太さ（0..=10px）
+    #[serde(default = "default_glow_spread")]
+    pub text_glow_spread: u32,
+    /// カード背景色（空文字 = プリセット既定）
+    #[serde(default)]
+    pub card_bg_color: String,
+    /// カード背景不透明度 (0..=100, デフォルト 92)
+    #[serde(default = "default_card_opacity")]
+    pub card_bg_opacity: u32,
+    /// 角丸半径 (-1 = プリセット既定, 0..=28px)
+    #[serde(default = "default_border_radius_inherit")]
+    pub border_radius: i32,
+    /// 枠線太さ (-1 = プリセット既定, 0..=6px)
+    #[serde(default = "default_border_width_inherit")]
+    pub border_width: i32,
+    /// 枠線色（空文字 = プリセット既定）
+    #[serde(default)]
+    pub border_color: String,
+    /// 影の強さ ("inherit" | "none" | "soft" | "medium" | "hard")
+    #[serde(default = "default_inherit_str")]
+    pub card_shadow: String,
+    /// 余白サイズ ("inherit" | "compact" | "normal" | "relaxed")
+    #[serde(default = "default_inherit_str")]
+    pub padding_scale: String,
+    /// 出現アニメーション ("inherit" | "wipe" | "slide" | "fade" | "pop" | "none")
+    #[serde(default = "default_inherit_str")]
+    pub entrance_animation: String,
+}
+
+fn default_grad_start() -> String {
+    "#FFFFFF".to_string()
+}
+fn default_grad_end() -> String {
+    "#FDE047".to_string()
+}
+fn default_grad_angle() -> u32 {
+    180
+}
+fn default_stroke_color() -> String {
+    "#111114".to_string()
+}
+fn default_outer_stroke_color() -> String {
+    "#FFFFFF".to_string()
+}
+fn default_shadow_color() -> String {
+    "#000000".to_string()
+}
+fn default_shadow_blur() -> u32 {
+    6
+}
+fn default_shadow_offset() -> i32 {
+    2
+}
+fn default_glow_color() -> String {
+    "#38BDF8".to_string()
+}
+fn default_glow_radius() -> u32 {
+    12
+}
+fn default_glow_intensity() -> u32 {
+    85
+}
+fn default_glow_spread() -> u32 {
+    2
+}
+fn default_card_opacity() -> u32 {
+    92
+}
+fn default_border_radius_inherit() -> i32 {
+    -1
+}
+fn default_border_width_inherit() -> i32 {
+    -1
+}
+fn default_inherit_str() -> String {
+    "inherit".to_string()
+}
+
+impl Default for OverlayVisualStyle {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            font_size: 0,
+            font_weight: 0,
+            letter_spacing_tenths: 0,
+            line_height_percent: 0,
+            text_color: String::new(),
+            use_text_gradient: false,
+            text_gradient_start: default_grad_start(),
+            text_gradient_end: default_grad_end(),
+            text_gradient_angle: default_grad_angle(),
+            author_color: String::new(),
+            accent_color: String::new(),
+            stroke_width: 0,
+            stroke_color: default_stroke_color(),
+            outer_stroke_width: 0,
+            outer_stroke_color: default_outer_stroke_color(),
+            text_shadow_enabled: false,
+            text_shadow_color: default_shadow_color(),
+            text_shadow_blur: default_shadow_blur(),
+            text_shadow_offset_x: default_shadow_offset(),
+            text_shadow_offset_y: default_shadow_offset(),
+            text_glow_enabled: false,
+            text_glow_color: default_glow_color(),
+            text_glow_radius: default_glow_radius(),
+            text_glow_intensity: default_glow_intensity(),
+            text_glow_spread: default_glow_spread(),
+            card_bg_color: String::new(),
+            card_bg_opacity: default_card_opacity(),
+            border_radius: default_border_radius_inherit(),
+            border_width: default_border_width_inherit(),
+            border_color: String::new(),
+            card_shadow: default_inherit_str(),
+            padding_scale: default_inherit_str(),
+            entrance_animation: default_inherit_str(),
+        }
+    }
 }
 
 impl Default for OverlayConfig {
@@ -1153,15 +1412,15 @@ impl Default for OverlayConfig {
             show_timestamps: false,
             default_bubble_bg: default_bubble_bg(),
             default_text_color: default_text_color(),
-            comments_theme: default_theme_name(),
-            lottery_theme: default_theme_name(),
-            counter_theme: default_theme_name(),
-            first_time_theme: default_theme_name(),
-            superchat_theme: default_theme_name(),
-            poll_theme: default_theme_name(),
-            pickup_theme: default_theme_name(),
-            queue_theme: default_theme_name(),
-            media_theme: default_theme_name(),
+            comments_theme: "broadcast".to_string(),
+            lottery_theme: "broadcast".to_string(),
+            counter_theme: "broadcast".to_string(),
+            first_time_theme: "broadcast".to_string(),
+            superchat_theme: "broadcast".to_string(),
+            poll_theme: "broadcast".to_string(),
+            pickup_theme: "broadcast".to_string(),
+            queue_theme: "broadcast".to_string(),
+            media_theme: "broadcast".to_string(),
             comments_bg_color: default_overlay_bg(),
             lottery_bg_color: default_overlay_bg(),
             counter_bg_color: default_overlay_bg(),
@@ -1189,6 +1448,7 @@ impl Default for OverlayConfig {
             pickup_custom_css: String::new(),
             queue_custom_css: String::new(),
             media_custom_css: String::new(),
+            visual_styles: HashMap::new(),
         }
     }
 }
@@ -1263,6 +1523,7 @@ pub struct RawIncomingComment {
     pub user_name: String,
     pub user_icon_url: String,
     pub message: String,
+    pub message_runs: Vec<MessageRun>,
     pub timestamp_ms: i64,
     pub is_owner: bool,
     pub is_moderator: bool,
@@ -1272,6 +1533,309 @@ pub struct RawIncomingComment {
     pub amount_micros: u64,
     pub currency: String,
     pub tier_color: Option<String>,
+}
+
+/// NG ワード検知時の動作モード
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NgWordAction {
+    /// アプリ・OBS・各種集計すべてから完全に除外する
+    HideEverywhere,
+    /// アプリ内のトークモニターでは警告表示し、OBS オーバーレイへは流さない
+    HideOnOverlay,
+    /// 該当ワードを指定文字（例: ***）に伏せ字置換して表示する
+    MaskText,
+}
+
+impl NgWordAction {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            NgWordAction::HideEverywhere => "hide_everywhere",
+            NgWordAction::HideOnOverlay => "hide_on_overlay",
+            NgWordAction::MaskText => "mask_text",
+        }
+    }
+
+    pub fn from_str_lossy(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "hide_everywhere" => NgWordAction::HideEverywhere,
+            "hide_on_overlay" => NgWordAction::HideOnOverlay,
+            _ => NgWordAction::MaskText,
+        }
+    }
+}
+
+/// NG ワード防御ルール
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NgWordRule {
+    pub id: String,
+    pub pattern: String,
+    pub match_mode: MatchMode,
+    pub case_sensitive: bool,
+    pub action: NgWordAction,
+    #[serde(default = "default_ng_replacement")]
+    pub replacement: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+fn default_ng_replacement() -> String {
+    "***".to_string()
+}
+
+/// OBS WebSocket 自動連動トリガー種別
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ObsTriggerType {
+    SuperChatMinAmount,
+    Membership,
+    Keyword,
+    FirstTime,
+    LotteryWinner,
+    Manual,
+}
+
+/// OBS WebSocket 自動連動アクション種別
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ObsActionType {
+    SwitchScene,
+    SetSceneItemVisible,
+    ToggleSceneItem,
+}
+
+/// OBS WebSocket 自動連動ルール
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ObsAutomationRule {
+    pub id: String,
+    pub name: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub trigger_type: ObsTriggerType,
+    #[serde(default)]
+    pub pattern: String,
+    #[serde(default)]
+    pub min_amount_jpy: u64,
+    pub action_type: ObsActionType,
+    #[serde(default)]
+    pub target_scene: String,
+    #[serde(default)]
+    pub target_source: String,
+    #[serde(default = "default_true")]
+    pub set_visible: bool,
+    /// 0 の場合は復帰しない。1 以上なら指定ミリ秒後に反対の表示状態へ自動復帰
+    #[serde(default)]
+    pub auto_revert_ms: u32,
+}
+
+/// OBS WebSocket v5 接続＆自動連動設定
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ObsWsConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_obs_host")]
+    pub host: String,
+    #[serde(default = "default_obs_port")]
+    pub port: u16,
+    #[serde(default)]
+    pub password: String,
+    #[serde(default)]
+    pub auto_connect: bool,
+    #[serde(default)]
+    pub reset_first_time_on_stream_start: bool,
+    #[serde(default)]
+    pub reset_counters_on_stream_start: bool,
+    #[serde(default)]
+    pub rules: Vec<ObsAutomationRule>,
+}
+
+fn default_obs_host() -> String {
+    "127.0.0.1".to_string()
+}
+fn default_obs_port() -> u16 {
+    4455
+}
+
+impl Default for ObsWsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            host: default_obs_host(),
+            port: default_obs_port(),
+            password: String::new(),
+            auto_connect: false,
+            reset_first_time_on_stream_start: false,
+            reset_counters_on_stream_start: false,
+            rules: Vec::new(),
+        }
+    }
+}
+
+/// OBS WebSocket 現在の接続状態と取得済みシーン／ソース一覧
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ObsWsStatus {
+    pub connected: bool,
+    pub connecting: bool,
+    pub obs_version: String,
+    pub current_scene: String,
+    pub scenes: Vec<String>,
+    /// シーン名 -> ソース名一覧
+    pub scene_sources: HashMap<String, Vec<String>>,
+    pub is_streaming: bool,
+    pub last_error: Option<String>,
+}
+
+/// グローバルホットキー / Stream Deck トリガーで実行可能なアクション
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AutomationActionKind {
+    ClearPickup,
+    PickLatestComment,
+    TriggerMediaRule,
+    ClearMedia,
+    EndPoll,
+    AdvanceQueue,
+    ResetFirstTime,
+    ToggleFeature,
+    ObsSwitchScene,
+    ObsToggleSource,
+}
+
+/// グローバルホットキー / Stream Deck 連携バインディング
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HotkeyBinding {
+    pub id: String,
+    pub name: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub ctrl: bool,
+    #[serde(default)]
+    pub alt: bool,
+    #[serde(default)]
+    pub shift: bool,
+    /// 例: "F1".."F12", "0".."9", "A".."Z", "SPACE", "ESCAPE"
+    #[serde(default)]
+    pub key: String,
+    pub action: AutomationActionKind,
+    /// ルール ID / シーン名 / 機能キーなどの追加引数
+    #[serde(default)]
+    pub target_id: String,
+    /// ソース名等の第2引数
+    #[serde(default)]
+    pub secondary_target: String,
+}
+
+/// 配信プロファイル（機能ON/OFF・オーバーレイデザイン・ルール有効状態のスナップショット）
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StreamProfile {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub feature_flags: FeatureFlags,
+    pub overlay_config: OverlayConfig,
+    /// ルール ID -> enabled のスナップショット
+    #[serde(default)]
+    pub highlight_enabled_map: HashMap<String, bool>,
+    #[serde(default)]
+    pub counter_enabled_map: HashMap<String, bool>,
+    #[serde(default)]
+    pub media_enabled_map: HashMap<String, bool>,
+    #[serde(default)]
+    pub ng_word_enabled_map: HashMap<String, bool>,
+    pub updated_at_ms: i64,
+}
+
+/// プロファイル一覧表示用の軽量サマリー
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamProfileSummary {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub updated_at_ms: i64,
+    pub is_active: bool,
+}
+
+/// バックアップ書き出し結果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupExportResult {
+    pub file_path: String,
+    pub size_bytes: u64,
+    pub media_file_count: u32,
+    pub created_at_ms: i64,
+}
+
+/// バックアップ復元結果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupImportResult {
+    pub restored_from: String,
+    pub safety_backup_path: String,
+    pub media_file_count: u32,
+    pub restored_at_ms: i64,
+}
+
+/// オンエアレポート: セッション一覧項目
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamSessionSummary {
+    pub session_id: String,
+    pub platform: PlatformKind,
+    pub stream_id: String,
+    pub title: String,
+    pub started_at_ms: i64,
+    pub last_comment_at_ms: i64,
+    pub total_comments: u64,
+    pub unique_users: u64,
+    pub first_time_users: u64,
+    pub monetization_count: u64,
+}
+
+/// オンエアレポート: 1分ごとの盛り上がりバケット
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportMinuteBucket {
+    pub minute_offset: u32,
+    pub timestamp_ms: i64,
+    pub comment_count: u64,
+    pub monetization_count: u64,
+    pub first_time_count: u64,
+    pub sample_messages: Vec<String>,
+}
+
+/// オンエアレポート: 盛り上がりピーク区間
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportPeakItem {
+    pub minute_offset: u32,
+    pub elapsed_label: String,
+    pub timestamp_ms: i64,
+    pub comment_count: u64,
+    pub sample_messages: Vec<String>,
+}
+
+/// オンエアレポート: 頻出ワード集計
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportWordRank {
+    pub word: String,
+    pub count: u64,
+}
+
+/// オンエアレポート: アクティブ視聴者集計
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportUserRank {
+    pub user_id: String,
+    pub user_name: String,
+    pub comment_count: u64,
+    pub is_member: bool,
+}
+
+/// オンエアレポート詳細 DTO
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnAirReportDto {
+    pub session: StreamSessionSummary,
+    pub duration_minutes: u32,
+    pub avg_comments_per_min_tenths: u32,
+    pub max_comments_per_min: u64,
+    pub member_comment_count: u64,
+    pub monetization_totals: Vec<String>,
+    pub buckets: Vec<ReportMinuteBucket>,
+    pub peaks: Vec<ReportPeakItem>,
+    pub top_words: Vec<ReportWordRank>,
+    pub top_users: Vec<ReportUserRank>,
 }
 
 fn default_true() -> bool {
@@ -1320,6 +1884,9 @@ pub struct FeatureFlags {
     /// 特定ワード反応メディアアニメーション機能
     #[serde(default = "default_true")]
     pub media_reaction_enabled: bool,
+    /// NG ワード防御フィルタ機能
+    #[serde(default = "default_true")]
+    pub ng_word_filter_enabled: bool,
     /// OBS Studio オーバーレイローカルサーバー
     #[serde(default = "default_true")]
     pub obs_overlay_enabled: bool,
@@ -1344,6 +1911,7 @@ impl Default for FeatureFlags {
             pickup_enabled: true,
             queue_enabled: true,
             media_reaction_enabled: true,
+            ng_word_filter_enabled: true,
             obs_overlay_enabled: true,
             auto_update_check_enabled: true,
         }
@@ -1369,9 +1937,13 @@ pub enum AppEventKind {
     MediaRulesUpdated,
     MediaConfigUpdated,
     HighlightRulesUpdated,
+    NgWordRulesUpdated,
     OverlayConfigUpdated,
     UserLotteryWinnersUpdated,
     FeatureFlagsUpdated,
+    ObsWsStatusChanged,
+    ProfilesUpdated,
+    ConnectionHistoryUpdated,
     SystemNotice,
 }
 
@@ -1394,9 +1966,12 @@ pub struct AppEvent {
     pub media_rules: Option<Vec<MediaReactionRule>>,
     pub media_config: Option<MediaReactionConfig>,
     pub highlight_rules: Option<Vec<HighlightRule>>,
+    pub ng_word_rules: Option<Vec<NgWordRule>>,
     pub overlay_config: Option<OverlayConfig>,
     pub user_lottery_won_ids: Option<Vec<String>>,
     pub feature_flags: Option<FeatureFlags>,
+    pub obs_ws_status: Option<ObsWsStatus>,
+    pub profiles: Option<Vec<StreamProfileSummary>>,
     pub notice_level: Option<String>,
     pub notice_message: Option<String>,
 }
@@ -1420,9 +1995,12 @@ impl AppEvent {
             media_rules: None,
             media_config: None,
             highlight_rules: None,
+            ng_word_rules: None,
             overlay_config: None,
             user_lottery_won_ids: None,
             feature_flags: None,
+            obs_ws_status: None,
+            profiles: None,
             notice_level: None,
             notice_message: None,
         }
@@ -1522,6 +2100,12 @@ impl AppEvent {
         e
     }
 
+    pub fn ng_word_rules_updated(rules: Vec<NgWordRule>) -> Self {
+        let mut e = Self::empty(AppEventKind::NgWordRulesUpdated);
+        e.ng_word_rules = Some(rules);
+        e
+    }
+
     pub fn overlay_config_updated(config: OverlayConfig) -> Self {
         let mut e = Self::empty(AppEventKind::OverlayConfigUpdated);
         e.overlay_config = Some(config);
@@ -1538,6 +2122,22 @@ impl AppEvent {
         let mut e = Self::empty(AppEventKind::FeatureFlagsUpdated);
         e.feature_flags = Some(flags);
         e
+    }
+
+    pub fn obs_ws_status_changed(status: ObsWsStatus) -> Self {
+        let mut e = Self::empty(AppEventKind::ObsWsStatusChanged);
+        e.obs_ws_status = Some(status);
+        e
+    }
+
+    pub fn profiles_updated(profiles: Vec<StreamProfileSummary>) -> Self {
+        let mut e = Self::empty(AppEventKind::ProfilesUpdated);
+        e.profiles = Some(profiles);
+        e
+    }
+
+    pub fn connection_history_updated() -> Self {
+        Self::empty(AppEventKind::ConnectionHistoryUpdated)
     }
 
     pub fn system_notice(level: impl Into<String>, message: impl Into<String>) -> Self {

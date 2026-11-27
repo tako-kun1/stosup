@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use axum::body::{Body, Bytes};
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{ConnectInfo, Query, Request, State};
+use axum::extract::{ConnectInfo, Path, Query, Request, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::middleware::Next;
 use axum::response::{Html, IntoResponse, Response};
@@ -15,10 +15,10 @@ use serde_json::{json, Value};
 
 use crate::media;
 use crate::models::{
-    AppEvent, HighlightRule, LotteryRepeatMode, MatchMode, MediaAnimationKind, MediaEffectType,
-    MediaKind, MediaPlaybackMode, MediaPosition, MediaReactionConfig, MediaReactionRule,
-    MediaTriggerType, PlatformKind, PollConfig, PollOption, QueueEntryStatus, UserLotteryRequest,
-    WordCounterConfig,
+    AppEvent, AutomationActionKind, HighlightRule, LotteryRepeatMode, MatchMode,
+    MediaAnimationKind, MediaEffectType, MediaKind, MediaPlaybackMode, MediaPosition,
+    MediaReactionConfig, MediaReactionRule, MediaTriggerType, PlatformKind, PollConfig,
+    PollOption, QueueEntryStatus, UserLotteryRequest, WordCounterConfig,
 };
 use crate::overlay::OverlaySharedState;
 use crate::remote;
@@ -27,14 +27,14 @@ use crate::updater;
 
 const REMOTE_HTML: &str = include_str!("remote.html");
 
-/// 接続元 IP が許可対象（ループバックまたは許可されたプライベート LAN）かを検証するミドルウェア
+/// 接続元 IP が許可対象（ループバックまたは許可されたプライベート LAN）かをロックフリーで検証するミドルウェア
 pub async fn ip_access_guard(
     State(state): State<Arc<OverlaySharedState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     req: Request,
     next: Next,
 ) -> Response {
-    let allow_lan = state.remote_config.read().await.allow_lan_access;
+    let allow_lan = state.is_allow_lan_access();
     if !remote::is_ip_allowed(addr.ip(), allow_lan) {
         return Response::builder()
             .status(StatusCode::FORBIDDEN)
@@ -56,9 +56,9 @@ pub async fn remote_page_handler(
         return (
             StatusCode::FORBIDDEN,
             Html(
-                "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Stosup リモコン無効</title></head>\
+                "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Stosup ポケットスイッチャー無効</title></head>\
                  <body style='font-family:sans-serif;background:#18181b;color:#f4f4f5;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;text-align:center'>\
-                 <div><h1>Web リモコン操作が無効になっています</h1><p style='color:#a1a1aa;margin-top:8px'>PC 側の Stosup「設定・機能管理」画面で Web リモコン操作を有効にしてください。</p></div></body></html>",
+                 <div><h1>ポケットスイッチャーが無効になっています</h1><p style='color:#a1a1aa;margin-top:8px'>PC 側の Stosup「設定・機能管理」画面でポケットスイッチャー操作画面を有効にしてください。</p></div></body></html>",
             ),
         );
     }
@@ -92,7 +92,7 @@ pub async fn verify_pin_handler(
     if !cfg.remote_control_enabled {
         return (
             StatusCode::FORBIDDEN,
-            Json(json!({ "ok": false, "error": "Web リモコン操作が無効です" })),
+            Json(json!({ "ok": false, "error": "ポケットスイッチャー操作が無効です" })),
         );
     }
     if !cfg.require_pin || body.pin.trim() == cfg.pin_code.trim() {
@@ -113,7 +113,7 @@ async fn check_remote_auth(
     if !cfg.remote_control_enabled {
         return Err((
             StatusCode::FORBIDDEN,
-            Json(json!({ "ok": false, "error": "Web リモコン操作が無効になっています" })),
+            Json(json!({ "ok": false, "error": "ポケットスイッチャー操作が無効になっています" })),
         ));
     }
     if !cfg.require_pin {
@@ -158,7 +158,7 @@ pub async fn remote_state_handler(
     let comments: Vec<_> = {
         let list = runtime.recent_comments.read().await;
         let start = list.len().saturating_sub(80);
-        list[start..].to_vec()
+        list.iter().skip(start).cloned().collect()
     };
     let monetization = runtime.list_monetization_events(80).await.unwrap_or_default();
     let poll = runtime.get_poll_state().await;
@@ -490,12 +490,12 @@ pub async fn remote_action_handler(
                         .unwrap_or(false);
                     if already {
                         runtime.clear_picked_comment().await;
-                        Ok(json!({ "message": "ピックアップを解除しました" }))
+                        Ok(json!({ "message": "スポットテロップを解除しました" }))
                     } else {
                         runtime
                             .pick_comment(c)
                             .await
-                            .map(|_| json!({ "message": "コメントをピックアップしました" }))
+                            .map(|_| json!({ "message": "スポットテロップに表示しました" }))
                             .map_err(|e| e.to_string())
                     }
                 }
@@ -517,11 +517,14 @@ pub async fn remote_action_handler(
                         user_memo: String::new(),
                         is_first_time: false,
                         message: it.message,
+                        message_runs: it.message_runs,
                         timestamp_ms: it.timestamp_ms,
                         is_owner: false,
                         is_moderator: false,
                         is_member: true,
                         is_banned: false,
+                        is_ng_masked: false,
+                        hidden_from_overlay: false,
                         highlight_rule_id: None,
                         bubble_bg_color: None,
                         bubble_text_color: None,
@@ -533,15 +536,15 @@ pub async fn remote_action_handler(
                     runtime
                         .pick_comment(item)
                         .await
-                        .map(|_| json!({ "message": "スパチャ・メンバーをピックアップしました" }))
+                        .map(|_| json!({ "message": "エールをスポットテロップに表示しました" }))
                         .map_err(|e| e.to_string())
                 }
-                None => Err("対象のスパチャ・メンバーが見つかりませんでした".to_string()),
+                None => Err("対象のエール履歴が見つかりませんでした".to_string()),
             }
         }
         "clear_picked_comment" => {
             runtime.clear_picked_comment().await;
-            Ok(json!({ "message": "ピックアップ表示を解除しました" }))
+            Ok(json!({ "message": "スポットテロップ表示を解除しました" }))
         }
         "set_monetization_checked" => {
             let id = body["id"].as_str().unwrap_or("");
@@ -562,26 +565,26 @@ pub async fn remote_action_handler(
             runtime
                 .start_poll(cfg)
                 .await
-                .map(|_| json!({ "message": "投票の受付を開始しました" }))
+                .map(|_| json!({ "message": "ライブアンケートの受付を開始しました" }))
                 .map_err(|e| e.to_string())
         }
         "stop_poll" => {
             runtime.stop_poll().await;
-            Ok(json!({ "message": "投票の受付を締め切りました" }))
+            Ok(json!({ "message": "ライブアンケートの受付を締め切りました" }))
         }
         "reset_poll" => {
             runtime.reset_poll().await;
-            Ok(json!({ "message": "投票をリセットしました" }))
+            Ok(json!({ "message": "ライブアンケートをリセットしました" }))
         }
         "clear_overlay_poll" => {
             runtime.clear_overlay_poll().await;
-            Ok(json!({ "message": "OBS の投票表示をクリアしました" }))
+            Ok(json!({ "message": "OBS ライブアンケートの表示をクリアしました" }))
         }
         "queue_toggle_accepting" => {
             let mut cfg = runtime.get_queue_state().await.config;
             cfg.is_accepting = body["accepting"].as_bool().unwrap_or(!cfg.is_accepting);
             runtime.save_queue_config(cfg).await;
-            Ok(json!({ "message": "参加型キューの自動受付を切り替えました" }))
+            Ok(json!({ "message": "エントリーレーンの自動受付を切り替えました" }))
         }
         "queue_promote_next" => {
             runtime.queue_promote_next().await;
@@ -616,14 +619,14 @@ pub async fn remote_action_handler(
         "queue_remove_entry" => {
             let user_id = body["user_id"].as_str().unwrap_or("");
             runtime.queue_remove_entry(user_id).await;
-            Ok(json!({ "message": "キューから削除しました" }))
+            Ok(json!({ "message": "エントリーレーンから削除しました" }))
         }
         "test_media_rule" => {
             let id = body["id"].as_str().unwrap_or("");
             runtime
                 .test_media_reaction_rule(id)
                 .await
-                .map(|_| json!({ "message": "WordParty 演出を発動しました" }))
+                .map(|_| json!({ "message": "リアクションステージ演出を発動しました" }))
                 .map_err(|e| e.to_string())
         }
         "save_media_rule" => {
@@ -654,7 +657,7 @@ pub async fn remote_action_handler(
                     .lines()
                     .map(|l| l.trim())
                     .find(|l| !l.is_empty())
-                    .unwrap_or("WordParty 演出")
+                    .unwrap_or("リアクションステージ演出")
                     .to_string()
             };
             let rule = MediaReactionRule {
@@ -695,7 +698,7 @@ pub async fn remote_action_handler(
                 .await
                 .map(|list| {
                     json!({
-                        "message": if is_new { "WordParty 演出を追加しました" } else { "WordParty 演出を更新しました" },
+                        "message": if is_new { "リアクションステージ演出を追加しました" } else { "リアクションステージ演出を更新しました" },
                         "media_rules": list
                     })
                 })
@@ -749,7 +752,7 @@ pub async fn remote_action_handler(
                 .await
                 .map(|list| {
                     json!({
-                        "message": "WordParty 演出を削除しました",
+                        "message": "リアクションステージ演出を削除しました",
                         "media_rules": list
                     })
                 })
@@ -773,7 +776,7 @@ pub async fn remote_action_handler(
                 .await
                 .map(|saved| {
                     json!({
-                        "message": "WordParty 全体設定を保存しました",
+                        "message": "リアクションステージ全体設定を保存しました",
                         "media_config": saved
                     })
                 })
@@ -806,7 +809,7 @@ pub async fn remote_action_handler(
                 .await
                 .map(|saved| {
                     json!({
-                        "message": "WordParty の背景色を更新しました",
+                        "message": "リアクションステージの背景色を更新しました",
                         "overlay_config": saved
                     })
                 })
@@ -870,7 +873,7 @@ pub async fn remote_action_handler(
             runtime
                 .save_poll_config(cfg)
                 .await
-                .map(|state| json!({ "message": "投票設定を保存しました", "poll": state }))
+                .map(|state| json!({ "message": "ライブアンケート設定を保存しました", "poll": state }))
                 .map_err(|e| e.to_string())
         }
         "save_word_counter" => {
@@ -913,7 +916,7 @@ pub async fn remote_action_handler(
             runtime
                 .save_word_counter(counter)
                 .await
-                .map(|counters| json!({ "message": "ワードカウンターを保存しました", "counters": counters }))
+                .map(|counters| json!({ "message": "コールカウンターを保存しました", "counters": counters }))
                 .map_err(|e| e.to_string())
         }
         "delete_word_counter" => {
@@ -921,7 +924,7 @@ pub async fn remote_action_handler(
             runtime
                 .delete_word_counter(id)
                 .await
-                .map(|counters| json!({ "message": "ワードカウンターを削除しました", "counters": counters }))
+                .map(|counters| json!({ "message": "コールカウンターを削除しました", "counters": counters }))
                 .map_err(|e| e.to_string())
         }
         "save_highlight_rule" => {
@@ -952,7 +955,7 @@ pub async fn remote_action_handler(
             runtime
                 .save_highlight_rule(rule)
                 .await
-                .map(|list| json!({ "message": "ワード色反応ルールを保存しました", "highlight_rules": list }))
+                .map(|list| json!({ "message": "ハイライトサインルールを保存しました", "highlight_rules": list }))
                 .map_err(|e| e.to_string())
         }
         "delete_highlight_rule" => {
@@ -960,7 +963,7 @@ pub async fn remote_action_handler(
             runtime
                 .delete_highlight_rule(id)
                 .await
-                .map(|list| json!({ "message": "ワード色反応ルールを削除しました", "highlight_rules": list }))
+                .map(|list| json!({ "message": "ハイライトサインルールを削除しました", "highlight_rules": list }))
                 .map_err(|e| e.to_string())
         }
         "clear_overlay_media" => {
@@ -1031,7 +1034,7 @@ pub async fn remote_action_handler(
         }
         "clear_overlay_lottery" => {
             runtime.overlay_state.clear_lottery().await;
-            Ok(json!({ "message": "OBS の抽選表示をクリアしました" }))
+            Ok(json!({ "message": "OBS ドローボックスの表示をクリアしました" }))
         }
         "start_comment_lottery" => {
             let cfg = runtime.comment_lottery.lock().await.config.clone();
@@ -1133,26 +1136,144 @@ async fn handle_remote_socket(socket: WebSocket) {
     let (mut sender, mut receiver) = socket.split();
     let mut rx = runtime.event_tx.subscribe();
 
-    let send_task = tokio::spawn(async move {
-        while let Ok(ev) = rx.recv().await {
-            if let Ok(json) = serde_json::to_string(&ev) {
-                if sender.send(Message::Text(json.into())).await.is_err() {
-                    break;
+    // 単一タスクの select! ループで残留タスクを防止しつつ、バースト時の Lagged でも切断しない
+    loop {
+        tokio::select! {
+            recv = rx.recv() => {
+                match recv {
+                    Ok(ev) => {
+                        if let Ok(json) = serde_json::to_string(&ev) {
+                            if sender.send(Message::Text(json.into())).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                }
+            }
+            ws_msg = receiver.next() => {
+                match ws_msg {
+                    Some(Ok(Message::Close(_))) | None => break,
+                    Some(Err(_)) => break,
+                    Some(Ok(_)) => {}
                 }
             }
         }
-    });
+    }
+}
 
-    let recv_task = tokio::spawn(async move {
-        while let Some(Ok(msg)) = receiver.next().await {
-            if matches!(msg, Message::Close(_)) {
-                break;
-            }
+/// Stream Deck / Loupedeck / ローカル Webhook 向けワンクリック HTTP トリガー
+/// 例:
+///   GET http://127.0.0.1:18765/api/trigger/clear_pickup
+///   GET http://127.0.0.1:18765/api/trigger/media?id=<rule_id>
+///   GET http://127.0.0.1:18765/api/trigger/hotkey?id=<binding_id>
+///   GET http://127.0.0.1:18765/api/trigger/obs_scene?scene=<scene_name>
+pub async fn stream_deck_trigger_handler(
+    Path(action): Path<String>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    State(state): State<Arc<OverlaySharedState>>,
+    headers: HeaderMap,
+    Query(query): Query<HashMap<String, String>>,
+) -> impl IntoResponse {
+    // 同一 PC（127.0.0.1 / ::1）からの Stream Deck 呼び出しは直接許可。LAN 端末からは PIN 認証を要求
+    if !addr.ip().is_loopback() {
+        if let Err(err) = check_remote_auth(&state, &headers, &query).await {
+            return err;
         }
-    });
+    }
 
-    tokio::select! {
-        _ = send_task => {}
-        _ = recv_task => {}
+    let runtime = match get_runtime() {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "ok": false, "error": e.to_string() })),
+            )
+        }
+    };
+
+    let id = query.get("id").cloned().unwrap_or_default();
+    let target = query
+        .get("target")
+        .or_else(|| query.get("scene"))
+        .or_else(|| query.get("feature"))
+        .cloned()
+        .unwrap_or_else(|| id.clone());
+    let secondary = query
+        .get("source")
+        .or_else(|| query.get("secondary"))
+        .cloned()
+        .unwrap_or_default();
+
+    let res = match action.trim().to_ascii_lowercase().as_str() {
+        "hotkey" => runtime.execute_hotkey_by_id(&id).await,
+        "clear_pickup" => {
+            runtime
+                .execute_automation_action(AutomationActionKind::ClearPickup, "", "")
+                .await
+        }
+        "pick_latest" => {
+            runtime
+                .execute_automation_action(AutomationActionKind::PickLatestComment, "", "")
+                .await
+        }
+        "media" | "trigger_media" => {
+            runtime
+                .execute_automation_action(AutomationActionKind::TriggerMediaRule, &target, "")
+                .await
+        }
+        "clear_media" => {
+            runtime
+                .execute_automation_action(AutomationActionKind::ClearMedia, "", "")
+                .await
+        }
+        "end_poll" => {
+            runtime
+                .execute_automation_action(AutomationActionKind::EndPoll, "", "")
+                .await
+        }
+        "advance_queue" => {
+            runtime
+                .execute_automation_action(AutomationActionKind::AdvanceQueue, "", "")
+                .await
+        }
+        "reset_first_time" => {
+            runtime
+                .execute_automation_action(AutomationActionKind::ResetFirstTime, "", "")
+                .await
+        }
+        "toggle_feature" => {
+            runtime
+                .execute_automation_action(AutomationActionKind::ToggleFeature, &target, "")
+                .await
+        }
+        "obs_scene" => {
+            runtime
+                .execute_automation_action(AutomationActionKind::ObsSwitchScene, &target, "")
+                .await
+        }
+        "obs_source" => {
+            runtime
+                .execute_automation_action(
+                    AutomationActionKind::ObsToggleSource,
+                    &target,
+                    &secondary,
+                )
+                .await
+        }
+        "apply_profile" => runtime
+            .apply_stream_profile(&target)
+            .await
+            .map(|_| "配信プロファイルを切り替えました".to_string()),
+        _ => Err(anyhow::anyhow!("不明なトリガーアクションです: {}", action)),
+    };
+
+    match res {
+        Ok(msg) => (StatusCode::OK, Json(json!({ "ok": true, "message": msg }))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "error": e.to_string() })),
+        ),
     }
 }

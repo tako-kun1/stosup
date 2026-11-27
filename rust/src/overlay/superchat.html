@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Stosup スパチャ・メンバーシップオーバーレイ</title>
+<title>Stosup エールボックス</title>
 <link rel="icon" href="/favicon.ico" />
+<script src="/overlay/stosup-overlay.js"></script>
 <style id="stosup-base-css">
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -12,7 +13,8 @@
     height: 100%;
     background: var(--page-bg, transparent) !important;
     overflow: hidden;
-    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
+    font-family: var(--font-family, "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", sans-serif);
+    -webkit-font-smoothing: antialiased;
   }
   #sc-list {
     display: flex;
@@ -21,36 +23,39 @@
     padding: 14px;
     width: 100%;
   }
+
+  /* ==================== 既定: broadcast (オンエア・チケットプレート) ==================== */
   .sc-card {
-    background: rgba(24, 24, 27, 0.94);
-    border: 2px solid var(--tier, #ffca28);
-    border-radius: 10px;
+    background: rgba(17, 19, 23, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-left: 5px solid var(--tier, #e5a93b);
+    border-radius: 2px;
     overflow: hidden;
-    color: #f4f4f5;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.42);
-    animation: scSlide 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    color: #f7f8fa;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38);
+    contain: layout style;
+    animation: scSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .sc-card.checked { opacity: 0.72; }
+  .sc-card.checked { opacity: 0.62; }
   @keyframes scSlide {
-    from { opacity: 0; transform: translateY(-10px) scale(0.98); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
+    from { opacity: 0; transform: translateX(-16px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
   .sc-header {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 12px;
-    background: var(--tier, #ffca28);
-    color: #111827;
-    font-weight: 800;
+    padding: 9px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
   .sc-avatar {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    border-radius: 3px;
     object-fit: cover;
-    border: 2px solid rgba(255, 255, 255, 0.85);
-    background: #3f3f46;
+    border: 1.5px solid var(--tier, #e5a93b);
+    background: #1f232b;
     flex-shrink: 0;
   }
   .sc-meta {
@@ -60,80 +65,146 @@
     flex: 1;
   }
   .sc-name {
-    font-size: 13.5px;
+    font-size: 14px;
     font-weight: 800;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .sc-kind {
-    font-size: 11px;
-    opacity: 0.85;
+    font-size: 10.5px;
+    color: #9aa2b1;
+    letter-spacing: 0.06em;
     font-weight: 700;
   }
   .sc-amount {
     font-size: 18px;
     font-weight: 900;
+    padding: 3px 10px;
+    border-radius: 2px;
+    background: var(--tier, #e5a93b);
+    color: #111317;
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
   }
   .sc-body {
-    padding: 10px 14px;
-    font-size: 14.5px;
-    line-height: 1.45;
+    padding: 10px 14px 12px;
+    font-size: 15px;
+    line-height: 1.48;
+    font-weight: 600;
     word-break: break-word;
   }
 
-  /* minimal */
-  body[data-theme="minimal"] .sc-card {
-    background: rgba(15, 15, 18, 0.72);
-    border: none;
-    border-left: 5px solid var(--tier, #ffca28);
-    border-radius: 0 8px 8px 0;
+  /* ==================== editorial ==================== */
+  body[data-theme="editorial"] .sc-card {
+    background: rgba(248, 245, 239, 0.97);
+    color: #1c1b18;
+    border: 1px solid #d4cdc0;
+    border-left: 5px solid var(--tier, #c2593f);
+    box-shadow: 0 4px 16px rgba(28, 27, 24, 0.1);
+  }
+  body[data-theme="editorial"] .sc-header {
+    background: transparent;
+    border-bottom: 1px solid #e2dbd0;
+  }
+  body[data-theme="editorial"] .sc-avatar { border-radius: 50%; }
+  body[data-theme="editorial"] .sc-kind { color: #6e6a62; }
+
+  /* ==================== tactical ==================== */
+  body[data-theme="tactical"] .sc-card {
+    background: rgba(18, 20, 23, 0.94);
+    color: #edebe4;
+    border: 1px solid rgba(237, 235, 228, 0.22);
+    border-left: 4px solid var(--tier, #e5a93b);
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
     box-shadow: none;
   }
-  body[data-theme="minimal"] .sc-header {
-    background: transparent;
-    color: #f4f4f5;
-    padding-bottom: 4px;
-  }
-  body[data-theme="minimal"] .sc-amount { color: var(--tier, #ffca28); }
+  body[data-theme="tactical"] .sc-avatar { border-radius: 0; }
+  body[data-theme="tactical"] .sc-amount { border-radius: 0; }
 
-  /* pop */
-  body[data-theme="pop"] .sc-card {
-    background: #ffffff;
-    color: #18181b;
-    border: 3px solid #18181b;
-    border-radius: 16px;
-    box-shadow: 5px 5px 0 #18181b;
+  /* ==================== variety ==================== */
+  body[data-theme="variety"] .sc-card {
+    background: #fffdf7;
+    color: #182033;
+    border: 3px solid #182033;
+    border-radius: 12px;
+    box-shadow: 5px 5px 0 #182033;
   }
-  body[data-theme="pop"] .sc-header {
-    border-bottom: 3px solid #18181b;
+  body[data-theme="variety"] .sc-header {
+    background: var(--tier, #f5c518);
+    color: #182033;
+    border-bottom: 2.5px solid #182033;
   }
-
-  /* neon */
-  body[data-theme="neon"] .sc-card {
-    background: rgba(9, 11, 20, 0.92);
-    border: 2px solid var(--tier, #22d3ee);
-    box-shadow: 0 0 18px rgba(34, 211, 238, 0.32);
-  }
-  body[data-theme="neon"] .sc-header {
-    background: rgba(255, 255, 255, 0.06);
+  body[data-theme="variety"] .sc-kind { color: rgba(24, 32, 51, 0.78); }
+  body[data-theme="variety"] .sc-amount {
+    background: #182033;
     color: #ffffff;
-    border-bottom: 1px solid var(--tier, #22d3ee);
+    border-radius: 6px;
   }
-  body[data-theme="neon"] .sc-amount {
-    color: var(--tier, #22d3ee);
-    text-shadow: 0 0 10px var(--tier, #22d3ee);
-  }
+  body[data-theme="variety"] .sc-body { font-weight: 800; }
 
-  /* pastel */
-  body[data-theme="pastel"] .sc-card {
-    background: rgba(255, 253, 249, 0.97);
-    color: #27272a;
-    border: 2.5px solid var(--tier, #f472b6);
-    border-radius: 18px;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+  /* ==================== cinema ==================== */
+  body[data-theme="cinema"] .sc-card {
+    background: transparent;
+    color: #ffffff;
+    border: none;
+    border-left: 4px solid var(--tier, #e5a93b);
+    box-shadow: none;
+  }
+  body[data-theme="cinema"] .sc-header {
+    background: transparent;
+    border-bottom: none;
+    padding: 2px 10px 4px;
+  }
+  body[data-theme="cinema"] .sc-name,
+  body[data-theme="cinema"] .sc-body {
+    paint-order: stroke fill;
+    -webkit-text-stroke: 3.5px rgba(10, 12, 16, 0.94);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
+  }
+  body[data-theme="cinema"] .sc-body { padding: 2px 10px; font-weight: 700; }
+
+  /* ==================== edge_glow (エッジ・グロウ) ==================== */
+  body[data-theme="edge_glow"] .sc-card {
+    background: rgba(9, 13, 22, 0.8);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-left: 4px solid var(--tier, #38bdf8);
+    border-radius: 5px;
+    box-shadow: 0 10px 26px rgba(2, 6, 23, 0.54), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  body[data-theme="edge_glow"] .sc-header {
+    background: rgba(15, 23, 42, 0.55);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  }
+  body[data-theme="edge_glow"] .sc-name {
+    color: #bae6fd;
+    text-shadow: 0 0 6px rgba(56, 189, 248, 0.74), 0 0 12px rgba(56, 189, 248, 0.36);
+  }
+  body[data-theme="edge_glow"] .sc-amount {
+    color: #ffffff;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 1.5px rgba(8, 13, 24, 0.9);
+    text-shadow:
+      1px 0 2px var(--tier, #38bdf8),
+      -1px 0 2px var(--tier, #38bdf8),
+      0 1px 2px var(--tier, #38bdf8),
+      0 -1px 2px var(--tier, #38bdf8),
+      0 0 10px var(--tier, #38bdf8);
+  }
+  body[data-theme="edge_glow"] .sc-body {
+    color: #f8fafc;
+    font-weight: 700;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 1.5px rgba(8, 13, 24, 0.88);
+    text-shadow:
+      1px 0 2px rgba(56, 189, 248, 0.72),
+      -1px 0 2px rgba(56, 189, 248, 0.72),
+      0 1px 2px rgba(56, 189, 248, 0.72),
+      0 -1px 2px rgba(56, 189, 248, 0.72),
+      0 0 8px rgba(56, 189, 248, 0.52),
+      0 0 16px rgba(56, 189, 248, 0.3);
   }
 
   body.has-custom-font,
@@ -143,7 +214,7 @@
 </style>
 <style id="stosup-custom-css"></style>
 </head>
-<body data-theme="default">
+<body data-theme="broadcast">
   <div id="sc-list"></div>
 <script>
   const listEl = document.getElementById('sc-list');
@@ -152,107 +223,124 @@
   const urlTheme = params.get('theme');
   const urlBg = params.get('bg');
   const urlFont = params.get('font');
-  const unreadOnly = params.get('unread_only') === '1';
-  const maxItems = Math.max(1, Math.min(20, Number(params.get('limit') || 6)));
+  const unreadOnly = params.get('unread_only') === '1' || params.get('unread_only') === 'true';
+  const maxItems = Math.max(1, Math.min(20, parseInt(params.get('max') || '6', 10) || 6));
 
   let enabled = true;
   let items = [];
   let config = {
-    superchat_theme: 'default',
+    superchat_theme: 'broadcast',
     superchat_bg_color: 'transparent',
     superchat_font_family: '',
-    superchat_custom_css: ''
+    superchat_custom_css: '',
+    visual_styles: {}
   };
 
-  function applyFont(raw) {
-    const f = (raw || '').trim();
-    if (f) {
-      const safe = f.replace(/["\\]/g, '');
-      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
-      document.body.classList.add('has-custom-font');
-    } else {
-      document.documentElement.style.removeProperty('--font-family');
-      document.body.classList.remove('has-custom-font');
-    }
-  }
-  function resolveBg(raw) {
-    const v = (raw || 'transparent').trim();
-    if (!v || v.toLowerCase() === 'transparent') return 'transparent';
-    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return '#' + v;
-    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return v;
-    return 'transparent';
-  }
-  function applyDesign() {
-    document.body.dataset.theme = urlTheme || config.superchat_theme || 'default';
-    document.documentElement.style.setProperty('--page-bg', resolveBg(urlBg || config.superchat_bg_color));
-    applyFont(urlFont || config.superchat_font_family);
-    customStyleEl.textContent = config.superchat_custom_css || '';
-  }
   function kindLabel(k) {
     switch (k) {
-      case 'SuperChat': return 'スーパーチャット';
-      case 'SuperSticker': return 'スーパーステッカー';
-      case 'MembershipNew': return '新規メンバー加入';
-      case 'MembershipMilestone': return 'メンバー継続';
-      case 'MembershipGift': return 'メンバーシップギフト';
-      default: return '支援イベント';
+      case 'SuperChat': return 'SUPER CHAT';
+      case 'SuperSticker': return 'SUPER STICKER';
+      case 'MembershipNew': return 'NEW MEMBER';
+      case 'MembershipMilestone': return 'MEMBER MILESTONE';
+      case 'MembershipGift': return 'MEMBERSHIP GIFT';
+      default: return 'CHEER';
     }
   }
-  function fallbackAvatar(name) {
-    const ch = (name || '?').slice(0, 1);
-    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%2352525b'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
+
+  function applyDesign() {
+    document.body.dataset.theme = StosupOverlay.normalizeTheme(urlTheme || config.superchat_theme);
+    document.documentElement.style.setProperty('--page-bg', StosupOverlay.resolveBg(urlBg || config.superchat_bg_color));
+    StosupOverlay.applyFont(urlFont || config.superchat_font_family);
+    StosupOverlay.applyOverlayVisualStyle('superchat', config, {
+      card: '.sc-card',
+      text: '.sc-body',
+      author: '.sc-name',
+      animate: '.sc-card'
+    });
+    StosupOverlay.applyCustomCss(customStyleEl, config.superchat_custom_css);
+  }
+
+  // id キーでカード DOM を再利用し、お礼済みチェック切替時や新規到着時の全カード再アニメーションを防止
+  const scCardMap = new Map();
+
+  function buildSuperChatCard(it) {
+    const card = document.createElement('div');
+    card.className = 'sc-card' + (it.is_checked ? ' checked' : '');
+    card.style.setProperty('--tier', it.tier_color || '#e5a93b');
+
+    const header = document.createElement('div');
+    header.className = 'sc-header';
+
+    const img = document.createElement('img');
+    img.className = 'sc-avatar';
+    img.src = it.user_icon_url || StosupOverlay.fallbackAvatar(it.user_name);
+    img.onerror = () => { img.src = StosupOverlay.fallbackAvatar(it.user_name); };
+
+    const meta = document.createElement('div');
+    meta.className = 'sc-meta';
+    const name = document.createElement('div');
+    name.className = 'sc-name';
+    name.textContent = it.user_name;
+    const kind = document.createElement('div');
+    kind.className = 'sc-kind';
+    kind.textContent = kindLabel(it.kind);
+    meta.appendChild(name);
+    meta.appendChild(kind);
+
+    const amount = document.createElement('div');
+    amount.className = 'sc-amount';
+    amount.textContent = it.amount_display || '';
+
+    header.appendChild(img);
+    header.appendChild(meta);
+    header.appendChild(amount);
+    card.appendChild(header);
+
+    if (it.message) {
+      const body = document.createElement('div');
+      body.className = 'sc-body';
+      StosupOverlay.renderMessageRuns(body, it.message, it.message_runs);
+      card.appendChild(body);
+    }
+    return card;
   }
 
   function render() {
-    listEl.innerHTML = '';
-    if (!enabled) return;
-    const filtered = (unreadOnly ? items.filter(i => !i.is_checked) : items).slice(0, maxItems);
-    filtered.forEach((it) => {
-      const card = document.createElement('div');
-      card.className = 'sc-card' + (it.is_checked ? ' checked' : '');
-      card.style.setProperty('--tier', it.tier_color || '#ffca28');
+    if (!enabled) {
+      listEl.innerHTML = '';
+      scCardMap.clear();
+      return;
+    }
+    const filtered = (items || []).filter(it => !unreadOnly || !it.is_checked).slice(0, maxItems);
+    const activeIds = new Set(filtered.map(it => it.id));
 
-      const header = document.createElement('div');
-      header.className = 'sc-header';
-
-      const img = document.createElement('img');
-      img.className = 'sc-avatar';
-      img.src = it.user_icon_url || fallbackAvatar(it.user_name);
-      img.onerror = () => { img.src = fallbackAvatar(it.user_name); };
-
-      const meta = document.createElement('div');
-      meta.className = 'sc-meta';
-      const name = document.createElement('div');
-      name.className = 'sc-name';
-      name.textContent = it.user_name;
-      const kind = document.createElement('div');
-      kind.className = 'sc-kind';
-      kind.textContent = kindLabel(it.kind);
-      meta.appendChild(name);
-      meta.appendChild(kind);
-
-      const amount = document.createElement('div');
-      amount.className = 'sc-amount';
-      amount.textContent = it.amount_display || '';
-
-      header.appendChild(img);
-      header.appendChild(meta);
-      header.appendChild(amount);
-      card.appendChild(header);
-
-      if (it.message) {
-        const body = document.createElement('div');
-        body.className = 'sc-body';
-        body.textContent = it.message;
-        card.appendChild(body);
+    // 先に不要カードを除去してから並び順を整え、残存カードの不要な DOM 移動を防ぐ
+    for (const [id, card] of scCardMap.entries()) {
+      if (!activeIds.has(id)) {
+        card.remove();
+        scCardMap.delete(id);
       }
-      listEl.appendChild(card);
-    });
+    }
+
+    for (let i = 0; i < filtered.length; i++) {
+      const it = filtered[i];
+      let card = scCardMap.get(it.id);
+      if (!card) {
+        card = buildSuperChatCard(it);
+        scCardMap.set(it.id, card);
+      } else {
+        card.classList.toggle('checked', !!it.is_checked);
+      }
+      const expected = listEl.children[i];
+      if (expected !== card) {
+        listEl.insertBefore(card, expected || null);
+      }
+    }
   }
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${location.host}/ws?channel=superchat`);
+    const ws = new WebSocket(window.StosupOverlay.buildWsUrl('superchat'));
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);

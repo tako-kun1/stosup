@@ -25,9 +25,12 @@ class AppEvent {
   final List<MediaReactionRule>? mediaRules;
   final MediaReactionConfig? mediaConfig;
   final List<HighlightRule>? highlightRules;
+  final List<NgWordRule>? ngWordRules;
   final OverlayConfig? overlayConfig;
   final List<String>? userLotteryWonIds;
   final FeatureFlags? featureFlags;
+  final ObsWsStatus? obsWsStatus;
+  final List<StreamProfileSummary>? profiles;
   final String? noticeLevel;
   final String? noticeMessage;
 
@@ -48,9 +51,12 @@ class AppEvent {
     this.mediaRules,
     this.mediaConfig,
     this.highlightRules,
+    this.ngWordRules,
     this.overlayConfig,
     this.userLotteryWonIds,
     this.featureFlags,
+    this.obsWsStatus,
+    this.profiles,
     this.noticeLevel,
     this.noticeMessage,
   });
@@ -73,9 +79,12 @@ class AppEvent {
       mediaRules.hashCode ^
       mediaConfig.hashCode ^
       highlightRules.hashCode ^
+      ngWordRules.hashCode ^
       overlayConfig.hashCode ^
       userLotteryWonIds.hashCode ^
       featureFlags.hashCode ^
+      obsWsStatus.hashCode ^
+      profiles.hashCode ^
       noticeLevel.hashCode ^
       noticeMessage.hashCode;
 
@@ -100,9 +109,12 @@ class AppEvent {
           mediaRules == other.mediaRules &&
           mediaConfig == other.mediaConfig &&
           highlightRules == other.highlightRules &&
+          ngWordRules == other.ngWordRules &&
           overlayConfig == other.overlayConfig &&
           userLotteryWonIds == other.userLotteryWonIds &&
           featureFlags == other.featureFlags &&
+          obsWsStatus == other.obsWsStatus &&
+          profiles == other.profiles &&
           noticeLevel == other.noticeLevel &&
           noticeMessage == other.noticeMessage;
 }
@@ -125,14 +137,96 @@ enum AppEventKind {
   mediaRulesUpdated,
   mediaConfigUpdated,
   highlightRulesUpdated,
+  ngWordRulesUpdated,
   overlayConfigUpdated,
   userLotteryWinnersUpdated,
   featureFlagsUpdated,
+  obsWsStatusChanged,
+  profilesUpdated,
+  connectionHistoryUpdated,
   systemNotice,
 }
 
 /// アプリ外観テーマ（ライト / ダーク / システム設定）
 enum AppThemeMode { system, light, dark }
+
+/// グローバルホットキー / Stream Deck トリガーで実行可能なアクション
+enum AutomationActionKind {
+  clearPickup,
+  pickLatestComment,
+  triggerMediaRule,
+  clearMedia,
+  endPoll,
+  advanceQueue,
+  resetFirstTime,
+  toggleFeature,
+  obsSwitchScene,
+  obsToggleSource,
+}
+
+/// バックアップ書き出し結果
+class BackupExportResult {
+  final String filePath;
+  final BigInt sizeBytes;
+  final int mediaFileCount;
+  final PlatformInt64 createdAtMs;
+
+  const BackupExportResult({
+    required this.filePath,
+    required this.sizeBytes,
+    required this.mediaFileCount,
+    required this.createdAtMs,
+  });
+
+  @override
+  int get hashCode =>
+      filePath.hashCode ^
+      sizeBytes.hashCode ^
+      mediaFileCount.hashCode ^
+      createdAtMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BackupExportResult &&
+          runtimeType == other.runtimeType &&
+          filePath == other.filePath &&
+          sizeBytes == other.sizeBytes &&
+          mediaFileCount == other.mediaFileCount &&
+          createdAtMs == other.createdAtMs;
+}
+
+/// バックアップ復元結果
+class BackupImportResult {
+  final String restoredFrom;
+  final String safetyBackupPath;
+  final int mediaFileCount;
+  final PlatformInt64 restoredAtMs;
+
+  const BackupImportResult({
+    required this.restoredFrom,
+    required this.safetyBackupPath,
+    required this.mediaFileCount,
+    required this.restoredAtMs,
+  });
+
+  @override
+  int get hashCode =>
+      restoredFrom.hashCode ^
+      safetyBackupPath.hashCode ^
+      mediaFileCount.hashCode ^
+      restoredAtMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BackupImportResult &&
+          runtimeType == other.runtimeType &&
+          restoredFrom == other.restoredFrom &&
+          safetyBackupPath == other.safetyBackupPath &&
+          mediaFileCount == other.mediaFileCount &&
+          restoredAtMs == other.restoredAtMs;
+}
 
 /// 配信から受信し、ルール評価済みのコメント
 class CommentItem {
@@ -145,11 +239,14 @@ class CommentItem {
   final String userMemo;
   final bool isFirstTime;
   final String message;
+  final List<MessageRun> messageRuns;
   final PlatformInt64 timestampMs;
   final bool isOwner;
   final bool isModerator;
   final bool isMember;
   final bool isBanned;
+  final bool isNgMasked;
+  final bool hiddenFromOverlay;
   final String? highlightRuleId;
   final String? bubbleBgColor;
   final String? bubbleTextColor;
@@ -174,11 +271,14 @@ class CommentItem {
     required this.userMemo,
     required this.isFirstTime,
     required this.message,
+    required this.messageRuns,
     required this.timestampMs,
     required this.isOwner,
     required this.isModerator,
     required this.isMember,
     required this.isBanned,
+    required this.isNgMasked,
+    required this.hiddenFromOverlay,
     this.highlightRuleId,
     this.bubbleBgColor,
     this.bubbleTextColor,
@@ -199,11 +299,14 @@ class CommentItem {
       userMemo.hashCode ^
       isFirstTime.hashCode ^
       message.hashCode ^
+      messageRuns.hashCode ^
       timestampMs.hashCode ^
       isOwner.hashCode ^
       isModerator.hashCode ^
       isMember.hashCode ^
       isBanned.hashCode ^
+      isNgMasked.hashCode ^
+      hiddenFromOverlay.hashCode ^
       highlightRuleId.hashCode ^
       bubbleBgColor.hashCode ^
       bubbleTextColor.hashCode ^
@@ -226,11 +329,14 @@ class CommentItem {
           userMemo == other.userMemo &&
           isFirstTime == other.isFirstTime &&
           message == other.message &&
+          messageRuns == other.messageRuns &&
           timestampMs == other.timestampMs &&
           isOwner == other.isOwner &&
           isModerator == other.isModerator &&
           isMember == other.isMember &&
           isBanned == other.isBanned &&
+          isNgMasked == other.isNgMasked &&
+          hiddenFromOverlay == other.hiddenFromOverlay &&
           highlightRuleId == other.highlightRuleId &&
           bubbleBgColor == other.bubbleBgColor &&
           bubbleTextColor == other.bubbleTextColor &&
@@ -380,6 +486,54 @@ class CommentLotteryState {
           lastPostStatus == other.lastPostStatus;
 }
 
+/// 過去の配信接続履歴
+class ConnectionHistoryItem {
+  final String id;
+  final PlatformKind platform;
+  final String streamId;
+  final String inputUrl;
+  final String streamTitle;
+  final ConnectionMode mode;
+  final PlatformInt64 lastConnectedMs;
+  final bool isFavorite;
+
+  const ConnectionHistoryItem({
+    required this.id,
+    required this.platform,
+    required this.streamId,
+    required this.inputUrl,
+    required this.streamTitle,
+    required this.mode,
+    required this.lastConnectedMs,
+    required this.isFavorite,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      platform.hashCode ^
+      streamId.hashCode ^
+      inputUrl.hashCode ^
+      streamTitle.hashCode ^
+      mode.hashCode ^
+      lastConnectedMs.hashCode ^
+      isFavorite.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ConnectionHistoryItem &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          platform == other.platform &&
+          streamId == other.streamId &&
+          inputUrl == other.inputUrl &&
+          streamTitle == other.streamTitle &&
+          mode == other.mode &&
+          lastConnectedMs == other.lastConnectedMs &&
+          isFavorite == other.isFavorite;
+}
+
 /// 配信チャットへの接続方式
 enum ConnectionMode {
   /// YouTube Live InnerTube（APIクォータ消費なし・URLのみで取得可能）
@@ -401,6 +555,7 @@ class ConnectionStateDto {
   final String sessionId;
   final String? errorMessage;
   final bool canPostChat;
+  final int reconnectAttempt;
 
   const ConnectionStateDto({
     required this.status,
@@ -411,6 +566,7 @@ class ConnectionStateDto {
     required this.sessionId,
     this.errorMessage,
     required this.canPostChat,
+    required this.reconnectAttempt,
   });
 
   @override
@@ -422,7 +578,8 @@ class ConnectionStateDto {
       streamId.hashCode ^
       sessionId.hashCode ^
       errorMessage.hashCode ^
-      canPostChat.hashCode;
+      canPostChat.hashCode ^
+      reconnectAttempt.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -436,10 +593,17 @@ class ConnectionStateDto {
           streamId == other.streamId &&
           sessionId == other.sessionId &&
           errorMessage == other.errorMessage &&
-          canPostChat == other.canPostChat;
+          canPostChat == other.canPostChat &&
+          reconnectAttempt == other.reconnectAttempt;
 }
 
-enum ConnectionStatus { disconnected, connecting, connected, error }
+enum ConnectionStatus {
+  disconnected,
+  connecting,
+  connected,
+  reconnecting,
+  error,
+}
 
 /// 各機能の有効 / 無効（ON / OFF）切り替え設定
 class FeatureFlags {
@@ -482,6 +646,9 @@ class FeatureFlags {
   /// 特定ワード反応メディアアニメーション機能
   final bool mediaReactionEnabled;
 
+  /// NG ワード防御フィルタ機能
+  final bool ngWordFilterEnabled;
+
   /// OBS Studio オーバーレイローカルサーバー
   final bool obsOverlayEnabled;
 
@@ -502,6 +669,7 @@ class FeatureFlags {
     required this.pickupEnabled,
     required this.queueEnabled,
     required this.mediaReactionEnabled,
+    required this.ngWordFilterEnabled,
     required this.obsOverlayEnabled,
     required this.autoUpdateCheckEnabled,
   });
@@ -521,6 +689,7 @@ class FeatureFlags {
       pickupEnabled.hashCode ^
       queueEnabled.hashCode ^
       mediaReactionEnabled.hashCode ^
+      ngWordFilterEnabled.hashCode ^
       obsOverlayEnabled.hashCode ^
       autoUpdateCheckEnabled.hashCode;
 
@@ -542,6 +711,7 @@ class FeatureFlags {
           pickupEnabled == other.pickupEnabled &&
           queueEnabled == other.queueEnabled &&
           mediaReactionEnabled == other.mediaReactionEnabled &&
+          ngWordFilterEnabled == other.ngWordFilterEnabled &&
           obsOverlayEnabled == other.obsOverlayEnabled &&
           autoUpdateCheckEnabled == other.autoUpdateCheckEnabled;
 }
@@ -732,6 +902,68 @@ class HighlightRule {
           borderColor == other.borderColor &&
           priority == other.priority &&
           enabled == other.enabled;
+}
+
+/// グローバルホットキー / Stream Deck 連携バインディング
+class HotkeyBinding {
+  final String id;
+  final String name;
+  final bool enabled;
+  final bool ctrl;
+  final bool alt;
+  final bool shift;
+
+  /// 例: "F1".."F12", "0".."9", "A".."Z", "SPACE", "ESCAPE"
+  final String key;
+  final AutomationActionKind action;
+
+  /// ルール ID / シーン名 / 機能キーなどの追加引数
+  final String targetId;
+
+  /// ソース名等の第2引数
+  final String secondaryTarget;
+
+  const HotkeyBinding({
+    required this.id,
+    required this.name,
+    required this.enabled,
+    required this.ctrl,
+    required this.alt,
+    required this.shift,
+    required this.key,
+    required this.action,
+    required this.targetId,
+    required this.secondaryTarget,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      enabled.hashCode ^
+      ctrl.hashCode ^
+      alt.hashCode ^
+      shift.hashCode ^
+      key.hashCode ^
+      action.hashCode ^
+      targetId.hashCode ^
+      secondaryTarget.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HotkeyBinding &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          enabled == other.enabled &&
+          ctrl == other.ctrl &&
+          alt == other.alt &&
+          shift == other.shift &&
+          key == other.key &&
+          action == other.action &&
+          targetId == other.targetId &&
+          secondaryTarget == other.secondaryTarget;
 }
 
 /// アプリ内へインポート完了したメディア情報
@@ -1301,6 +1533,44 @@ enum MediaTriggerType {
   firstTime,
 }
 
+class MessageRun {
+  final MessageRunKind kind;
+  final String text;
+  final String? emojiUrl;
+  final String? alt;
+  final bool isCustomEmoji;
+
+  const MessageRun({
+    required this.kind,
+    required this.text,
+    this.emojiUrl,
+    this.alt,
+    required this.isCustomEmoji,
+  });
+
+  @override
+  int get hashCode =>
+      kind.hashCode ^
+      text.hashCode ^
+      emojiUrl.hashCode ^
+      alt.hashCode ^
+      isCustomEmoji.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MessageRun &&
+          runtimeType == other.runtimeType &&
+          kind == other.kind &&
+          text == other.text &&
+          emojiUrl == other.emojiUrl &&
+          alt == other.alt &&
+          isCustomEmoji == other.isCustomEmoji;
+}
+
+/// コメント本文を構成するテキスト / 絵文字・スタンプ要素
+enum MessageRunKind { text, emoji }
+
 /// スーパーチャット・メンバーシップ等の支援イベント種別
 enum MonetizationEventKind {
   superChat,
@@ -1324,6 +1594,7 @@ class MonetizationItem {
   final String currency;
   final String tierColor;
   final String message;
+  final List<MessageRun> messageRuns;
   final PlatformInt64 timestampMs;
   final bool isChecked;
   final PlatformInt64? checkedAtMs;
@@ -1341,6 +1612,7 @@ class MonetizationItem {
     required this.currency,
     required this.tierColor,
     required this.message,
+    required this.messageRuns,
     required this.timestampMs,
     required this.isChecked,
     this.checkedAtMs,
@@ -1360,6 +1632,7 @@ class MonetizationItem {
       currency.hashCode ^
       tierColor.hashCode ^
       message.hashCode ^
+      messageRuns.hashCode ^
       timestampMs.hashCode ^
       isChecked.hashCode ^
       checkedAtMs.hashCode;
@@ -1381,9 +1654,295 @@ class MonetizationItem {
           currency == other.currency &&
           tierColor == other.tierColor &&
           message == other.message &&
+          messageRuns == other.messageRuns &&
           timestampMs == other.timestampMs &&
           isChecked == other.isChecked &&
           checkedAtMs == other.checkedAtMs;
+}
+
+/// NG ワード検知時の動作モード
+enum NgWordAction {
+  /// アプリ・OBS・各種集計すべてから完全に除外する
+  hideEverywhere,
+
+  /// アプリ内のトークモニターでは警告表示し、OBS オーバーレイへは流さない
+  hideOnOverlay,
+
+  /// 該当ワードを指定文字（例: ***）に伏せ字置換して表示する
+  maskText,
+}
+
+/// NG ワード防御ルール
+class NgWordRule {
+  final String id;
+  final String pattern;
+  final MatchMode matchMode;
+  final bool caseSensitive;
+  final NgWordAction action;
+  final String replacement;
+  final bool enabled;
+
+  const NgWordRule({
+    required this.id,
+    required this.pattern,
+    required this.matchMode,
+    required this.caseSensitive,
+    required this.action,
+    required this.replacement,
+    required this.enabled,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      pattern.hashCode ^
+      matchMode.hashCode ^
+      caseSensitive.hashCode ^
+      action.hashCode ^
+      replacement.hashCode ^
+      enabled.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NgWordRule &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          pattern == other.pattern &&
+          matchMode == other.matchMode &&
+          caseSensitive == other.caseSensitive &&
+          action == other.action &&
+          replacement == other.replacement &&
+          enabled == other.enabled;
+}
+
+/// OBS WebSocket 自動連動アクション種別
+enum ObsActionType { switchScene, setSceneItemVisible, toggleSceneItem }
+
+/// OBS WebSocket 自動連動ルール
+class ObsAutomationRule {
+  final String id;
+  final String name;
+  final bool enabled;
+  final ObsTriggerType triggerType;
+  final String pattern;
+  final BigInt minAmountJpy;
+  final ObsActionType actionType;
+  final String targetScene;
+  final String targetSource;
+  final bool setVisible;
+
+  /// 0 の場合は復帰しない。1 以上なら指定ミリ秒後に反対の表示状態へ自動復帰
+  final int autoRevertMs;
+
+  const ObsAutomationRule({
+    required this.id,
+    required this.name,
+    required this.enabled,
+    required this.triggerType,
+    required this.pattern,
+    required this.minAmountJpy,
+    required this.actionType,
+    required this.targetScene,
+    required this.targetSource,
+    required this.setVisible,
+    required this.autoRevertMs,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      enabled.hashCode ^
+      triggerType.hashCode ^
+      pattern.hashCode ^
+      minAmountJpy.hashCode ^
+      actionType.hashCode ^
+      targetScene.hashCode ^
+      targetSource.hashCode ^
+      setVisible.hashCode ^
+      autoRevertMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ObsAutomationRule &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          enabled == other.enabled &&
+          triggerType == other.triggerType &&
+          pattern == other.pattern &&
+          minAmountJpy == other.minAmountJpy &&
+          actionType == other.actionType &&
+          targetScene == other.targetScene &&
+          targetSource == other.targetSource &&
+          setVisible == other.setVisible &&
+          autoRevertMs == other.autoRevertMs;
+}
+
+/// OBS WebSocket 自動連動トリガー種別
+enum ObsTriggerType {
+  superChatMinAmount,
+  membership,
+  keyword,
+  firstTime,
+  lotteryWinner,
+  manual,
+}
+
+/// OBS WebSocket v5 接続＆自動連動設定
+class ObsWsConfig {
+  final bool enabled;
+  final String host;
+  final int port;
+  final String password;
+  final bool autoConnect;
+  final bool resetFirstTimeOnStreamStart;
+  final bool resetCountersOnStreamStart;
+  final List<ObsAutomationRule> rules;
+
+  const ObsWsConfig({
+    required this.enabled,
+    required this.host,
+    required this.port,
+    required this.password,
+    required this.autoConnect,
+    required this.resetFirstTimeOnStreamStart,
+    required this.resetCountersOnStreamStart,
+    required this.rules,
+  });
+
+  @override
+  int get hashCode =>
+      enabled.hashCode ^
+      host.hashCode ^
+      port.hashCode ^
+      password.hashCode ^
+      autoConnect.hashCode ^
+      resetFirstTimeOnStreamStart.hashCode ^
+      resetCountersOnStreamStart.hashCode ^
+      rules.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ObsWsConfig &&
+          runtimeType == other.runtimeType &&
+          enabled == other.enabled &&
+          host == other.host &&
+          port == other.port &&
+          password == other.password &&
+          autoConnect == other.autoConnect &&
+          resetFirstTimeOnStreamStart == other.resetFirstTimeOnStreamStart &&
+          resetCountersOnStreamStart == other.resetCountersOnStreamStart &&
+          rules == other.rules;
+}
+
+/// OBS WebSocket 現在の接続状態と取得済みシーン／ソース一覧
+class ObsWsStatus {
+  final bool connected;
+  final bool connecting;
+  final String obsVersion;
+  final String currentScene;
+  final List<String> scenes;
+
+  /// シーン名 -> ソース名一覧
+  final Map<String, List<String>> sceneSources;
+  final bool isStreaming;
+  final String? lastError;
+
+  const ObsWsStatus({
+    required this.connected,
+    required this.connecting,
+    required this.obsVersion,
+    required this.currentScene,
+    required this.scenes,
+    required this.sceneSources,
+    required this.isStreaming,
+    this.lastError,
+  });
+
+  @override
+  int get hashCode =>
+      connected.hashCode ^
+      connecting.hashCode ^
+      obsVersion.hashCode ^
+      currentScene.hashCode ^
+      scenes.hashCode ^
+      sceneSources.hashCode ^
+      isStreaming.hashCode ^
+      lastError.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ObsWsStatus &&
+          runtimeType == other.runtimeType &&
+          connected == other.connected &&
+          connecting == other.connecting &&
+          obsVersion == other.obsVersion &&
+          currentScene == other.currentScene &&
+          scenes == other.scenes &&
+          sceneSources == other.sceneSources &&
+          isStreaming == other.isStreaming &&
+          lastError == other.lastError;
+}
+
+/// オンエアレポート詳細 DTO
+class OnAirReportDto {
+  final StreamSessionSummary session;
+  final int durationMinutes;
+  final int avgCommentsPerMinTenths;
+  final BigInt maxCommentsPerMin;
+  final BigInt memberCommentCount;
+  final List<String> monetizationTotals;
+  final List<ReportMinuteBucket> buckets;
+  final List<ReportPeakItem> peaks;
+  final List<ReportWordRank> topWords;
+  final List<ReportUserRank> topUsers;
+
+  const OnAirReportDto({
+    required this.session,
+    required this.durationMinutes,
+    required this.avgCommentsPerMinTenths,
+    required this.maxCommentsPerMin,
+    required this.memberCommentCount,
+    required this.monetizationTotals,
+    required this.buckets,
+    required this.peaks,
+    required this.topWords,
+    required this.topUsers,
+  });
+
+  @override
+  int get hashCode =>
+      session.hashCode ^
+      durationMinutes.hashCode ^
+      avgCommentsPerMinTenths.hashCode ^
+      maxCommentsPerMin.hashCode ^
+      memberCommentCount.hashCode ^
+      monetizationTotals.hashCode ^
+      buckets.hashCode ^
+      peaks.hashCode ^
+      topWords.hashCode ^
+      topUsers.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OnAirReportDto &&
+          runtimeType == other.runtimeType &&
+          session == other.session &&
+          durationMinutes == other.durationMinutes &&
+          avgCommentsPerMinTenths == other.avgCommentsPerMinTenths &&
+          maxCommentsPerMin == other.maxCommentsPerMin &&
+          memberCommentCount == other.memberCommentCount &&
+          monetizationTotals == other.monetizationTotals &&
+          buckets == other.buckets &&
+          peaks == other.peaks &&
+          topWords == other.topWords &&
+          topUsers == other.topUsers;
 }
 
 /// OBS ブラウザソースオーバーレイの設定 ＆ 各機能デザインプリセット・背景色・カスタムCSS
@@ -1472,6 +2031,9 @@ class OverlayConfig {
   /// ワード反応メディア用ユーザーカスタム CSS
   final String mediaCustomCss;
 
+  /// 各オーバーレイ別の GUI ビジュアルスタイル設定（キー: "comments", "superchat", "pickup", "poll", "queue", "media", "lottery", "counter", "first_time"）
+  final Map<String, OverlayVisualStyle> visualStyles;
+
   const OverlayConfig({
     required this.port,
     required this.commentFontSize,
@@ -1516,6 +2078,7 @@ class OverlayConfig {
     required this.pickupCustomCss,
     required this.queueCustomCss,
     required this.mediaCustomCss,
+    required this.visualStyles,
   });
 
   @override
@@ -1562,7 +2125,8 @@ class OverlayConfig {
       pollCustomCss.hashCode ^
       pickupCustomCss.hashCode ^
       queueCustomCss.hashCode ^
-      mediaCustomCss.hashCode;
+      mediaCustomCss.hashCode ^
+      visualStyles.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1611,7 +2175,211 @@ class OverlayConfig {
           pollCustomCss == other.pollCustomCss &&
           pickupCustomCss == other.pickupCustomCss &&
           queueCustomCss == other.queueCustomCss &&
-          mediaCustomCss == other.mediaCustomCss;
+          mediaCustomCss == other.mediaCustomCss &&
+          visualStyles == other.visualStyles;
+}
+
+/// ソフト単体で高度なデザイン・テキスト装飾を行うための構造化スタイル
+class OverlayVisualStyle {
+  /// true のとき GUI スタイルをプリセットに上書き適用する
+  final bool enabled;
+
+  /// 本文フォントサイズ (px / 0 = プリセット既定)
+  final int fontSize;
+
+  /// フォントウェイト (0 = プリセット既定, 300..=900)
+  final int fontWeight;
+
+  /// 字間 (0.1px 単位: 例 5 = 0.5px, -5 = -0.5px)
+  final int letterSpacingTenths;
+
+  /// 行間 (% 単位: 0 = プリセット既定, 例 145 = 1.45)
+  final int lineHeightPercent;
+
+  /// 文字色（空文字 = プリセット既定）
+  final String textColor;
+
+  /// 文字2色グラデーションを有効にするか
+  final bool useTextGradient;
+  final String textGradientStart;
+  final String textGradientEnd;
+
+  /// グラデーション角度 (0..=360)
+  final int textGradientAngle;
+
+  /// 投稿者名・見出し色（空文字 = プリセット既定）
+  final String authorColor;
+
+  /// アクセント色（空文字 = プリセット既定）
+  final String accentColor;
+
+  /// 内側縁取り（袋文字）太さ (px / 0 = なし)
+  final int strokeWidth;
+  final String strokeColor;
+
+  /// 外側二重縁取り太さ (px / 0 = なし)
+  final int outerStrokeWidth;
+  final String outerStrokeColor;
+
+  /// 文字ドロップシャドウ
+  final bool textShadowEnabled;
+  final String textShadowColor;
+  final int textShadowBlur;
+  final int textShadowOffsetX;
+  final int textShadowOffsetY;
+
+  /// テキストのエッジ発光（Edge Glow）を有効にするか
+  final bool textGlowEnabled;
+
+  /// エッジ発光色 (HEX)
+  final String textGlowColor;
+
+  /// エッジ発光の広がり（ぼかし半径: 1..=40px）
+  final int textGlowRadius;
+
+  /// エッジ発光の強度（10..=200%）
+  final int textGlowIntensity;
+
+  /// エッジ発光の芯・輪郭にじみ太さ（0..=10px）
+  final int textGlowSpread;
+
+  /// カード背景色（空文字 = プリセット既定）
+  final String cardBgColor;
+
+  /// カード背景不透明度 (0..=100, デフォルト 92)
+  final int cardBgOpacity;
+
+  /// 角丸半径 (-1 = プリセット既定, 0..=28px)
+  final int borderRadius;
+
+  /// 枠線太さ (-1 = プリセット既定, 0..=6px)
+  final int borderWidth;
+
+  /// 枠線色（空文字 = プリセット既定）
+  final String borderColor;
+
+  /// 影の強さ ("inherit" | "none" | "soft" | "medium" | "hard")
+  final String cardShadow;
+
+  /// 余白サイズ ("inherit" | "compact" | "normal" | "relaxed")
+  final String paddingScale;
+
+  /// 出現アニメーション ("inherit" | "wipe" | "slide" | "fade" | "pop" | "none")
+  final String entranceAnimation;
+
+  const OverlayVisualStyle({
+    required this.enabled,
+    required this.fontSize,
+    required this.fontWeight,
+    required this.letterSpacingTenths,
+    required this.lineHeightPercent,
+    required this.textColor,
+    required this.useTextGradient,
+    required this.textGradientStart,
+    required this.textGradientEnd,
+    required this.textGradientAngle,
+    required this.authorColor,
+    required this.accentColor,
+    required this.strokeWidth,
+    required this.strokeColor,
+    required this.outerStrokeWidth,
+    required this.outerStrokeColor,
+    required this.textShadowEnabled,
+    required this.textShadowColor,
+    required this.textShadowBlur,
+    required this.textShadowOffsetX,
+    required this.textShadowOffsetY,
+    required this.textGlowEnabled,
+    required this.textGlowColor,
+    required this.textGlowRadius,
+    required this.textGlowIntensity,
+    required this.textGlowSpread,
+    required this.cardBgColor,
+    required this.cardBgOpacity,
+    required this.borderRadius,
+    required this.borderWidth,
+    required this.borderColor,
+    required this.cardShadow,
+    required this.paddingScale,
+    required this.entranceAnimation,
+  });
+
+  @override
+  int get hashCode =>
+      enabled.hashCode ^
+      fontSize.hashCode ^
+      fontWeight.hashCode ^
+      letterSpacingTenths.hashCode ^
+      lineHeightPercent.hashCode ^
+      textColor.hashCode ^
+      useTextGradient.hashCode ^
+      textGradientStart.hashCode ^
+      textGradientEnd.hashCode ^
+      textGradientAngle.hashCode ^
+      authorColor.hashCode ^
+      accentColor.hashCode ^
+      strokeWidth.hashCode ^
+      strokeColor.hashCode ^
+      outerStrokeWidth.hashCode ^
+      outerStrokeColor.hashCode ^
+      textShadowEnabled.hashCode ^
+      textShadowColor.hashCode ^
+      textShadowBlur.hashCode ^
+      textShadowOffsetX.hashCode ^
+      textShadowOffsetY.hashCode ^
+      textGlowEnabled.hashCode ^
+      textGlowColor.hashCode ^
+      textGlowRadius.hashCode ^
+      textGlowIntensity.hashCode ^
+      textGlowSpread.hashCode ^
+      cardBgColor.hashCode ^
+      cardBgOpacity.hashCode ^
+      borderRadius.hashCode ^
+      borderWidth.hashCode ^
+      borderColor.hashCode ^
+      cardShadow.hashCode ^
+      paddingScale.hashCode ^
+      entranceAnimation.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OverlayVisualStyle &&
+          runtimeType == other.runtimeType &&
+          enabled == other.enabled &&
+          fontSize == other.fontSize &&
+          fontWeight == other.fontWeight &&
+          letterSpacingTenths == other.letterSpacingTenths &&
+          lineHeightPercent == other.lineHeightPercent &&
+          textColor == other.textColor &&
+          useTextGradient == other.useTextGradient &&
+          textGradientStart == other.textGradientStart &&
+          textGradientEnd == other.textGradientEnd &&
+          textGradientAngle == other.textGradientAngle &&
+          authorColor == other.authorColor &&
+          accentColor == other.accentColor &&
+          strokeWidth == other.strokeWidth &&
+          strokeColor == other.strokeColor &&
+          outerStrokeWidth == other.outerStrokeWidth &&
+          outerStrokeColor == other.outerStrokeColor &&
+          textShadowEnabled == other.textShadowEnabled &&
+          textShadowColor == other.textShadowColor &&
+          textShadowBlur == other.textShadowBlur &&
+          textShadowOffsetX == other.textShadowOffsetX &&
+          textShadowOffsetY == other.textShadowOffsetY &&
+          textGlowEnabled == other.textGlowEnabled &&
+          textGlowColor == other.textGlowColor &&
+          textGlowRadius == other.textGlowRadius &&
+          textGlowIntensity == other.textGlowIntensity &&
+          textGlowSpread == other.textGlowSpread &&
+          cardBgColor == other.cardBgColor &&
+          cardBgOpacity == other.cardBgOpacity &&
+          borderRadius == other.borderRadius &&
+          borderWidth == other.borderWidth &&
+          borderColor == other.borderColor &&
+          cardShadow == other.cardShadow &&
+          paddingScale == other.paddingScale &&
+          entranceAnimation == other.entranceAnimation;
 }
 
 /// コメントピックアップ（ピン留め表示）の現在状態
@@ -1939,7 +2707,7 @@ class ReleaseNotesInfo {
 
 /// ローカルネットワーク（LAN）接続・Web リモコン設定
 class RemoteAccessConfig {
-  /// ローカルネットワーク内の他端末からの接続を許可するか（デフォルト: OFF）
+  /// ローカルネットワーク内の他端末からの接続を許可するか（デフォルト: ON / 外部IPは常時ブロック＋PIN保護）
   final bool allowLanAccess;
 
   /// Web リモコン操作画面 (/remote および操作 API) を有効にするか（デフォルト: ON）
@@ -2036,6 +2804,299 @@ class RemoteAccessStatus {
           primaryRemoteUrl == other.primaryRemoteUrl &&
           qrTargetUrl == other.qrTargetUrl &&
           qrCode == other.qrCode;
+}
+
+/// オンエアレポート: 1分ごとの盛り上がりバケット
+class ReportMinuteBucket {
+  final int minuteOffset;
+  final PlatformInt64 timestampMs;
+  final BigInt commentCount;
+  final BigInt monetizationCount;
+  final BigInt firstTimeCount;
+  final List<String> sampleMessages;
+
+  const ReportMinuteBucket({
+    required this.minuteOffset,
+    required this.timestampMs,
+    required this.commentCount,
+    required this.monetizationCount,
+    required this.firstTimeCount,
+    required this.sampleMessages,
+  });
+
+  @override
+  int get hashCode =>
+      minuteOffset.hashCode ^
+      timestampMs.hashCode ^
+      commentCount.hashCode ^
+      monetizationCount.hashCode ^
+      firstTimeCount.hashCode ^
+      sampleMessages.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReportMinuteBucket &&
+          runtimeType == other.runtimeType &&
+          minuteOffset == other.minuteOffset &&
+          timestampMs == other.timestampMs &&
+          commentCount == other.commentCount &&
+          monetizationCount == other.monetizationCount &&
+          firstTimeCount == other.firstTimeCount &&
+          sampleMessages == other.sampleMessages;
+}
+
+/// オンエアレポート: 盛り上がりピーク区間
+class ReportPeakItem {
+  final int minuteOffset;
+  final String elapsedLabel;
+  final PlatformInt64 timestampMs;
+  final BigInt commentCount;
+  final List<String> sampleMessages;
+
+  const ReportPeakItem({
+    required this.minuteOffset,
+    required this.elapsedLabel,
+    required this.timestampMs,
+    required this.commentCount,
+    required this.sampleMessages,
+  });
+
+  @override
+  int get hashCode =>
+      minuteOffset.hashCode ^
+      elapsedLabel.hashCode ^
+      timestampMs.hashCode ^
+      commentCount.hashCode ^
+      sampleMessages.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReportPeakItem &&
+          runtimeType == other.runtimeType &&
+          minuteOffset == other.minuteOffset &&
+          elapsedLabel == other.elapsedLabel &&
+          timestampMs == other.timestampMs &&
+          commentCount == other.commentCount &&
+          sampleMessages == other.sampleMessages;
+}
+
+/// オンエアレポート: アクティブ視聴者集計
+class ReportUserRank {
+  final String userId;
+  final String userName;
+  final BigInt commentCount;
+  final bool isMember;
+
+  const ReportUserRank({
+    required this.userId,
+    required this.userName,
+    required this.commentCount,
+    required this.isMember,
+  });
+
+  @override
+  int get hashCode =>
+      userId.hashCode ^
+      userName.hashCode ^
+      commentCount.hashCode ^
+      isMember.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReportUserRank &&
+          runtimeType == other.runtimeType &&
+          userId == other.userId &&
+          userName == other.userName &&
+          commentCount == other.commentCount &&
+          isMember == other.isMember;
+}
+
+/// オンエアレポート: 頻出ワード集計
+class ReportWordRank {
+  final String word;
+  final BigInt count;
+
+  const ReportWordRank({required this.word, required this.count});
+
+  @override
+  int get hashCode => word.hashCode ^ count.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReportWordRank &&
+          runtimeType == other.runtimeType &&
+          word == other.word &&
+          count == other.count;
+}
+
+/// チャンネルから自動解決した配信枠情報
+class ResolvedYouTubeLive {
+  final String videoId;
+  final String title;
+  final bool isLive;
+  final bool isUpcoming;
+  final String sourceInput;
+
+  const ResolvedYouTubeLive({
+    required this.videoId,
+    required this.title,
+    required this.isLive,
+    required this.isUpcoming,
+    required this.sourceInput,
+  });
+
+  @override
+  int get hashCode =>
+      videoId.hashCode ^
+      title.hashCode ^
+      isLive.hashCode ^
+      isUpcoming.hashCode ^
+      sourceInput.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ResolvedYouTubeLive &&
+          runtimeType == other.runtimeType &&
+          videoId == other.videoId &&
+          title == other.title &&
+          isLive == other.isLive &&
+          isUpcoming == other.isUpcoming &&
+          sourceInput == other.sourceInput;
+}
+
+/// 自動検出用のお気に入り登録チャンネル
+class SavedChannelItem {
+  final String id;
+  final String label;
+
+  /// 例: "@mychannel", "https://www.youtube.com/@mychannel", "UCxxxxxxxx"
+  final String channelInput;
+  final String lastVideoId;
+  final PlatformInt64 lastCheckedMs;
+
+  const SavedChannelItem({
+    required this.id,
+    required this.label,
+    required this.channelInput,
+    required this.lastVideoId,
+    required this.lastCheckedMs,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      label.hashCode ^
+      channelInput.hashCode ^
+      lastVideoId.hashCode ^
+      lastCheckedMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SavedChannelItem &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          label == other.label &&
+          channelInput == other.channelInput &&
+          lastVideoId == other.lastVideoId &&
+          lastCheckedMs == other.lastCheckedMs;
+}
+
+/// プロファイル一覧表示用の軽量サマリー
+class StreamProfileSummary {
+  final String id;
+  final String name;
+  final String description;
+  final PlatformInt64 updatedAtMs;
+  final bool isActive;
+
+  const StreamProfileSummary({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.updatedAtMs,
+    required this.isActive,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      description.hashCode ^
+      updatedAtMs.hashCode ^
+      isActive.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StreamProfileSummary &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          description == other.description &&
+          updatedAtMs == other.updatedAtMs &&
+          isActive == other.isActive;
+}
+
+/// オンエアレポート: セッション一覧項目
+class StreamSessionSummary {
+  final String sessionId;
+  final PlatformKind platform;
+  final String streamId;
+  final String title;
+  final PlatformInt64 startedAtMs;
+  final PlatformInt64 lastCommentAtMs;
+  final BigInt totalComments;
+  final BigInt uniqueUsers;
+  final BigInt firstTimeUsers;
+  final BigInt monetizationCount;
+
+  const StreamSessionSummary({
+    required this.sessionId,
+    required this.platform,
+    required this.streamId,
+    required this.title,
+    required this.startedAtMs,
+    required this.lastCommentAtMs,
+    required this.totalComments,
+    required this.uniqueUsers,
+    required this.firstTimeUsers,
+    required this.monetizationCount,
+  });
+
+  @override
+  int get hashCode =>
+      sessionId.hashCode ^
+      platform.hashCode ^
+      streamId.hashCode ^
+      title.hashCode ^
+      startedAtMs.hashCode ^
+      lastCommentAtMs.hashCode ^
+      totalComments.hashCode ^
+      uniqueUsers.hashCode ^
+      firstTimeUsers.hashCode ^
+      monetizationCount.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StreamSessionSummary &&
+          runtimeType == other.runtimeType &&
+          sessionId == other.sessionId &&
+          platform == other.platform &&
+          streamId == other.streamId &&
+          title == other.title &&
+          startedAtMs == other.startedAtMs &&
+          lastCommentAtMs == other.lastCommentAtMs &&
+          totalComments == other.totalComments &&
+          uniqueUsers == other.uniqueUsers &&
+          firstTimeUsers == other.firstTimeUsers &&
+          monetizationCount == other.monetizationCount;
 }
 
 /// アップデートダウンロード進捗

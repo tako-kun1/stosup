@@ -5,12 +5,30 @@ use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::models::{
-    AppThemeMode, FeatureFlags, FirstTimeCounterConfig, HighlightRule, LotteryResult,
-    LotteryWinner, MatchMode, MediaAnimationKind, MediaEffectType, MediaKind, MediaPosition,
-    MediaReactionConfig, MediaReactionRule, MediaTriggerType, MonetizationEventKind,
-    MonetizationItem, OverlayConfig, PlatformKind, PollConfig, QueueState, RawIncomingComment,
-    RemoteAccessConfig, UserRecord, WordCounterConfig,
+    AppThemeMode, ConnectionHistoryItem, ConnectionMode, FeatureFlags, FirstTimeCounterConfig,
+    HighlightRule, HotkeyBinding, LotteryResult, LotteryWinner, MatchMode, MediaAnimationKind,
+    MediaEffectType, MediaKind, MediaPosition, MediaReactionConfig, MediaReactionRule,
+    MediaTriggerType, MessageRun, MonetizationEventKind, MonetizationItem, NgWordAction,
+    NgWordRule, ObsWsConfig, OverlayConfig, PlatformKind, PollConfig, QueueState,
+    RawIncomingComment, RemoteAccessConfig, SavedChannelItem, StreamProfile, StreamSessionSummary,
+    UserRecord, WordCounterConfig,
 };
+
+/// オンエアレポート集計用のコメント履歴 1 行
+#[derive(Debug, Clone)]
+pub struct SessionCommentRow {
+    pub comment_id: String,
+    pub user_id: String,
+    pub user_name: String,
+    pub message: String,
+    pub timestamp_ms: i64,
+    pub is_first_time: bool,
+    pub is_member: bool,
+    pub event_kind: Option<String>,
+    pub amount_display: String,
+    pub amount_micros: u64,
+    pub currency: String,
+}
 
 /// コメント処理時に DB から取得するユーザーメタ情報
 #[derive(Debug, Clone)]
@@ -54,6 +72,7 @@ impl Database {
             PRAGMA synchronous = NORMAL;
             PRAGMA temp_store = MEMORY;
             PRAGMA cache_size = -16000;
+            PRAGMA mmap_size = 67108864;
             PRAGMA busy_timeout = 5000;
             PRAGMA foreign_keys = ON;
 
@@ -71,6 +90,8 @@ impl Database {
             );
             CREATE INDEX IF NOT EXISTS idx_stream_sessions_lookup
                 ON stream_sessions(platform, stream_id);
+            CREATE INDEX IF NOT EXISTS idx_stream_sessions_started
+                ON stream_sessions(started_at_ms DESC);
 
             CREATE TABLE IF NOT EXISTS users (
                 user_id TEXT NOT NULL,
@@ -95,6 +116,8 @@ impl Database {
                 comment_count INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (session_id, user_id, platform)
             );
+            CREATE INDEX IF NOT EXISTS idx_session_participants_user
+                ON session_participants(user_id, platform);
 
             CREATE TABLE IF NOT EXISTS highlight_rules (
                 id TEXT PRIMARY KEY,
@@ -183,12 +206,73 @@ impl Database {
                 caption_template TEXT NOT NULL DEFAULT '',
                 enabled INTEGER NOT NULL DEFAULT 1
             );
+
+            CREATE TABLE IF NOT EXISTS connection_history (
+                id TEXT PRIMARY KEY,
+                platform TEXT NOT NULL,
+                stream_id TEXT NOT NULL,
+                input_url TEXT NOT NULL,
+                stream_title TEXT NOT NULL,
+                mode TEXT NOT NULL,
+                last_connected_ms INTEGER NOT NULL,
+                is_favorite INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_conn_history_ts
+                ON connection_history(is_favorite DESC, last_connected_ms DESC);
+
+            CREATE TABLE IF NOT EXISTS ng_word_rules (
+                id TEXT PRIMARY KEY,
+                pattern TEXT NOT NULL,
+                match_mode TEXT NOT NULL,
+                case_sensitive INTEGER NOT NULL DEFAULT 0,
+                action TEXT NOT NULL,
+                replacement TEXT NOT NULL DEFAULT '***',
+                enabled INTEGER NOT NULL DEFAULT 1
+            );
+
+            CREATE TABLE IF NOT EXISTS stream_profiles (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                payload_json TEXT NOT NULL,
+                updated_at_ms INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_stream_profiles_updated
+                ON stream_profiles(updated_at_ms DESC);
+
+            CREATE TABLE IF NOT EXISTS session_comments (
+                session_id TEXT NOT NULL,
+                comment_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                user_name TEXT NOT NULL,
+                message TEXT NOT NULL,
+                timestamp_ms INTEGER NOT NULL,
+                is_first_time INTEGER NOT NULL DEFAULT 0,
+                is_member INTEGER NOT NULL DEFAULT 0,
+                event_kind TEXT,
+                amount_display TEXT NOT NULL DEFAULT '',
+                amount_micros INTEGER NOT NULL DEFAULT 0,
+                currency TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (session_id, comment_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_session_comments_session_ts
+                ON session_comments(session_id, timestamp_ms ASC);
             ",
         )?;
 
         // 既存DB向けの安全マイグレーション（カラム未存在時のみ追加）
         let _ = self.conn.execute(
             "ALTER TABLE users ADD COLUMN first_time_detected INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
+        // カラム追加後に部分インデックスを作成（初見累計カウントの全表走査を回避）
+        let _ = self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_users_first_time
+                ON users(first_time_detected) WHERE first_time_detected = 1",
+            [],
+        );
+        let _ = self.conn.execute(
+            "ALTER TABLE monetization_events ADD COLUMN message_runs_json TEXT NOT NULL DEFAULT '[]'",
             [],
         );
         let media_migrations = [
@@ -287,26 +371,50 @@ impl Database {
         Ok(())
     }
 
+    /// 複数クエリを単一 SAVEPOINT トランザクションで実行する（ネスト対応・WAL 同期コスト集約）
+    pub fn in_savepoint<T, F>(&self, name: &str, f: F) -> Result<T>
+    where
+        F: FnOnce(&Self) -> Result<T>,
+    {
+        self.conn.execute_batch(&format!("SAVEPOINT {name};"))?;
+        match f(self) {
+            Ok(val) => {
+                if let Err(e) = self
+                    .conn
+                    .execute_batch(&format!("RELEASE SAVEPOINT {name};"))
+                {
+                    let _ = self.conn.execute_batch(&format!(
+                        "ROLLBACK TO SAVEPOINT {name}; RELEASE SAVEPOINT {name};"
+                    ));
+                    return Err(e.into());
+                }
+                Ok(val)
+            }
+            Err(e) => {
+                let _ = self.conn.execute_batch(&format!(
+                    "ROLLBACK TO SAVEPOINT {name}; RELEASE SAVEPOINT {name};"
+                ));
+                Err(e)
+            }
+        }
+    }
+
     // ==================== 設定 (Key-Value) ====================
 
     pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
-        let res = self
+        let mut stmt = self
             .conn
-            .query_row(
-                "SELECT value FROM app_settings WHERE key = ?1",
-                params![key],
-                |row| row.get(0),
-            )
-            .optional()?;
+            .prepare_cached("SELECT value FROM app_settings WHERE key = ?1")?;
+        let res = stmt.query_row(params![key], |row| row.get(0)).optional()?;
         Ok(res)
     }
 
     pub fn set_setting(&self, key: &str, value: &str) -> Result<()> {
-        self.conn.execute(
+        let mut stmt = self.conn.prepare_cached(
             "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            params![key, value],
         )?;
+        stmt.execute(params![key, value])?;
         Ok(())
     }
 
@@ -480,28 +588,38 @@ impl Database {
         session_id: &str,
         raw: &RawIncomingComment,
     ) -> Result<UserCommentMeta> {
+        // 単独呼び出しでも原子性を保証するため SAVEPOINT でラップする
+        self.in_savepoint("record_user_comment", |db| {
+            db.record_user_comment_inner(session_id, raw)
+        })
+    }
+
+    /// 既存トランザクション（外側の SAVEPOINT 内）から直接呼び出すための内部実装（二重 SAVEPOINT 回避）
+    pub fn record_user_comment_inner(
+        &self,
+        session_id: &str,
+        raw: &RawIncomingComment,
+    ) -> Result<UserCommentMeta> {
         let platform_str = raw.platform.as_str();
 
-        // 複数クエリを単一の SAVEPOINT トランザクションへ集約し、WAL 同期コストとクエリ回数を最小化
-        self.conn.execute_batch("SAVEPOINT record_user_comment;")?;
-        let res = (|| -> Result<UserCommentMeta> {
-            // 登録前に既存ユーザーか＆BAN/メモ/初見フラグを 1 クエリで取得（後段の再 SELECT を省略）
-            let existing: Option<(i64, String, i64)> = self
-                .conn
-                .query_row(
-                    "SELECT is_banned, memo, first_time_detected FROM users WHERE user_id = ?1 AND platform = ?2",
-                    params![raw.user_id, platform_str],
-                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-                )
-                .optional()?;
+        let existing: Option<(i64, String, i64)> = {
+            let mut stmt = self.conn.prepare_cached(
+                "SELECT is_banned, memo, first_time_detected FROM users WHERE user_id = ?1 AND platform = ?2",
+            )?;
+            stmt.query_row(params![raw.user_id, platform_str], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
+            .optional()?
+        };
 
-            let (was_unregistered, is_banned, memo, already_first_time_detected) = match existing {
-                Some((b, memo, det)) => (false, b != 0, memo, det != 0),
-                None => (true, false, String::new(), false),
-            };
+        let (was_unregistered, is_banned, memo, already_first_time_detected) = match existing {
+            Some((b, memo, det)) => (false, b != 0, memo, det != 0),
+            None => (true, false, String::new(), false),
+        };
 
-            // ユーザーテーブルへ UPSERT（is_banned / memo / first_time_detected は変更しない）
-            self.conn.execute(
+        // ユーザーテーブルへ UPSERT（is_banned / memo / first_time_detected は変更しない）
+        {
+            let mut stmt = self.conn.prepare_cached(
                 "INSERT INTO users (
                     user_id, platform, display_name, icon_url,
                     watch_count, total_comment_count, is_banned, ban_reason, memo,
@@ -512,58 +630,46 @@ impl Database {
                     icon_url = CASE WHEN excluded.icon_url != '' THEN excluded.icon_url ELSE users.icon_url END,
                     total_comment_count = users.total_comment_count + 1,
                     last_seen_ms = excluded.last_seen_ms",
-                params![
-                    raw.user_id,
-                    platform_str,
-                    raw.user_name,
-                    raw.user_icon_url,
-                    raw.timestamp_ms
-                ],
             )?;
+            stmt.execute(params![
+                raw.user_id,
+                platform_str,
+                raw.user_name,
+                raw.user_icon_url,
+                raw.timestamp_ms
+            ])?;
+        }
 
-            // この配信セッションでの参加が初回かを INSERT OR IGNORE で 1 クエリ判定
-            let inserted = self.conn.execute(
+        // この配信セッションでの参加が初回かを INSERT OR IGNORE で 1 クエリ判定
+        let inserted = {
+            let mut stmt = self.conn.prepare_cached(
                 "INSERT OR IGNORE INTO session_participants (session_id, user_id, platform, comment_count)
                  VALUES (?1, ?2, ?3, 1)",
-                params![session_id, raw.user_id, platform_str],
             )?;
+            stmt.execute(params![session_id, raw.user_id, platform_str])?
+        };
 
-            if inserted > 0 {
-                // 1配信につき初回コメントで視聴回数 +1
-                self.conn.execute(
-                    "UPDATE users SET watch_count = watch_count + 1
-                     WHERE user_id = ?1 AND platform = ?2",
-                    params![raw.user_id, platform_str],
-                )?;
-            } else {
-                self.conn.execute(
-                    "UPDATE session_participants SET comment_count = comment_count + 1
-                     WHERE session_id = ?1 AND user_id = ?2 AND platform = ?3",
-                    params![session_id, raw.user_id, platform_str],
-                )?;
-            }
-
-            Ok(UserCommentMeta {
-                is_banned,
-                memo,
-                was_unregistered,
-                already_first_time_detected,
-            })
-        })();
-
-        match res {
-            Ok(meta) => {
-                self.conn
-                    .execute_batch("RELEASE SAVEPOINT record_user_comment;")?;
-                Ok(meta)
-            }
-            Err(e) => {
-                let _ = self.conn.execute_batch(
-                    "ROLLBACK TO SAVEPOINT record_user_comment; RELEASE SAVEPOINT record_user_comment;",
-                );
-                Err(e)
-            }
+        if inserted > 0 {
+            // 1配信につき初回コメントで視聴回数 +1
+            let mut stmt = self.conn.prepare_cached(
+                "UPDATE users SET watch_count = watch_count + 1
+                 WHERE user_id = ?1 AND platform = ?2",
+            )?;
+            stmt.execute(params![raw.user_id, platform_str])?;
+        } else {
+            let mut stmt = self.conn.prepare_cached(
+                "UPDATE session_participants SET comment_count = comment_count + 1
+                 WHERE session_id = ?1 AND user_id = ?2 AND platform = ?3",
+            )?;
+            stmt.execute(params![session_id, raw.user_id, platform_str])?;
         }
+
+        Ok(UserCommentMeta {
+            is_banned,
+            memo,
+            was_unregistered,
+            already_first_time_detected,
+        })
     }
 
     /// ユーザー自動記録OFF時に既存のユーザー情報だけを参照する
@@ -572,13 +678,13 @@ impl Database {
         user_id: &str,
         platform: PlatformKind,
     ) -> Result<UserCommentMeta> {
-        let row: Option<(i64, String, i64)> = self
-            .conn
-            .query_row(
-                "SELECT is_banned, memo, first_time_detected FROM users WHERE user_id = ?1 AND platform = ?2",
-                params![user_id, platform.as_str()],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )
+        let mut stmt = self.conn.prepare_cached(
+            "SELECT is_banned, memo, first_time_detected FROM users WHERE user_id = ?1 AND platform = ?2",
+        )?;
+        let row: Option<(i64, String, i64)> = stmt
+            .query_row(params![user_id, platform.as_str()], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })
             .optional()?;
         match row {
             Some((b, memo, det)) => Ok(UserCommentMeta {
@@ -602,31 +708,32 @@ impl Database {
         raw: &RawIncomingComment,
     ) -> Result<u64> {
         let platform_str = raw.platform.as_str();
-        self.conn.execute(
-            "INSERT INTO users (
-                user_id, platform, display_name, icon_url,
-                watch_count, total_comment_count, is_banned, ban_reason, memo,
-                first_time_detected, first_seen_ms, last_seen_ms
-            ) VALUES (?1, ?2, ?3, ?4, 0, 0, 0, '', '', 1, ?5, ?5)
-            ON CONFLICT(user_id, platform) DO UPDATE SET
-                first_time_detected = 1",
-            params![
+        {
+            let mut stmt = self.conn.prepare_cached(
+                "INSERT INTO users (
+                    user_id, platform, display_name, icon_url,
+                    watch_count, total_comment_count, is_banned, ban_reason, memo,
+                    first_time_detected, first_seen_ms, last_seen_ms
+                ) VALUES (?1, ?2, ?3, ?4, 0, 0, 0, '', '', 1, ?5, ?5)
+                ON CONFLICT(user_id, platform) DO UPDATE SET
+                    first_time_detected = 1",
+            )?;
+            stmt.execute(params![
                 raw.user_id,
                 platform_str,
                 raw.user_name,
                 raw.user_icon_url,
                 raw.timestamp_ms
-            ],
-        )?;
+            ])?;
+        }
         self.count_all_time_first_timers()
     }
 
     pub fn count_all_time_first_timers(&self) -> Result<u64> {
-        let count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM users WHERE first_time_detected = 1",
-            [],
-            |row| row.get(0),
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare_cached("SELECT COUNT(*) FROM users WHERE first_time_detected = 1")?;
+        let count: i64 = stmt.query_row([], |row| row.get(0))?;
         Ok(count.max(0) as u64)
     }
 
@@ -704,41 +811,45 @@ impl Database {
     /// 特定のユーザーをユーザーリスト（および配信参加記録）から個別削除する
     pub fn delete_user(&self, user_id: &str, platform: PlatformKind) -> Result<()> {
         let p = platform.as_str();
-        self.conn.execute(
-            "DELETE FROM session_participants WHERE user_id = ?1 AND platform = ?2",
-            params![user_id, p],
-        )?;
-        self.conn.execute(
-            "DELETE FROM users WHERE user_id = ?1 AND platform = ?2",
-            params![user_id, p],
-        )?;
-        Ok(())
+        self.in_savepoint("delete_user", |db| {
+            db.conn.execute(
+                "DELETE FROM session_participants WHERE user_id = ?1 AND platform = ?2",
+                params![user_id, p],
+            )?;
+            db.conn.execute(
+                "DELETE FROM users WHERE user_id = ?1 AND platform = ?2",
+                params![user_id, p],
+            )?;
+            Ok(())
+        })
     }
 
     /// ユーザーリストを一括リセットする（keep_banned = true の場合は BAN 済みユーザーを残す）
     pub fn reset_users(&self, keep_banned: bool) -> Result<()> {
-        if keep_banned {
-            self.conn.execute(
-                "DELETE FROM session_participants
-                 WHERE EXISTS (
-                     SELECT 1 FROM users u
-                     WHERE u.user_id = session_participants.user_id
-                       AND u.platform = session_participants.platform
-                       AND u.is_banned = 0
-                 )",
-                [],
-            )?;
-            self.conn.execute("DELETE FROM users WHERE is_banned = 0", [])?;
-        } else {
-            self.conn.execute("DELETE FROM session_participants", [])?;
-            self.conn.execute("DELETE FROM users", [])?;
-        }
-        Ok(())
+        self.in_savepoint("reset_users", |db| {
+            if keep_banned {
+                db.conn.execute(
+                    "DELETE FROM session_participants
+                     WHERE EXISTS (
+                         SELECT 1 FROM users u
+                         WHERE u.user_id = session_participants.user_id
+                           AND u.platform = session_participants.platform
+                           AND u.is_banned = 0
+                     )",
+                    [],
+                )?;
+                db.conn.execute("DELETE FROM users WHERE is_banned = 0", [])?;
+            } else {
+                db.conn.execute("DELETE FROM session_participants", [])?;
+                db.conn.execute("DELETE FROM users", [])?;
+            }
+            Ok(())
+        })
     }
 
     pub fn list_users(&self, current_session_id: Option<&str>) -> Result<Vec<UserRecord>> {
         let session_id = current_session_id.unwrap_or("");
-        let mut stmt = self.conn.prepare(
+        let mut stmt = self.conn.prepare_cached(
             "SELECT
                 u.user_id,
                 u.platform,
@@ -858,7 +969,7 @@ impl Database {
     // ==================== 特定ワードカウンター ====================
 
     pub fn list_word_counters(&self) -> Result<Vec<WordCounterConfig>> {
-        let mut stmt = self.conn.prepare(
+        let mut stmt = self.conn.prepare_cached(
             "SELECT
                 wc.id,
                 wc.name,
@@ -941,15 +1052,17 @@ impl Database {
     }
 
     pub fn reset_word_counter(&self, id: &str) -> Result<()> {
-        self.conn.execute(
-            "DELETE FROM word_counter_user_counts WHERE counter_id = ?1",
-            params![id],
-        )?;
-        self.conn.execute(
-            "UPDATE word_counters SET total_count = 0 WHERE id = ?1",
-            params![id],
-        )?;
-        Ok(())
+        self.in_savepoint("reset_word_counter", |db| {
+            db.conn.execute(
+                "DELETE FROM word_counter_user_counts WHERE counter_id = ?1",
+                params![id],
+            )?;
+            db.conn.execute(
+                "UPDATE word_counters SET total_count = 0 WHERE id = ?1",
+                params![id],
+            )?;
+            Ok(())
+        })
     }
 
     pub fn adjust_word_counter(&self, id: &str, delta: i64) -> Result<()> {
@@ -961,7 +1074,7 @@ impl Database {
     }
 
     pub fn get_counter_user_counts(&self, counter_id: &str) -> Result<HashMap<String, u32>> {
-        let mut stmt = self.conn.prepare(
+        let mut stmt = self.conn.prepare_cached(
             "SELECT user_id, count FROM word_counter_user_counts WHERE counter_id = ?1",
         )?;
         let rows = stmt.query_map(params![counter_id], |row| {
@@ -981,32 +1094,37 @@ impl Database {
         user_id: &str,
         max_per_account: Option<u32>,
     ) -> Result<bool> {
-        let current: u32 = self
-            .conn
-            .query_row(
-                "SELECT count FROM word_counter_user_counts WHERE counter_id = ?1 AND user_id = ?2",
-                params![counter_id, user_id],
-                |row| row.get::<_, i64>(0),
-            )
-            .optional()?
-            .unwrap_or(0) as u32;
-
-        if let Some(limit) = max_per_account {
-            if current >= limit {
-                return Ok(false);
+        // 上限ありの場合も条件付き UPSERT (WHERE count < ?3) で事前 SELECT を不要化し、
+        // 上限到達時は 1 クエリ・未到達時は 2 クエリで原子的に更新する
+        let changed = match max_per_account {
+            Some(0) => return Ok(false),
+            Some(limit) => {
+                let mut stmt = self.conn.prepare_cached(
+                    "INSERT INTO word_counter_user_counts (counter_id, user_id, count)
+                     VALUES (?1, ?2, 1)
+                     ON CONFLICT(counter_id, user_id) DO UPDATE SET count = count + 1
+                     WHERE word_counter_user_counts.count < ?3",
+                )?;
+                stmt.execute(params![counter_id, user_id, limit as i64])?
             }
+            None => {
+                let mut stmt = self.conn.prepare_cached(
+                    "INSERT INTO word_counter_user_counts (counter_id, user_id, count)
+                     VALUES (?1, ?2, 1)
+                     ON CONFLICT(counter_id, user_id) DO UPDATE SET count = count + 1",
+                )?;
+                stmt.execute(params![counter_id, user_id])?
+            }
+        };
+        if changed == 0 {
+            return Ok(false);
         }
-
-        self.conn.execute(
-            "INSERT INTO word_counter_user_counts (counter_id, user_id, count)
-             VALUES (?1, ?2, 1)
-             ON CONFLICT(counter_id, user_id) DO UPDATE SET count = count + 1",
-            params![counter_id, user_id],
-        )?;
-        self.conn.execute(
-            "UPDATE word_counters SET total_count = total_count + 1 WHERE id = ?1",
-            params![counter_id],
-        )?;
+        {
+            let mut stmt = self.conn.prepare_cached(
+                "UPDATE word_counters SET total_count = total_count + 1 WHERE id = ?1",
+            )?;
+            stmt.execute(params![counter_id])?;
+        }
         Ok(true)
     }
 
@@ -1057,39 +1175,45 @@ impl Database {
     // ==================== スーパーチャット / メンバーシップ ====================
 
     pub fn insert_monetization_event(&self, item: &MonetizationItem) -> Result<()> {
-        self.conn.execute(
+        let runs_json = if item.message_runs.is_empty() {
+            "[]".to_string()
+        } else {
+            serde_json::to_string(&item.message_runs).unwrap_or_else(|_| "[]".to_string())
+        };
+        let mut stmt = self.conn.prepare_cached(
             "INSERT OR IGNORE INTO monetization_events (
                 id, session_id, platform, kind, user_id, user_name, user_icon_url,
                 amount_display, amount_micros, currency, tier_color, message,
-                timestamp_ms, is_checked, checked_at_ms
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
-            params![
-                item.id,
-                item.session_id,
-                item.platform.as_str(),
-                item.kind.as_str(),
-                item.user_id,
-                item.user_name,
-                item.user_icon_url,
-                item.amount_display,
-                item.amount_micros as i64,
-                item.currency,
-                item.tier_color,
-                item.message,
-                item.timestamp_ms,
-                if item.is_checked { 1 } else { 0 },
-                item.checked_at_ms,
-            ],
+                message_runs_json, timestamp_ms, is_checked, checked_at_ms
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
         )?;
+        stmt.execute(params![
+            item.id,
+            item.session_id,
+            item.platform.as_str(),
+            item.kind.as_str(),
+            item.user_id,
+            item.user_name,
+            item.user_icon_url,
+            item.amount_display,
+            item.amount_micros as i64,
+            item.currency,
+            item.tier_color,
+            item.message,
+            runs_json,
+            item.timestamp_ms,
+            if item.is_checked { 1 } else { 0 },
+            item.checked_at_ms,
+        ])?;
         Ok(())
     }
 
     pub fn list_monetization_events(&self, limit: usize) -> Result<Vec<MonetizationItem>> {
-        let mut stmt = self.conn.prepare(
+        let mut stmt = self.conn.prepare_cached(
             "SELECT
                 id, session_id, platform, kind, user_id, user_name, user_icon_url,
                 amount_display, amount_micros, currency, tier_color, message,
-                timestamp_ms, is_checked, checked_at_ms
+                message_runs_json, timestamp_ms, is_checked, checked_at_ms
              FROM monetization_events
              ORDER BY timestamp_ms DESC
              LIMIT ?1",
@@ -1097,6 +1221,9 @@ impl Database {
         let rows = stmt.query_map(params![limit as i64], |row| {
             let platform_str: String = row.get(2)?;
             let kind_str: String = row.get(3)?;
+            let runs_json: String = row.get(12)?;
+            let message_runs: Vec<MessageRun> =
+                serde_json::from_str(&runs_json).unwrap_or_default();
             Ok(MonetizationItem {
                 id: row.get(0)?,
                 session_id: row.get(1)?,
@@ -1110,9 +1237,10 @@ impl Database {
                 currency: row.get(9)?,
                 tier_color: row.get(10)?,
                 message: row.get(11)?,
-                timestamp_ms: row.get(12)?,
-                is_checked: row.get::<_, i64>(13)? != 0,
-                checked_at_ms: row.get(14)?,
+                message_runs,
+                timestamp_ms: row.get(13)?,
+                is_checked: row.get::<_, i64>(14)? != 0,
+                checked_at_ms: row.get(15)?,
             })
         })?;
         let mut list = Vec::new();
@@ -1337,6 +1465,500 @@ impl Database {
         }
         Ok(removable)
     }
+
+    // ==================== バックアップ / 整合性スナップショット ====================
+
+    /// 整合性の取れた SQLite スナップショットを指定パスへ安全に書き出す
+    pub fn vacuum_into(&self, dest: &Path) -> Result<()> {
+        if dest.exists() {
+            let _ = std::fs::remove_file(dest);
+        }
+        let escaped = dest.to_string_lossy().replace('\'', "''");
+        let sql = format!("VACUUM INTO '{}'", escaped);
+        self.conn
+            .execute(&sql, [])
+            .with_context(|| format!("SQLite スナップショット出力に失敗しました: {}", dest.display()))?;
+        Ok(())
+    }
+
+    /// データベースファイルを安全に差し替えて再オープンする（バックアップ復元用）
+    pub fn replace_database_file(&mut self, db_path: &Path, src_db: &Path) -> Result<()> {
+        // 既存ファイルハンドルを確実に解放するため一時的にインメモリ DB へ差し替え
+        self.conn = Connection::open_in_memory()?;
+        for suffix in ["-wal", "-shm"] {
+            let aux = Path::new(&format!("{}{}", db_path.to_string_lossy(), suffix)).to_path_buf();
+            if aux.exists() {
+                let _ = std::fs::remove_file(aux);
+            }
+        }
+        std::fs::copy(src_db, db_path).with_context(|| {
+            format!(
+                "データベースファイルの差し替えに失敗しました: {}",
+                db_path.display()
+            )
+        })?;
+        self.conn = Connection::open(db_path)?;
+        self.init_schema()?;
+        Ok(())
+    }
+
+    // ==================== 接続履歴 ＆ お気に入りチャンネル ====================
+
+    pub fn upsert_connection_history(&self, item: &ConnectionHistoryItem) -> Result<()> {
+        let mode_str = match item.mode {
+            ConnectionMode::YouTubeDataApi => "youtube_data_api",
+            ConnectionMode::Demo => "demo",
+            ConnectionMode::YouTubeInnerTube => "youtube_innertube",
+        };
+        self.conn.execute(
+            "INSERT INTO connection_history (
+                id, platform, stream_id, input_url, stream_title, mode, last_connected_ms, is_favorite
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            ON CONFLICT(id) DO UPDATE SET
+                input_url = excluded.input_url,
+                stream_title = excluded.stream_title,
+                mode = excluded.mode,
+                last_connected_ms = excluded.last_connected_ms",
+            params![
+                item.id,
+                item.platform.as_str(),
+                item.stream_id,
+                item.input_url,
+                item.stream_title,
+                mode_str,
+                item.last_connected_ms,
+                if item.is_favorite { 1 } else { 0 },
+            ],
+        )?;
+        // お気に入り以外で古い履歴は直近 25 件までに自動整理
+        self.conn.execute(
+            "DELETE FROM connection_history
+             WHERE is_favorite = 0 AND id NOT IN (
+                 SELECT id FROM connection_history
+                 WHERE is_favorite = 0
+                 ORDER BY last_connected_ms DESC
+                 LIMIT 25
+             )",
+            [],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_connection_history(&self) -> Result<Vec<ConnectionHistoryItem>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, platform, stream_id, input_url, stream_title, mode, last_connected_ms, is_favorite
+             FROM connection_history
+             ORDER BY is_favorite DESC, last_connected_ms DESC
+             LIMIT 40",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let plat: String = row.get(1)?;
+            let mode_s: String = row.get(5)?;
+            let mode = match mode_s.as_str() {
+                "youtube_data_api" => ConnectionMode::YouTubeDataApi,
+                "demo" => ConnectionMode::Demo,
+                _ => ConnectionMode::YouTubeInnerTube,
+            };
+            Ok(ConnectionHistoryItem {
+                id: row.get(0)?,
+                platform: PlatformKind::from_str_lossy(&plat),
+                stream_id: row.get(2)?,
+                input_url: row.get(3)?,
+                stream_title: row.get(4)?,
+                mode,
+                last_connected_ms: row.get(6)?,
+                is_favorite: row.get::<_, i64>(7)? != 0,
+            })
+        })?;
+        let mut list = Vec::new();
+        for r in rows {
+            list.push(r?);
+        }
+        Ok(list)
+    }
+
+    pub fn toggle_connection_history_favorite(&self, id: &str, fav: bool) -> Result<()> {
+        self.conn.execute(
+            "UPDATE connection_history SET is_favorite = ?1 WHERE id = ?2",
+            params![if fav { 1 } else { 0 }, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_connection_history(&self, id: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM connection_history WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn get_saved_channels(&self) -> Result<Vec<SavedChannelItem>> {
+        if let Some(raw) = self.get_setting("saved_channels")? {
+            if let Ok(list) = serde_json::from_str::<Vec<SavedChannelItem>>(&raw) {
+                return Ok(list);
+            }
+        }
+        Ok(Vec::new())
+    }
+
+    pub fn set_saved_channels(&self, channels: &[SavedChannelItem]) -> Result<()> {
+        let json = serde_json::to_string(channels)?;
+        self.set_setting("saved_channels", &json)
+    }
+
+    // ==================== NG ワード防御ルール ====================
+
+    pub fn list_ng_word_rules(&self) -> Result<Vec<NgWordRule>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, pattern, match_mode, case_sensitive, action, replacement, enabled
+             FROM ng_word_rules
+             ORDER BY rowid ASC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let mode_s: String = row.get(2)?;
+            let action_s: String = row.get(4)?;
+            Ok(NgWordRule {
+                id: row.get(0)?,
+                pattern: row.get(1)?,
+                match_mode: MatchMode::from_str_lossy(&mode_s),
+                case_sensitive: row.get::<_, i64>(3)? != 0,
+                action: NgWordAction::from_str_lossy(&action_s),
+                replacement: row.get(5)?,
+                enabled: row.get::<_, i64>(6)? != 0,
+            })
+        })?;
+        let mut list = Vec::new();
+        for r in rows {
+            list.push(r?);
+        }
+        Ok(list)
+    }
+
+    pub fn upsert_ng_word_rule(&self, rule: &NgWordRule) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO ng_word_rules (
+                id, pattern, match_mode, case_sensitive, action, replacement, enabled
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            ON CONFLICT(id) DO UPDATE SET
+                pattern = excluded.pattern,
+                match_mode = excluded.match_mode,
+                case_sensitive = excluded.case_sensitive,
+                action = excluded.action,
+                replacement = excluded.replacement,
+                enabled = excluded.enabled",
+            params![
+                rule.id,
+                rule.pattern,
+                rule.match_mode.as_str(),
+                if rule.case_sensitive { 1 } else { 0 },
+                rule.action.as_str(),
+                rule.replacement,
+                if rule.enabled { 1 } else { 0 },
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_ng_word_rule(&self, id: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM ng_word_rules WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    // ==================== OBS WebSocket ＆ ホットキー設定 ====================
+
+    pub fn get_obs_ws_config(&self) -> Result<ObsWsConfig> {
+        if let Some(raw) = self.get_setting("obs_ws_config")? {
+            if let Ok(cfg) = serde_json::from_str::<ObsWsConfig>(&raw) {
+                return Ok(cfg);
+            }
+        }
+        Ok(ObsWsConfig::default())
+    }
+
+    pub fn set_obs_ws_config(&self, cfg: &ObsWsConfig) -> Result<()> {
+        let json = serde_json::to_string(cfg)?;
+        self.set_setting("obs_ws_config", &json)
+    }
+
+    pub fn get_hotkey_bindings(&self) -> Result<Vec<HotkeyBinding>> {
+        if let Some(raw) = self.get_setting("hotkey_bindings")? {
+            if let Ok(list) = serde_json::from_str::<Vec<HotkeyBinding>>(&raw) {
+                return Ok(list);
+            }
+        }
+        Ok(Vec::new())
+    }
+
+    pub fn set_hotkey_bindings(&self, bindings: &[HotkeyBinding]) -> Result<()> {
+        let json = serde_json::to_string(bindings)?;
+        self.set_setting("hotkey_bindings", &json)
+    }
+
+    // ==================== 配信プロファイル ====================
+
+    pub fn list_stream_profiles(&self) -> Result<Vec<StreamProfile>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT payload_json FROM stream_profiles ORDER BY updated_at_ms DESC",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut list = Vec::new();
+        for r in rows {
+            if let Ok(p) = serde_json::from_str::<StreamProfile>(&r?) {
+                list.push(p);
+            }
+        }
+        Ok(list)
+    }
+
+    pub fn get_stream_profile(&self, id: &str) -> Result<Option<StreamProfile>> {
+        let raw: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT payload_json FROM stream_profiles WHERE id = ?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok(raw.and_then(|s| serde_json::from_str::<StreamProfile>(&s).ok()))
+    }
+
+    pub fn upsert_stream_profile(&self, profile: &StreamProfile) -> Result<()> {
+        let payload = serde_json::to_string(profile)?;
+        self.conn.execute(
+            "INSERT INTO stream_profiles (id, name, description, payload_json, updated_at_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                description = excluded.description,
+                payload_json = excluded.payload_json,
+                updated_at_ms = excluded.updated_at_ms",
+            params![
+                profile.id,
+                profile.name,
+                profile.description,
+                payload,
+                profile.updated_at_ms,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_stream_profile(&self, id: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM stream_profiles WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn get_active_profile_id(&self) -> Result<String> {
+        Ok(self
+            .get_setting("active_profile_id")?
+            .unwrap_or_default())
+    }
+
+    pub fn set_active_profile_id(&self, id: &str) -> Result<()> {
+        self.set_setting("active_profile_id", id)
+    }
+
+    /// プロファイル切替時にルールの enabled フラグを単一トランザクションで一括更新
+    pub fn apply_rule_enabled_maps(
+        &self,
+        highlight_map: &HashMap<String, bool>,
+        counter_map: &HashMap<String, bool>,
+        media_map: &HashMap<String, bool>,
+        ng_map: &HashMap<String, bool>,
+    ) -> Result<()> {
+        self.in_savepoint("apply_rule_enabled_maps", |db| {
+            if !highlight_map.is_empty() {
+                let mut stmt = db
+                    .conn
+                    .prepare_cached("UPDATE highlight_rules SET enabled = ?1 WHERE id = ?2")?;
+                for (id, en) in highlight_map {
+                    let _ = stmt.execute(params![if *en { 1 } else { 0 }, id]);
+                }
+            }
+            if !counter_map.is_empty() {
+                let mut stmt = db
+                    .conn
+                    .prepare_cached("UPDATE word_counters SET enabled = ?1 WHERE id = ?2")?;
+                for (id, en) in counter_map {
+                    let _ = stmt.execute(params![if *en { 1 } else { 0 }, id]);
+                }
+            }
+            if !media_map.is_empty() {
+                let mut stmt = db
+                    .conn
+                    .prepare_cached("UPDATE media_reaction_rules SET enabled = ?1 WHERE id = ?2")?;
+                for (id, en) in media_map {
+                    let _ = stmt.execute(params![if *en { 1 } else { 0 }, id]);
+                }
+            }
+            if !ng_map.is_empty() {
+                let mut stmt = db
+                    .conn
+                    .prepare_cached("UPDATE ng_word_rules SET enabled = ?1 WHERE id = ?2")?;
+                for (id, en) in ng_map {
+                    let _ = stmt.execute(params![if *en { 1 } else { 0 }, id]);
+                }
+            }
+            Ok(())
+        })
+    }
+
+    // ==================== オンエアレポート（セッションコメント履歴） ====================
+
+    pub fn insert_session_comment(
+        &self,
+        session_id: &str,
+        raw: &RawIncomingComment,
+        is_first_time: bool,
+    ) -> Result<()> {
+        let mut stmt = self.conn.prepare_cached(
+            "INSERT OR IGNORE INTO session_comments (
+                session_id, comment_id, user_id, user_name, message, timestamp_ms,
+                is_first_time, is_member, event_kind, amount_display, amount_micros, currency
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+        )?;
+        stmt.execute(params![
+            session_id,
+            raw.id,
+            raw.user_id,
+            raw.user_name,
+            raw.message,
+            raw.timestamp_ms,
+            if is_first_time { 1 } else { 0 },
+            if raw.is_member { 1 } else { 0 },
+            raw.event_kind.map(|k| k.as_str()),
+            raw.amount_display.as_deref().unwrap_or(""),
+            raw.amount_micros as i64,
+            raw.currency,
+        ])?;
+        Ok(())
+    }
+
+    pub fn list_stream_session_summaries(&self, limit: usize) -> Result<Vec<StreamSessionSummary>> {
+        // 先に最新 limit 件のセッションだけ絞り込んでから session_comments を結合・集計（全過去セッション走査を回避）
+        let mut stmt = self.conn.prepare_cached(
+            "SELECT
+                s.id, s.platform, s.stream_id, s.title, s.started_at_ms,
+                COALESCE(MAX(c.timestamp_ms), s.started_at_ms) AS last_ts,
+                COUNT(c.comment_id) AS total_comments,
+                COUNT(DISTINCT c.user_id) AS unique_users,
+                COALESCE(SUM(c.is_first_time), 0) AS first_timers,
+                COALESCE(SUM(CASE WHEN c.event_kind IS NOT NULL THEN 1 ELSE 0 END), 0) AS mon_cnt
+             FROM (
+                SELECT id, platform, stream_id, title, started_at_ms
+                FROM stream_sessions
+                ORDER BY started_at_ms DESC
+                LIMIT ?1
+             ) s
+             LEFT JOIN session_comments c ON c.session_id = s.id
+             GROUP BY s.id
+             ORDER BY s.started_at_ms DESC",
+        )?;
+        let rows = stmt.query_map(params![limit as i64], |row| {
+            let plat: String = row.get(1)?;
+            Ok(StreamSessionSummary {
+                session_id: row.get(0)?,
+                platform: PlatformKind::from_str_lossy(&plat),
+                stream_id: row.get(2)?,
+                title: row.get(3)?,
+                started_at_ms: row.get(4)?,
+                last_comment_at_ms: row.get(5)?,
+                total_comments: row.get::<_, i64>(6)?.max(0) as u64,
+                unique_users: row.get::<_, i64>(7)?.max(0) as u64,
+                first_time_users: row.get::<_, i64>(8)?.max(0) as u64,
+                monetization_count: row.get::<_, i64>(9)?.max(0) as u64,
+            })
+        })?;
+        let mut list = Vec::new();
+        for r in rows {
+            list.push(r?);
+        }
+        Ok(list)
+    }
+
+    pub fn get_stream_session_summary(&self, session_id: &str) -> Result<Option<StreamSessionSummary>> {
+        let mut stmt = self.conn.prepare_cached(
+            "SELECT
+                s.id, s.platform, s.stream_id, s.title, s.started_at_ms,
+                COALESCE(MAX(c.timestamp_ms), s.started_at_ms) AS last_ts,
+                COUNT(c.comment_id) AS total_comments,
+                COUNT(DISTINCT c.user_id) AS unique_users,
+                COALESCE(SUM(c.is_first_time), 0) AS first_timers,
+                COALESCE(SUM(CASE WHEN c.event_kind IS NOT NULL THEN 1 ELSE 0 END), 0) AS mon_cnt
+             FROM stream_sessions s
+             LEFT JOIN session_comments c ON c.session_id = s.id
+             WHERE s.id = ?1
+             GROUP BY s.id",
+        )?;
+        let row = stmt
+            .query_row(params![session_id], |row| {
+                let plat: String = row.get(1)?;
+                Ok(StreamSessionSummary {
+                    session_id: row.get(0)?,
+                    platform: PlatformKind::from_str_lossy(&plat),
+                    stream_id: row.get(2)?,
+                    title: row.get(3)?,
+                    started_at_ms: row.get(4)?,
+                    last_comment_at_ms: row.get(5)?,
+                    total_comments: row.get::<_, i64>(6)?.max(0) as u64,
+                    unique_users: row.get::<_, i64>(7)?.max(0) as u64,
+                    first_time_users: row.get::<_, i64>(8)?.max(0) as u64,
+                    monetization_count: row.get::<_, i64>(9)?.max(0) as u64,
+                })
+            })
+            .optional()?;
+        Ok(row)
+    }
+
+    pub fn list_session_comments(&self, session_id: &str) -> Result<Vec<SessionCommentRow>> {
+        let mut stmt = self.conn.prepare_cached(
+            "SELECT
+                comment_id, user_id, user_name, message, timestamp_ms,
+                is_first_time, is_member, event_kind, amount_display, amount_micros, currency
+             FROM session_comments
+             WHERE session_id = ?1
+             ORDER BY timestamp_ms ASC",
+        )?;
+        let rows = stmt.query_map(params![session_id], |row| {
+            Ok(SessionCommentRow {
+                comment_id: row.get(0)?,
+                user_id: row.get(1)?,
+                user_name: row.get(2)?,
+                message: row.get(3)?,
+                timestamp_ms: row.get(4)?,
+                is_first_time: row.get::<_, i64>(5)? != 0,
+                is_member: row.get::<_, i64>(6)? != 0,
+                event_kind: row.get(7)?,
+                amount_display: row.get(8)?,
+                amount_micros: row.get::<_, i64>(9)?.max(0) as u64,
+                currency: row.get(10)?,
+            })
+        })?;
+        let mut list = Vec::new();
+        for r in rows {
+            list.push(r?);
+        }
+        Ok(list)
+    }
+
+    pub fn delete_stream_session(&self, session_id: &str) -> Result<()> {
+        self.in_savepoint("delete_stream_session", |db| {
+            db.conn.execute(
+                "DELETE FROM session_comments WHERE session_id = ?1",
+                params![session_id],
+            )?;
+            db.conn.execute(
+                "DELETE FROM session_participants WHERE session_id = ?1",
+                params![session_id],
+            )?;
+            db.conn.execute(
+                "DELETE FROM stream_sessions WHERE id = ?1",
+                params![session_id],
+            )?;
+            Ok(())
+        })
+    }
 }
 
 #[cfg(test)]
@@ -1351,6 +1973,7 @@ mod tests {
             user_name: format!("User {}", user_id),
             user_icon_url: "https://example.com/icon.png".to_string(),
             message: msg.to_string(),
+            message_runs: Vec::new(),
             timestamp_ms: ts,
             is_owner: false,
             is_moderator: false,
@@ -1467,6 +2090,7 @@ mod tests {
             pickup_enabled: false,
             queue_enabled: true,
             media_reaction_enabled: false,
+            ng_word_filter_enabled: false,
             obs_overlay_enabled: false,
             auto_update_check_enabled: false,
         };
@@ -1591,6 +2215,7 @@ mod tests {
             currency: "JPY".to_string(),
             tier_color: "#FFCA28".to_string(),
             message: "応援してます！".to_string(),
+            message_runs: Vec::new(),
             timestamp_ms: 1000,
             is_checked: false,
             checked_at_ms: None,
@@ -1648,5 +2273,46 @@ mod tests {
         assert_eq!(list[0].sound_stored_file_name, "clap.mp3");
         let deleted_files = db.delete_media_reaction_rule("mr-1").unwrap();
         assert_eq!(deleted_files, vec!["clap.gif".to_string(), "clap.mp3".to_string()]);
+    }
+
+    #[test]
+    fn test_savepoint_rollback_and_session_summary_limit_ordering() {
+        let db = Database::open_in_memory().unwrap();
+        // セーブポイント内のエラー時はロールバックされ、部分書き込みが残らないこと
+        let res: Result<()> = db.in_savepoint("rollback_test", |d| {
+            d.set_setting("sp_key", "temp")?;
+            Err(anyhow::anyhow!("forced failure"))
+        });
+        assert!(res.is_err());
+        assert_eq!(db.get_setting("sp_key").unwrap(), None);
+
+        // 複数セッションを時刻順で作成し、limit 付きサマリーが新しい順で正確に集計されること
+        let s1 = db
+            .get_or_create_session(PlatformKind::YouTube, "v1", "古い配信", 1_000)
+            .unwrap();
+        let s2 = db
+            .get_or_create_session(PlatformKind::YouTube, "v2", "中間配信", 2_000)
+            .unwrap();
+        let s3 = db
+            .get_or_create_session(PlatformKind::YouTube, "v3", "最新配信", 3_000)
+            .unwrap();
+
+        db.in_savepoint("batch_comments", |d| {
+            d.insert_session_comment(&s1, &sample_comment("c1", "u1", "a", 1_100), true)?;
+            d.insert_session_comment(&s2, &sample_comment("c2", "u1", "b", 2_100), false)?;
+            d.insert_session_comment(&s3, &sample_comment("c3", "u1", "c", 3_100), true)?;
+            d.insert_session_comment(&s3, &sample_comment("c4", "u2", "d", 3_200), false)?;
+            Ok(())
+        })
+        .unwrap();
+
+        let top2 = db.list_stream_session_summaries(2).unwrap();
+        assert_eq!(top2.len(), 2);
+        assert_eq!(top2[0].session_id, s3);
+        assert_eq!(top2[0].total_comments, 2);
+        assert_eq!(top2[0].unique_users, 2);
+        assert_eq!(top2[0].first_time_users, 1);
+        assert_eq!(top2[1].session_id, s2);
+        assert_eq!(top2[1].total_comments, 1);
     }
 }

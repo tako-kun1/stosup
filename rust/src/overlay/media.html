@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Stosup WordParty 演出オーバーレイ</title>
+<title>Stosup リアクションステージ</title>
 <link rel="icon" href="/favicon.ico" />
+<script src="/overlay/stosup-overlay.js"></script>
 <style id="stosup-base-css">
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -87,15 +88,16 @@
   }
   .media-caption {
     padding: 8px 20px;
-    border-radius: 999px;
-    background: rgba(24, 24, 27, 0.9);
-    border: 1.5px solid rgba(255, 255, 255, 0.25);
-    color: #f4f4f5;
+    border-radius: 2px;
+    background: rgba(17, 19, 23, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-left: 4px solid var(--accent, #d93829);
+    color: #f7f8fa;
     font-size: 22px;
     font-weight: 800;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
     text-align: center;
     white-space: pre-wrap;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
   }
 
   /* 登場アニメーション（GPU コンポジットプロパティのみ使用） */
@@ -121,45 +123,80 @@
     to   { opacity: 1; transform: scale3d(1, 1, 1) rotate(0deg); }
   }
 
-  /* プリセット */
-  body[data-theme="minimal"] .media-el { border-radius: 4px; box-shadow: none; }
-  body[data-theme="minimal"] .media-caption {
-    background: rgba(15, 15, 18, 0.68);
-    border: none;
+  /* プリセット（脱AIデザイン5系統） */
+  body[data-theme="editorial"] .media-el {
+    border: 1px solid #d4cdc0;
     border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(28, 27, 24, 0.14);
   }
-  body[data-theme="pop"] .media-el {
-    border: 4px solid #18181b;
-    border-radius: 18px;
-    box-shadow: 6px 6px 0 #18181b;
+  body[data-theme="editorial"] .media-caption {
+    background: rgba(248, 245, 239, 0.97);
+    color: #1c1b18;
+    border: 1px solid #d4cdc0;
+    border-left: 4px solid #c2593f;
+    box-shadow: 0 6px 18px rgba(28, 27, 24, 0.12);
   }
-  body[data-theme="pop"] .media-caption {
-    background: #ffffff;
-    color: #18181b;
-    border: 3px solid #18181b;
-    box-shadow: 4px 4px 0 #18181b;
-    text-shadow: none;
+  body[data-theme="tactical"] .media-el {
+    border: 1.5px solid rgba(229, 169, 59, 0.75);
+    border-radius: 0;
+    box-shadow: none;
   }
-  body[data-theme="neon"] .media-el {
-    border: 2px solid #22d3ee;
-    box-shadow: 0 0 22px rgba(34, 211, 238, 0.5);
+  body[data-theme="tactical"] .media-caption {
+    background: rgba(18, 20, 23, 0.95);
+    color: #edebe4;
+    border: 1px solid rgba(237, 235, 228, 0.24);
+    border-left: 4px solid #e5a93b;
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+    box-shadow: none;
   }
-  body[data-theme="neon"] .media-caption {
-    background: rgba(9, 11, 20, 0.92);
-    color: #ecfeff;
-    border: 2px solid #22d3ee;
-    box-shadow: 0 0 14px rgba(34, 211, 238, 0.38);
+  body[data-theme="variety"] .media-el {
+    border: 3.5px solid #182033;
+    border-radius: 14px;
+    box-shadow: 6px 6px 0 #182033;
   }
-  body[data-theme="pastel"] .media-el {
-    border: 3px solid #f472b6;
-    border-radius: 22px;
-    box-shadow: 0 8px 20px rgba(244, 114, 182, 0.28);
+  body[data-theme="variety"] .media-caption {
+    background: #fffdf7;
+    color: #182033;
+    border: 3px solid #182033;
+    border-radius: 10px;
+    box-shadow: 5px 5px 0 #182033;
+    font-weight: 900;
   }
-  body[data-theme="pastel"] .media-caption {
-    background: rgba(255, 251, 245, 0.96);
-    color: #db2777;
-    border: 2.5px solid #f9a8d4;
-    text-shadow: none;
+  body[data-theme="cinema"] .media-el {
+    border-radius: 2px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  }
+  body[data-theme="cinema"] .media-caption {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: #ffffff;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 4px rgba(10, 12, 16, 0.94);
+    text-shadow: 0 3px 10px rgba(0, 0, 0, 0.85);
+  }
+  body[data-theme="edge_glow"] .media-el {
+    border: 1.5px solid rgba(125, 211, 252, 0.55);
+    border-radius: 6px;
+    box-shadow: 0 10px 28px rgba(2, 6, 23, 0.55), 0 0 14px rgba(56, 189, 248, 0.24);
+  }
+  body[data-theme="edge_glow"] .media-caption {
+    background: rgba(9, 13, 22, 0.8);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-left: 4px solid var(--accent, #38bdf8);
+    border-radius: 5px;
+    box-shadow: 0 10px 24px rgba(2, 6, 23, 0.52);
+    paint-order: stroke fill;
+    -webkit-text-stroke: 1.5px rgba(8, 13, 24, 0.9);
+    text-shadow:
+      1px 0 2px rgba(56, 189, 248, 0.8),
+      -1px 0 2px rgba(56, 189, 248, 0.8),
+      0 1px 2px rgba(56, 189, 248, 0.8),
+      0 -1px 2px rgba(56, 189, 248, 0.8),
+      0 0 10px rgba(56, 189, 248, 0.62),
+      0 0 20px rgba(56, 189, 248, 0.36);
   }
 
   body.has-custom-font,
@@ -169,7 +206,7 @@
 </style>
 <style id="stosup-custom-css"></style>
 </head>
-<body data-theme="default">
+<body data-theme="broadcast">
   <canvas id="fx-canvas"></canvas>
   <div id="stage"></div>
 <script>
@@ -185,10 +222,11 @@
   let enabled = true;
   let mediaConfig = { playback_mode: 'Overlay', master_volume: 80, max_concurrent: 8 };
   let config = {
-    media_theme: 'default',
+    media_theme: 'broadcast',
     media_bg_color: 'transparent',
     media_font_family: '',
-    media_custom_css: ''
+    media_custom_css: '',
+    visual_styles: {}
   };
 
   // ==================== Canvas リサイズ（1x 等倍で軽量・高 FPS 維持） ====================
@@ -209,29 +247,17 @@
   resizeCanvas();
 
   // ==================== デザイン反映 ====================
-  function applyFont(raw) {
-    const f = (raw || '').trim();
-    if (f) {
-      const safe = f.replace(/["\\]/g, '');
-      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
-      document.body.classList.add('has-custom-font');
-    } else {
-      document.documentElement.style.removeProperty('--font-family');
-      document.body.classList.remove('has-custom-font');
-    }
-  }
-  function resolveBg(raw) {
-    const v = (raw || 'transparent').trim();
-    if (!v || v.toLowerCase() === 'transparent') return 'transparent';
-    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return '#' + v;
-    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return v;
-    return 'transparent';
-  }
   function applyDesign() {
-    document.body.dataset.theme = urlTheme || config.media_theme || 'default';
-    document.documentElement.style.setProperty('--page-bg', resolveBg(urlBg || config.media_bg_color));
-    applyFont(urlFont || config.media_font_family);
-    customStyleEl.textContent = config.media_custom_css || '';
+    document.body.dataset.theme = StosupOverlay.normalizeTheme(urlTheme || config.media_theme);
+    document.documentElement.style.setProperty('--page-bg', StosupOverlay.resolveBg(urlBg || config.media_bg_color));
+    StosupOverlay.applyFont(urlFont || config.media_font_family);
+    StosupOverlay.applyOverlayVisualStyle('media', config, {
+      card: '.media-caption',
+      text: '.media-caption',
+      author: '.media-caption',
+      animate: '.media-frame'
+    });
+    StosupOverlay.applyCustomCss(customStyleEl, config.media_custom_css);
   }
 
   // ==================== オフスクリーン・スプライトキャッシュ ====================
@@ -1036,9 +1062,11 @@
     stage.appendChild(slot);
 
     let done = false;
+    let timerId = null;
     const stop = (immediate) => {
       if (done) return;
       done = true;
+      if (timerId) { clearTimeout(timerId); timerId = null; }
       const rm = () => {
         if (slot.parentNode) slot.parentNode.removeChild(slot);
         activeSlots = activeSlots.filter((s) => s !== h);
@@ -1048,7 +1076,7 @@
     };
     const h = { stopNow: () => stop(true) };
     activeSlots.push(h);
-    setTimeout(() => stop(false), Math.max(1800, trigger.duration_ms || 3500));
+    timerId = setTimeout(() => stop(false), Math.max(1800, trigger.duration_ms || 3500));
   }
 
   function playFixedOne(trigger, onDone) {
@@ -1202,7 +1230,7 @@
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${location.host}/ws?channel=media`);
+    const ws = new WebSocket(window.StosupOverlay.buildWsUrl('media'));
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);

@@ -118,7 +118,7 @@ class _FirstTimeScreenState extends State<FirstTimeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      '初見カウンター',
+                      'ウェルカムカウンター（初見さん検知）',
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
@@ -131,11 +131,11 @@ class _FirstTimeScreenState extends State<FirstTimeScreen> {
                 ),
               ),
               FeatureToggleSwitch(
-                label: '初見カウンター',
+                label: 'ウェルカムカウンター',
                 enabled: enabled,
                 onChanged: (v) => ctrl.setFeatureEnabled(
                   firstTimeCounter: v,
-                  featureLabel: '初見カウンター',
+                  featureLabel: 'ウェルカムカウンター',
                 ),
               ),
             ],
@@ -143,11 +143,11 @@ class _FirstTimeScreenState extends State<FirstTimeScreen> {
           const SizedBox(height: 14),
           if (!enabled)
             FeatureDisabledBanner(
-              featureName: '初見カウンター',
-              description: '初見ユーザーの自動検知と OBS 初見カウンター表示を停止しています。',
+              featureName: 'ウェルカムカウンター',
+              description: '初見ユーザーの自動検知と OBS ウェルカムカウンター表示を停止しています。',
               onEnable: () => ctrl.setFeatureEnabled(
                 firstTimeCounter: true,
-                featureLabel: '初見カウンター',
+                featureLabel: 'ウェルカムカウンター',
               ),
             ),
 
@@ -242,7 +242,7 @@ class _FirstTimeScreenState extends State<FirstTimeScreen> {
                                           .showSnackBar(
                                         const SnackBar(
                                           content: Text(
-                                              '初見カウンター用 OBS URL をコピーしました'),
+                                              'ウェルカムカウンター用 OBS URL をコピーしました'),
                                         ),
                                       );
                                     },
@@ -277,7 +277,7 @@ class _FirstTimeScreenState extends State<FirstTimeScreen> {
                                     setState(() => _detectUnregistered = v),
                                 title: const Text('未登録ユーザーの初回コメントで検知'),
                                 subtitle:
-                                    const Text('ユーザーリストにまだ登録されていない人を自動検知'),
+                                    const Text('リスナー名簿にまだ登録されていない人を自動検知'),
                               ),
                               SwitchListTile(
                                 dense: true,

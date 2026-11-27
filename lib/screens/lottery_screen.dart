@@ -27,6 +27,19 @@ class _LotteryScreenState extends State<LotteryScreen>
   LotteryRepeatMode _userRepeatMode = LotteryRepeatMode.onceOnly;
   int _userWinnerCount = 1;
 
+  // 候補ユーザー抽出のメモ化キャッシュ（当選人数増減やタブ操作時の全ユーザー再走査を回避）
+  StosupController? _cachedEligibleCtrl;
+  List<UserRecord>? _cachedUsersRef;
+  int _cachedUsersLen = -1;
+  List<String>? _cachedWonRef;
+  int _cachedWonLen = -1;
+  int _cachedLotteryRev = -1;
+  bool? _cachedCurrentSessionOnly;
+  int _cachedMinWatch = -1;
+  int _cachedMinComment = -1;
+  LotteryRepeatMode? _cachedRepeatMode;
+  List<UserRecord> _cachedEligibleUsers = const [];
+
   // コメント抽選設定
   late TextEditingController _startMsgCtrl;
   late TextEditingController _endMsgCtrl;
@@ -91,14 +104,14 @@ class _LotteryScreenState extends State<LotteryScreen>
               Row(
                 children: [
                   const Text(
-                    '抽選システム',
+                    'ドローボックス（抽選管理）',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
                   OutlinedButton.icon(
                     onPressed: ctrl.clearOverlayLottery,
                     icon: const Icon(Icons.layers_clear, size: 17),
-                    label: const Text('OBS 抽選表示をクリア'),
+                    label: const Text('OBS ドローボックス表示をクリア'),
                   ),
                 ],
               ),
@@ -106,7 +119,7 @@ class _LotteryScreenState extends State<LotteryScreen>
               TabBar(
                 controller: _tabCtrl,
                 tabs: const [
-                  Tab(text: 'ユーザー抽選（参加ユーザーから抽選）'),
+                  Tab(text: 'ユーザー抽選（リスナー名簿から抽選）'),
                   Tab(text: 'コメント抽選（開始〜終了の間の特定ワード）'),
                 ],
               ),
@@ -126,19 +139,55 @@ class _LotteryScreenState extends State<LotteryScreen>
     );
   }
 
+  List<UserRecord> _resolveEligibleUsers(StosupController ctrl) {
+    final lotteryRev = ctrl.topicRevision(StosupTopic.lottery);
+    if (identical(_cachedEligibleCtrl, ctrl) &&
+        identical(_cachedUsersRef, ctrl.users) &&
+        _cachedUsersLen == ctrl.users.length &&
+        identical(_cachedWonRef, ctrl.userLotteryWonIds) &&
+        _cachedWonLen == ctrl.userLotteryWonIds.length &&
+        _cachedLotteryRev == lotteryRev &&
+        _cachedCurrentSessionOnly == _currentSessionOnly &&
+        _cachedMinWatch == _minWatchCount &&
+        _cachedMinComment == _minCommentCount &&
+        _cachedRepeatMode == _userRepeatMode) {
+      return _cachedEligibleUsers;
+    }
+
+    final checkWon = _userRepeatMode != LotteryRepeatMode.allowMultiple &&
+        ctrl.userLotteryWonIds.isNotEmpty;
+    final wonSet = checkWon ? ctrl.userLotteryWonIds.toSet() : const <String>{};
+    final minWatchBig = BigInt.from(_minWatchCount);
+    final minCommentBig = BigInt.from(_minCommentCount);
+
+    final out = <UserRecord>[];
+    for (final u in ctrl.users) {
+      if (u.isBanned) continue;
+      if (_currentSessionOnly && !u.inCurrentSession) continue;
+      if (_minWatchCount > 0 && u.watchCount < minWatchBig) continue;
+      if (_minCommentCount > 0 && u.totalCommentCount < minCommentBig) continue;
+      if (checkWon && wonSet.contains(u.userId)) continue;
+      out.add(u);
+    }
+
+    _cachedEligibleCtrl = ctrl;
+    _cachedUsersRef = ctrl.users;
+    _cachedUsersLen = ctrl.users.length;
+    _cachedWonRef = ctrl.userLotteryWonIds;
+    _cachedWonLen = ctrl.userLotteryWonIds.length;
+    _cachedLotteryRev = lotteryRev;
+    _cachedCurrentSessionOnly = _currentSessionOnly;
+    _cachedMinWatch = _minWatchCount;
+    _cachedMinComment = _minCommentCount;
+    _cachedRepeatMode = _userRepeatMode;
+    _cachedEligibleUsers = out;
+    return out;
+  }
+
   Widget _buildUserLotteryTab(StosupController ctrl) {
     final p = context.palette;
     final featureEnabled = ctrl.featureFlags.userLotteryEnabled;
-    final wonSet = ctrl.userLotteryWonIds.toSet();
-    final eligibleUsers = ctrl.users
-        .where((u) => !u.isBanned)
-        .where((u) => !_currentSessionOnly || u.inCurrentSession)
-        .where((u) => u.watchCount >= BigInt.from(_minWatchCount))
-        .where((u) => u.totalCommentCount >= BigInt.from(_minCommentCount))
-        .where((u) =>
-            _userRepeatMode == LotteryRepeatMode.allowMultiple ||
-            !wonSet.contains(u.userId))
-        .toList();
+    final eligibleUsers = _resolveEligibleUsers(ctrl);
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -146,11 +195,11 @@ class _LotteryScreenState extends State<LotteryScreen>
         children: [
           if (!featureEnabled)
             FeatureDisabledBanner(
-              featureName: 'ユーザー抽選システム',
+              featureName: 'ドローボックス（ユーザー抽選）',
               description: 'ユーザー抽選の実行を無効化しています。利用するときにオンへ切り替えてください。',
               onEnable: () => ctrl.setFeatureEnabled(
                 userLottery: true,
-                featureLabel: 'ユーザー抽選システム',
+                featureLabel: 'ドローボックス（ユーザー抽選）',
               ),
             ),
           Expanded(
@@ -179,7 +228,7 @@ class _LotteryScreenState extends State<LotteryScreen>
                                   enabled: featureEnabled,
                                   onChanged: (v) => ctrl.setFeatureEnabled(
                                     userLottery: v,
-                                    featureLabel: 'ユーザー抽選システム',
+                                    featureLabel: 'ドローボックス（ユーザー抽選）',
                                   ),
                                 ),
                               ],
@@ -385,11 +434,11 @@ class _LotteryScreenState extends State<LotteryScreen>
         children: [
           if (!featureEnabled)
             FeatureDisabledBanner(
-              featureName: 'コメント抽選システム',
+              featureName: 'ドローボックス（コメント抽選）',
               description: 'コメント抽選の受付開始・応募コメント自動収集・抽選実行を無効化しています。',
               onEnable: () => ctrl.setFeatureEnabled(
                 commentLottery: true,
-                featureLabel: 'コメント抽選システム',
+                featureLabel: 'ドローボックス（コメント抽選）',
               ),
             ),
           Expanded(
@@ -419,7 +468,7 @@ class _LotteryScreenState extends State<LotteryScreen>
                                   enabled: featureEnabled,
                                   onChanged: (v) => ctrl.setFeatureEnabled(
                                     commentLottery: v,
-                                    featureLabel: 'コメント抽選システム',
+                                    featureLabel: 'ドローボックス（コメント抽選）',
                                   ),
                                 ),
                               ],

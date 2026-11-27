@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Stosup 参加型キューオーバーレイ</title>
+<title>Stosup エントリーレーン</title>
 <link rel="icon" href="/favicon.ico" />
+<script src="/overlay/stosup-overlay.js"></script>
 <style id="stosup-base-css">
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -12,35 +13,43 @@
     height: 100%;
     background: var(--page-bg, transparent) !important;
     overflow: hidden;
-    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
+    font-family: var(--font-family, "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", sans-serif);
+    -webkit-font-smoothing: antialiased;
   }
   #wrap {
     padding: 14px;
     width: 100%;
   }
+
+  /* ==================== 既定: broadcast (出場ロビーボード) ==================== */
   .q-card {
-    background: rgba(24, 24, 27, 0.93);
-    border: 1.5px solid #3f3f46;
-    border-radius: 12px;
+    background: rgba(17, 19, 23, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-top: 4px solid var(--accent, #22a06b);
+    border-radius: 2px;
     padding: 14px 16px;
-    color: #f4f4f5;
-    max-width: 420px;
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+    color: #f7f8fa;
+    max-width: 430px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
+    contain: layout style;
   }
   .q-section-title {
-    font-size: 12.5px;
-    font-weight: 800;
-    color: #a1a1aa;
-    margin-bottom: 8px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    color: #9aa2b1;
+    margin-bottom: 7px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
-  .q-section-title.active-title { color: #4ade80; }
+  .q-section-title.active-title { color: #34d399; }
   .q-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
     margin-bottom: 12px;
   }
   .q-list:last-child { margin-bottom: 0; }
@@ -49,37 +58,39 @@
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    border-radius: 7px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.045);
+    border-left: 3px solid #4b5563;
+    contain: layout style;
   }
   .q-item.active {
-    background: rgba(34, 197, 94, 0.16);
-    border-color: rgba(74, 222, 128, 0.55);
+    background: rgba(34, 160, 107, 0.18);
+    border-left-color: #22a06b;
   }
   .q-rank {
     width: 22px;
     height: 22px;
-    border-radius: 5px;
-    background: #3f3f46;
-    color: #f4f4f5;
-    font-size: 12px;
-    font-weight: 800;
+    border-radius: 2px;
+    background: #2b303a;
+    color: #f7f8fa;
+    font-size: 11.5px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
   .q-item.active .q-rank {
-    background: #22c55e;
-    color: #052e16;
+    background: #22a06b;
+    color: #ffffff;
   }
   .q-avatar {
     width: 26px;
     height: 26px;
-    border-radius: 50%;
+    border-radius: 3px;
     object-fit: cover;
-    background: #3f3f46;
+    background: #2b303a;
     flex-shrink: 0;
   }
   .q-name {
@@ -91,66 +102,114 @@
     white-space: nowrap;
   }
   .q-tag {
-    font-size: 10.5px;
-    font-weight: 700;
+    font-size: 10px;
+    font-weight: 800;
     padding: 1px 6px;
-    border-radius: 4px;
-    background: rgba(59, 130, 246, 0.25);
-    color: #93c5fd;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #e4e7ee;
+    font-variant-numeric: tabular-nums;
     flex-shrink: 0;
   }
   .q-tag.first {
-    background: rgba(34, 197, 94, 0.25);
-    color: #86efac;
+    background: #b45309;
+    color: #ffffff;
   }
   .q-empty {
-    font-size: 12.5px;
-    color: #71717a;
+    font-size: 12px;
+    color: #7c8496;
     padding: 4px 2px;
   }
 
-  /* minimal */
-  body[data-theme="minimal"] .q-card {
-    background: rgba(15, 15, 18, 0.72);
-    border: none;
-    border-left: 4px solid #22c55e;
-    border-radius: 0 8px 8px 0;
+  /* ==================== editorial ==================== */
+  body[data-theme="editorial"] .q-card {
+    background: rgba(248, 245, 239, 0.97);
+    color: #1c1b18;
+    border: 1px solid #d4cdc0;
+    border-top: 3px solid #1c1b18;
+    box-shadow: 0 6px 20px rgba(28, 27, 24, 0.1);
+  }
+  body[data-theme="editorial"] .q-section-title { color: #6e6a62; border-bottom-color: #dfd8cc; }
+  body[data-theme="editorial"] .q-section-title.active-title { color: #1d6f42; }
+  body[data-theme="editorial"] .q-item { background: rgba(28, 27, 24, 0.035); border-left-color: #c7bfb2; }
+  body[data-theme="editorial"] .q-item.active { background: rgba(29, 111, 66, 0.1); border-left-color: #1d6f42; }
+  body[data-theme="editorial"] .q-rank { background: #e7e1d6; color: #1c1b18; }
+  body[data-theme="editorial"] .q-avatar { border-radius: 50%; }
+  body[data-theme="editorial"] .q-tag { background: #e7e1d6; color: #3f3c36; }
+
+  /* ==================== tactical ==================== */
+  body[data-theme="tactical"] .q-card {
+    background: rgba(18, 20, 23, 0.94);
+    color: #edebe4;
+    border: 1px solid rgba(237, 235, 228, 0.22);
+    border-top: 3px solid var(--accent, #e5a93b);
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
     box-shadow: none;
   }
+  body[data-theme="tactical"] .q-section-title.active-title { color: #e5a93b; }
+  body[data-theme="tactical"] .q-item { border-radius: 0; }
+  body[data-theme="tactical"] .q-item.active { background: rgba(229, 169, 59, 0.16); border-left-color: #e5a93b; }
+  body[data-theme="tactical"] .q-item.active .q-rank { background: #e5a93b; color: #121417; }
 
-  /* pop */
-  body[data-theme="pop"] .q-card {
-    background: #ffffff;
-    color: #18181b;
-    border: 3px solid #18181b;
-    border-radius: 16px;
-    box-shadow: 5px 5px 0 #18181b;
+  /* ==================== variety ==================== */
+  body[data-theme="variety"] .q-card {
+    background: #fffdf7;
+    color: #182033;
+    border: 3.5px solid #182033;
+    border-radius: 14px;
+    box-shadow: 6px 6px 0 #182033;
   }
-  body[data-theme="pop"] .q-section-title { color: #52525b; }
-  body[data-theme="pop"] .q-section-title.active-title { color: #15803d; }
-  body[data-theme="pop"] .q-item { background: #f4f4f5; border-color: #18181b; }
-  body[data-theme="pop"] .q-tag { background: #dbeafe; color: #1d4ed8; }
+  body[data-theme="variety"] .q-section-title { color: #182033; border-bottom: 2px solid #182033; }
+  body[data-theme="variety"] .q-item { background: #f5f2e9; border: 2px solid #182033; border-radius: 8px; }
+  body[data-theme="variety"] .q-item.active { background: #dcfce7; }
+  body[data-theme="variety"] .q-rank { background: #182033; color: #ffffff; border-radius: 5px; }
+  body[data-theme="variety"] .q-tag { background: #f5c518; color: #182033; }
 
-  /* neon */
-  body[data-theme="neon"] .q-card {
-    background: rgba(9, 11, 20, 0.92);
-    border: 2px solid #22d3ee;
-    box-shadow: 0 0 20px rgba(34, 211, 238, 0.3);
+  /* ==================== cinema ==================== */
+  body[data-theme="cinema"] .q-card {
+    background: rgba(12, 14, 18, 0.4);
+    border: none;
+    border-left: 3.5px solid var(--accent, #34d399);
+    border-radius: 0;
+    box-shadow: none;
   }
-  body[data-theme="neon"] .q-section-title.active-title { color: #67e8f9; }
+  body[data-theme="cinema"] .q-item { background: transparent; border-left: none; padding: 3px 4px; }
+  body[data-theme="cinema"] .q-name {
+    paint-order: stroke fill;
+    -webkit-text-stroke: 3px rgba(10, 12, 16, 0.92);
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  }
 
-  /* pastel */
-  body[data-theme="pastel"] .q-card {
-    background: rgba(255, 251, 245, 0.97);
-    color: #27272a;
-    border: 2.5px solid #f472b6;
-    border-radius: 18px;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
+  /* ==================== edge_glow (エッジ・グロウ) ==================== */
+  body[data-theme="edge_glow"] .q-card {
+    background: rgba(9, 13, 22, 0.8);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-left: 3px solid var(--accent, #38bdf8);
+    border-radius: 6px;
+    box-shadow: 0 10px 26px rgba(2, 6, 23, 0.54), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
-  body[data-theme="pastel"] .q-item { background: #fff5f8; border-color: #fbcfe8; }
-  body[data-theme="pastel"] .q-section-title { color: #71717a; }
-  body[data-theme="pastel"] .q-section-title.active-title { color: #db2777; }
-  body[data-theme="pastel"] .q-tag { background: #fce7f3; color: #be185d; }
+  body[data-theme="edge_glow"] .q-section-title {
+    color: #bae6fd;
+    text-shadow: 0 0 6px rgba(56, 189, 248, 0.72);
+  }
+  body[data-theme="edge_glow"] .q-item.active {
+    background: rgba(56, 189, 248, 0.12);
+    border-left-color: #38bdf8;
+  }
+  body[data-theme="edge_glow"] .q-name {
+    color: #f8fafc;
+    font-weight: 700;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 1.2px rgba(8, 13, 24, 0.88);
+    text-shadow:
+      1px 0 2px rgba(56, 189, 248, 0.7),
+      -1px 0 2px rgba(56, 189, 248, 0.7),
+      0 1px 2px rgba(56, 189, 248, 0.7),
+      0 -1px 2px rgba(56, 189, 248, 0.7),
+      0 0 8px rgba(56, 189, 248, 0.48);
+  }
 
   body.has-custom-font,
   body.has-custom-font * {
@@ -159,7 +218,7 @@
 </style>
 <style id="stosup-custom-css"></style>
 </head>
-<body data-theme="default">
+<body data-theme="broadcast">
   <div id="wrap"></div>
 <script>
   const wrap = document.getElementById('wrap');
@@ -168,144 +227,217 @@
   const urlTheme = params.get('theme');
   const urlBg = params.get('bg');
   const urlFont = params.get('font');
+  const maxWaiting = Math.max(1, Math.min(20, parseInt(params.get('max_waiting') || '8', 10) || 8));
 
   let enabled = true;
-  let queue = { config: { max_active_slots: 3 }, entries: [] };
+  let queueState = null;
   let config = {
-    queue_theme: 'default',
+    queue_theme: 'broadcast',
     queue_bg_color: 'transparent',
     queue_font_family: '',
-    queue_custom_css: ''
+    queue_custom_css: '',
+    visual_styles: {}
   };
 
-  function applyFont(raw) {
-    const f = (raw || '').trim();
-    if (f) {
-      const safe = f.replace(/["\\]/g, '');
-      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
-      document.body.classList.add('has-custom-font');
-    } else {
-      document.documentElement.style.removeProperty('--font-family');
-      document.body.classList.remove('has-custom-font');
-    }
-  }
-  function resolveBg(raw) {
-    const v = (raw || 'transparent').trim();
-    if (!v || v.toLowerCase() === 'transparent') return 'transparent';
-    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return '#' + v;
-    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(v)) return v;
-    return 'transparent';
-  }
   function applyDesign() {
-    document.body.dataset.theme = urlTheme || config.queue_theme || 'default';
-    document.documentElement.style.setProperty('--page-bg', resolveBg(urlBg || config.queue_bg_color));
-    applyFont(urlFont || config.queue_font_family);
-    customStyleEl.textContent = config.queue_custom_css || '';
-  }
-  function fallbackAvatar(name) {
-    const ch = (name || '?').slice(0, 1);
-    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%2352525b'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
-  }
-
-  function buildItem(entry, rank, isActive) {
-    const row = document.createElement('div');
-    row.className = 'q-item' + (isActive ? ' active' : '');
-
-    const r = document.createElement('div');
-    r.className = 'q-rank';
-    r.textContent = String(rank);
-
-    const img = document.createElement('img');
-    img.className = 'q-avatar';
-    img.src = entry.user_icon_url || fallbackAvatar(entry.user_name);
-    img.onerror = () => { img.src = fallbackAvatar(entry.user_name); };
-
-    const name = document.createElement('div');
-    name.className = 'q-name';
-    name.textContent = entry.user_name;
-
-    row.appendChild(r);
-    row.appendChild(img);
-    row.appendChild(name);
-
-    if (entry.is_first_time) {
-      const f = document.createElement('span');
-      f.className = 'q-tag first';
-      f.textContent = '初見';
-      row.appendChild(f);
-    }
-    if (entry.play_count > 0) {
-      const c = document.createElement('span');
-      c.className = 'q-tag';
-      c.textContent = `${entry.play_count}回`;
-      row.appendChild(c);
-    }
-    return row;
+    document.body.dataset.theme = StosupOverlay.normalizeTheme(urlTheme || config.queue_theme);
+    document.documentElement.style.setProperty('--page-bg', StosupOverlay.resolveBg(urlBg || config.queue_bg_color));
+    StosupOverlay.applyFont(urlFont || config.queue_font_family);
+    StosupOverlay.applyOverlayVisualStyle('queue', config, {
+      card: '.q-card',
+      text: '.q-name',
+      author: '.q-section-title',
+      animate: '.q-card'
+    });
+    StosupOverlay.applyCustomCss(customStyleEl, config.queue_custom_css);
   }
 
-  function render() {
-    wrap.innerHTML = '';
-    if (!enabled || !queue) return;
+  // カードおよび各参加行 DOM を user_id キーで再利用し、更新毎の全破棄・アバター再読込を防止
+  let queueDom = null;
 
-    const entries = queue.entries || [];
-    const active = entries.filter(e => e.status === 'Active');
-    const waiting = entries.filter(e => e.status === 'Waiting');
-    const maxSlots = (queue.config && queue.config.max_active_slots) || 3;
-
+  function ensureQueueDom() {
+    if (queueDom) return queueDom;
     const card = document.createElement('div');
     card.className = 'q-card';
 
     const t1 = document.createElement('div');
     t1.className = 'q-section-title active-title';
-    t1.innerHTML = `<span>参加中</span><span>${active.length} / ${maxSlots}</span>`;
+    const t1Label = document.createElement('span');
+    t1Label.textContent = 'PLAYING — 参加中';
+    const t1Count = document.createElement('span');
+    t1.appendChild(t1Label);
+    t1.appendChild(t1Count);
     card.appendChild(t1);
 
     const l1 = document.createElement('div');
     l1.className = 'q-list';
-    if (active.length === 0) {
-      const emp = document.createElement('div');
-      emp.className = 'q-empty';
-      emp.textContent = '現在の参加者はいません';
-      l1.appendChild(emp);
-    } else {
-      active.forEach((e, i) => l1.appendChild(buildItem(e, i + 1, true)));
-    }
+    const empty1 = document.createElement('div');
+    empty1.className = 'q-empty';
+    empty1.textContent = '現在の参加者はいません';
     card.appendChild(l1);
 
     const t2 = document.createElement('div');
     t2.className = 'q-section-title';
-    t2.innerHTML = `<span>順番待ちリスト</span><span>${waiting.length}人</span>`;
+    const t2Label = document.createElement('span');
+    const t2Count = document.createElement('span');
+    t2.appendChild(t2Label);
+    t2.appendChild(t2Count);
     card.appendChild(t2);
 
     const l2 = document.createElement('div');
     l2.className = 'q-list';
-    if (waiting.length === 0) {
-      const emp = document.createElement('div');
-      emp.className = 'q-empty';
-      emp.textContent = '待機中のユーザーはいません';
-      l2.appendChild(emp);
-    } else {
-      waiting.slice(0, 10).forEach((e, i) => l2.appendChild(buildItem(e, i + 1, false)));
-    }
+    const empty2 = document.createElement('div');
+    empty2.className = 'q-empty';
+    empty2.textContent = '待機列は空です';
     card.appendChild(l2);
 
+    wrap.innerHTML = '';
     wrap.appendChild(card);
+    queueDom = { card, t1Count, l1, empty1, t2Label, t2Count, l2, empty2, rowMap: new Map() };
+    return queueDom;
+  }
+
+  function createRowEntry() {
+    const row = document.createElement('div');
+    row.className = 'q-item';
+
+    const rank = document.createElement('span');
+    rank.className = 'q-rank';
+
+    const img = document.createElement('img');
+    img.className = 'q-avatar';
+
+    const name = document.createElement('span');
+    name.className = 'q-name';
+
+    const ft = document.createElement('span');
+    ft.className = 'q-tag first';
+    ft.textContent = '初見';
+
+    const pc = document.createElement('span');
+    pc.className = 'q-tag';
+
+    row.appendChild(rank);
+    row.appendChild(img);
+    row.appendChild(name);
+
+    return { row, rank, img, name, ft, pc, iconKey: null };
+  }
+
+  function patchRowEntry(entry, e, idx, isActive) {
+    entry.row.classList.toggle('active', isActive);
+    const rankText = String(idx + 1);
+    if (entry.rank.textContent !== rankText) entry.rank.textContent = rankText;
+
+    const iconKey = `${e.user_icon_url || ''}|${e.user_name || ''}`;
+    if (entry.iconKey !== iconKey) {
+      entry.iconKey = iconKey;
+      entry.img.src = e.user_icon_url || StosupOverlay.fallbackAvatar(e.user_name);
+      entry.img.onerror = () => { entry.img.src = StosupOverlay.fallbackAvatar(e.user_name); };
+    }
+
+    const userName = e.user_name || '';
+    if (entry.name.textContent !== userName) entry.name.textContent = userName;
+
+    if (e.is_first_time) {
+      if (entry.ft.parentNode !== entry.row) {
+        entry.row.insertBefore(entry.ft, entry.pc.parentNode === entry.row ? entry.pc : null);
+      }
+    } else if (entry.ft.parentNode === entry.row) {
+      entry.ft.remove();
+    }
+
+    if (e.play_count > 0) {
+      const pcText = `${e.play_count}回`;
+      if (entry.pc.textContent !== pcText) entry.pc.textContent = pcText;
+      if (entry.pc.parentNode !== entry.row) entry.row.appendChild(entry.pc);
+    } else if (entry.pc.parentNode === entry.row) {
+      entry.pc.remove();
+    }
+  }
+
+  function syncQueueList(listEl, emptyEl, listData, isActive, rowMap) {
+    if (listData.length === 0) {
+      if (listEl.children.length !== 1 || listEl.firstChild !== emptyEl) {
+        listEl.innerHTML = '';
+        listEl.appendChild(emptyEl);
+      }
+      return;
+    }
+    if (emptyEl.parentNode === listEl) emptyEl.remove();
+    for (let i = 0; i < listData.length; i++) {
+      const { item, key } = listData[i];
+      let entry = rowMap.get(key);
+      if (!entry) {
+        entry = createRowEntry();
+        rowMap.set(key, entry);
+      }
+      patchRowEntry(entry, item, i, isActive);
+      const expected = listEl.children[i];
+      if (expected !== entry.row) {
+        listEl.insertBefore(entry.row, expected || null);
+      }
+    }
+  }
+
+  function render() {
+    if (!enabled || !queueState) {
+      wrap.innerHTML = '';
+      queueDom = null;
+      return;
+    }
+    const dom = ensureQueueDom();
+    const entries = queueState.entries || [];
+    const active = entries.filter(e => e.status === 'Active');
+    const waitingAll = entries.filter(e => e.status === 'Waiting');
+    const waitingVisible = waitingAll.slice(0, maxWaiting);
+    const maxSlots = (queueState.config && queueState.config.max_active_slots) || 3;
+
+    const t1CountText = `${active.length} / ${maxSlots}`;
+    if (dom.t1Count.textContent !== t1CountText) dom.t1Count.textContent = t1CountText;
+
+    const accepting = queueState.config && queueState.config.is_accepting ? '受付中' : '締切中';
+    const t2LabelText = `NEXT — 待機列 (${accepting})`;
+    if (dom.t2Label.textContent !== t2LabelText) dom.t2Label.textContent = t2LabelText;
+    const t2CountText = `${waitingAll.length}人`;
+    if (dom.t2Count.textContent !== t2CountText) dom.t2Count.textContent = t2CountText;
+
+    const usedKeys = new Set();
+    const toKeyed = (arr, prefix) => arr.map((item, idx) => {
+      let base = item.user_id ? String(item.user_id) : `${prefix}:${item.user_name || ''}:${idx}`;
+      while (usedKeys.has(base)) base += '_dup';
+      usedKeys.add(base);
+      return { item, key: base };
+    });
+    const activeKeyed = toKeyed(active, 'a');
+    const waitingKeyed = toKeyed(waitingVisible, 'w');
+
+    // 先に表示対象外の行を除去してから各リストを差分同期
+    for (const [key, entry] of dom.rowMap.entries()) {
+      if (!usedKeys.has(key)) {
+        entry.row.remove();
+        dom.rowMap.delete(key);
+      }
+    }
+
+    syncQueueList(dom.l1, dom.empty1, activeKeyed, true, dom.rowMap);
+    syncQueueList(dom.l2, dom.empty2, waitingKeyed, false, dom.rowMap);
   }
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${location.host}/ws?channel=queue`);
+    const ws = new WebSocket(window.StosupOverlay.buildWsUrl('queue'));
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
         if (data.type === 'snapshot') {
           config = Object.assign(config, data.config || {});
-          queue = data.queue_state || queue;
+          queueState = data.queue_state || null;
           if (typeof data.queue_enabled === 'boolean') enabled = data.queue_enabled;
           applyDesign();
           render();
         } else if (data.type === 'queue') {
-          queue = data.queue || queue;
+          queueState = data.queue || null;
           if (typeof data.enabled === 'boolean') enabled = data.enabled;
           render();
         } else if (data.type === 'config_updated') {

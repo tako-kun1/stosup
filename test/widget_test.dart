@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stosup/main.dart';
+import 'package:stosup/screens/automation_screen.dart';
 import 'package:stosup/screens/comments_screen.dart';
 import 'package:stosup/screens/counters_screen.dart';
 import 'package:stosup/screens/first_time_screen.dart';
@@ -11,6 +12,7 @@ import 'package:stosup/screens/media_reaction_screen.dart';
 import 'package:stosup/screens/overlay_screen.dart';
 import 'package:stosup/screens/poll_screen.dart';
 import 'package:stosup/screens/queue_screen.dart';
+import 'package:stosup/screens/report_screen.dart';
 import 'package:stosup/screens/settings_screen.dart';
 import 'package:stosup/screens/superchat_screen.dart';
 import 'package:stosup/screens/users_screen.dart';
@@ -22,8 +24,18 @@ import 'package:stosup/widgets/license_agreement_screen.dart';
 import 'package:stosup/widgets/markdown_notes_view.dart';
 import 'package:stosup/widgets/overlay_bg_picker.dart';
 import 'package:stosup/widgets/qr_code_view.dart';
+import 'package:stosup/widgets/rich_comment_text.dart';
 import 'package:stosup/widgets/system_font_picker.dart';
 import 'package:stosup/widgets/user_avatar.dart';
+
+class _TestNoFfiController extends StosupController {
+  @override
+  Future<void> refreshStreamSessions() async {}
+
+  @override
+  Future<OnAirReportDto?> loadOnAirReport(String sessionId) async =>
+      currentReport;
+}
 
 class _FakeUsersController extends StosupController {
   final List<String> deletedIds = [];
@@ -282,7 +294,7 @@ void main() {
     // 2. 一括リセット（デフォルトは BAN ユーザーを残す＝1人削除）
     await tester.tap(find.text('一括リセット'));
     await tester.pumpAndSettle();
-    expect(find.text('ユーザーリストを一括リセットしますか？'), findsOneWidget);
+    expect(find.text('リスナー名簿を一括リセットしますか？'), findsOneWidget);
     expect(find.text('リセットを実行（1人を削除）'), findsOneWidget);
 
     // チェックを外すと BAN ユーザー含む 2 人が削除対象に変わる
@@ -317,7 +329,7 @@ void main() {
         home: Scaffold(body: SuperchatScreen(controller: ctrl)),
       ),
     );
-    expect(find.textContaining('スーパーチャット / メンバーシップ'), findsOneWidget);
+    expect(find.text('エールボックス（スパチャ・メンバー ＆ お礼チェック）'), findsOneWidget);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -325,7 +337,7 @@ void main() {
         home: Scaffold(body: PollScreen(controller: ctrl)),
       ),
     );
-    expect(find.text('リアルタイム投票 / アンケート'), findsOneWidget);
+    expect(find.text('ライブアンケート（リアルタイム投票）'), findsOneWidget);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -333,7 +345,7 @@ void main() {
         home: Scaffold(body: QueueScreen(controller: ctrl)),
       ),
     );
-    expect(find.text('参加型キュー（順番待ちリスト）管理'), findsOneWidget);
+    expect(find.text('エントリーレーン（参加型順番待ち管理）'), findsOneWidget);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -341,14 +353,14 @@ void main() {
         home: Scaffold(body: MediaReactionScreen(controller: ctrl)),
       ),
     );
-    expect(find.textContaining('WordParty 演出エディタ'), findsOneWidget);
+    expect(find.text('リアクションステージ（コメント連動アニメーション・動画演出）'), findsOneWidget);
     expect(find.text('順番待ち（1つずつ）'), findsOneWidget);
     expect(find.text('重ね表示（同時再生）'), findsOneWidget);
     expect(find.text('上書き（最新のみ）'), findsOneWidget);
     expect(find.text('おめでとうクラッカー'), findsOneWidget);
     expect(find.text('草シャワー落下'), findsOneWidget);
     expect(find.text('888 紙吹雪'), findsOneWidget);
-    expect(find.textContaining('WordParty オーバーレイ背景色'), findsOneWidget);
+    expect(find.textContaining('リアクションステージ オーバーレイ背景色'), findsOneWidget);
     expect(find.text('カラー選択'), findsOneWidget);
 
     ctrl.appVersion = '0.4.0';
@@ -364,7 +376,7 @@ void main() {
     expect(find.text('リリースノートを表示'), findsOneWidget);
     expect(find.text('利用規約を表示'), findsOneWidget);
     expect(find.text('GitHub リポジトリを開く'), findsOneWidget);
-    expect(find.text('ローカルネットワーク (LAN) 接続 ＆ Web リモコン'), findsOneWidget);
+    expect(find.textContaining('ポケットスイッチャー'), findsWidgets);
     expect(find.text('ローカルネットワーク内の他端末からの接続を許可する'), findsOneWidget);
 
     // LAN 公開 ON 状態（QR コード・LAN URL・ファイアウォール手順）の描画検証
@@ -463,17 +475,17 @@ void main() {
     expect(find.text('Stosup を起動しています...'), findsNothing);
   });
 
-  testWidgets('最小ウィンドウサイズ(1120x720)で全12画面とOBSタブのホイールスクロールが崩れない',
+  testWidgets('最小ウィンドウサイズ(1120x720)で全14画面とOBSタブのホイールスクロール・スタイルエディタが崩れない',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1120, 720);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final ctrl = StosupController();
+    final ctrl = _TestNoFfiController();
     addTearDown(ctrl.dispose);
     ctrl.isInitialized = true;
-    ctrl.appVersion = '0.4.3';
+    ctrl.appVersion = '0.5.0';
     ctrl.connectionState = const ConnectionStateDto(
       status: ConnectionStatus.connected,
       platform: PlatformKind.demo,
@@ -482,6 +494,7 @@ void main() {
       streamId: 'demo-1',
       sessionId: 'sess-1',
       canPostChat: true,
+      reconnectAttempt: 0,
     );
     ctrl.mediaReactionRules = [
       MediaReactionRule(
@@ -527,12 +540,29 @@ void main() {
         userIconUrl: '',
         userMemo: 'イラスト担当',
         isFirstTime: true,
-        message: 'こんにちは！テストコメントです！',
+        message: 'こんにちは！テストコメントです！ :stosup_star:',
+        messageRuns: const [
+          MessageRun(
+            kind: MessageRunKind.text,
+            text: 'こんにちは！テストコメントです！ ',
+            isCustomEmoji: false,
+          ),
+          MessageRun(
+            kind: MessageRunKind.emoji,
+            text: ':stosup_star:',
+            emojiUrl:
+                "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><text>★</text></svg>",
+            alt: ':stosup_star:',
+            isCustomEmoji: true,
+          ),
+        ],
         timestampMs: 1700000000000,
         isOwner: false,
         isModerator: true,
         isMember: true,
         isBanned: false,
+        isNgMasked: false,
+        hiddenFromOverlay: false,
         amountDisplay: '¥1,000',
       ),
     ];
@@ -550,10 +580,71 @@ void main() {
         currency: 'JPY',
         tierColor: '#FFCA28',
         message: '応援しています！',
+        messageRuns: const [],
         timestampMs: 1700000000000,
         isChecked: false,
       ),
     ];
+    ctrl.streamSessions = [
+      StreamSessionSummary(
+        sessionId: 'sess-1',
+        platform: PlatformKind.demo,
+        streamId: 'demo-1',
+        title: 'テスト配信',
+        startedAtMs: 1700000000000,
+        lastCommentAtMs: 1700000180000,
+        totalComments: BigInt.from(24),
+        uniqueUsers: BigInt.from(10),
+        firstTimeUsers: BigInt.from(3),
+        monetizationCount: BigInt.from(2),
+      ),
+    ];
+    ctrl.currentReport = OnAirReportDto(
+      session: ctrl.streamSessions.first,
+      durationMinutes: 4,
+      avgCommentsPerMinTenths: 60,
+      maxCommentsPerMin: BigInt.from(12),
+      memberCommentCount: BigInt.from(8),
+      monetizationTotals: const ['¥2,000'],
+      buckets: [
+        ReportMinuteBucket(
+          minuteOffset: 0,
+          timestampMs: 1700000000000,
+          commentCount: BigInt.from(4),
+          monetizationCount: BigInt.zero,
+          firstTimeCount: BigInt.from(1),
+          sampleMessages: const ['太郎: こんちゃ'],
+        ),
+        ReportMinuteBucket(
+          minuteOffset: 1,
+          timestampMs: 1700000060000,
+          commentCount: BigInt.from(12),
+          monetizationCount: BigInt.from(1),
+          firstTimeCount: BigInt.from(2),
+          sampleMessages: const ['花子: ナイス！'],
+        ),
+      ],
+      peaks: [
+        ReportPeakItem(
+          minuteOffset: 1,
+          elapsedLabel: '00:01:00',
+          timestampMs: 1700000060000,
+          commentCount: BigInt.from(12),
+          sampleMessages: const ['花子: ナイス！'],
+        ),
+      ],
+      topWords: [
+        ReportWordRank(word: '草', count: BigInt.from(9)),
+      ],
+      topUsers: [
+        ReportUserRank(
+          userId: 'u-1',
+          userName: '常連リスナー太郎',
+          commentCount: BigInt.from(7),
+          isMember: true,
+        ),
+      ],
+    );
     ctrl.highlightRules = [
       const HighlightRule(
         id: 'h-1',
@@ -595,12 +686,15 @@ void main() {
       LotteryScreen(controller: ctrl),
       UsersScreen(controller: ctrl),
       OverlayScreen(controller: ctrl),
+      AutomationScreen(controller: ctrl),
+      ReportScreen(controller: ctrl),
       SettingsScreen(controller: ctrl),
     ];
 
     for (final screen in screens) {
       await tester.pumpWidget(
         MaterialApp(
+          key: ValueKey(screen.runtimeType),
           theme: AppTheme.darkTheme(),
           home: Scaffold(
             body: Row(
@@ -618,6 +712,7 @@ void main() {
     // StosupShell 全体描画確認
     await tester.pumpWidget(
       MaterialApp(
+        key: const ValueKey('shell'),
         theme: AppTheme.darkTheme(),
         home: StosupShell(controller: ctrl),
       ),
@@ -627,6 +722,7 @@ void main() {
     // OBS オーバーレイ画面のスライドバー ＆ マウスホイール横スクロール確認
     await tester.pumpWidget(
       MaterialApp(
+        key: const ValueKey('overlay-scroll'),
         theme: AppTheme.darkTheme(),
         home: Scaffold(
           body: Row(
@@ -640,7 +736,7 @@ void main() {
     );
     await tester.pump();
 
-    final tabTextFinder = find.text('コメント表示 / CSS');
+    final tabTextFinder = find.text('トークモニター / CSS');
     expect(tabTextFinder, findsOneWidget);
     final scrollableFinder = find.ancestor(
       of: tabTextFinder,
@@ -659,14 +755,55 @@ void main() {
         tester.widget<SingleChildScrollView>(scrollableFinder).controller!.offset;
     expect(afterScroll, greaterThan(beforeScroll));
 
-    // タブ切替（コメント表示 / CSS）でも崩れないことを確認
+    // タブ切替（トークモニター / CSS）でも崩れず、新5プリセットとビジュアルスタイルエディタが表示されることを確認
     await tester.tap(tabTextFinder);
     await tester.pumpAndSettle();
-    expect(find.text('コメント表示オーバーレイのデザイン'), findsOneWidget);
+    expect(find.text('トークモニターオーバーレイのデザイン'), findsOneWidget);
+    expect(find.text('プレビューへテスト送信'), findsOneWidget);
+    expect(find.text('ブラウザで実寸プレビュー'), findsOneWidget);
+    expect(find.textContaining('/overlay/preview/comments'), findsOneWidget);
+    expect(find.text('オンエア・テロップ'), findsOneWidget);
+    expect(find.text('クリーン・マガジン'), findsOneWidget);
+    expect(find.text('タクティカル・HUD'), findsOneWidget);
+    expect(find.text('エッジ・グロウ'), findsOneWidget);
+    await tester.tap(find.text('エッジ・グロウ'));
+    await tester.pumpAndSettle();
+    expect(find.text('ビジュアルスタイル・テキスト装飾エディタ（CSS 不要）'), findsOneWidget);
+    // A/B/C 各カテゴリの折りたたみドロップダウンが閉じ状態で存在し、展開でパラメータが表示される
+    final catA = find.text('A. テキスト・タイポグラフィ');
+    final catB = find.text('B. 袋文字（縁取り・二重フチ）・エッジ発光・文字シャドウ');
+    final catC = find.text('C. ボックス装飾 ＆ 出現モーション');
+    expect(catA, findsOneWidget);
+    expect(catB, findsOneWidget);
+    expect(catC, findsOneWidget);
+    expect(find.text('文字の太さ (Weight)'), findsNothing);
+    await tester.ensureVisible(catA);
+    await tester.tap(catA);
+    await tester.pumpAndSettle();
+    expect(find.text('文字の太さ (Weight)'), findsOneWidget);
+    await tester.ensureVisible(catB);
+    await tester.tap(catB);
+    await tester.pumpAndSettle();
+    expect(find.text('テキストエッジ発光'), findsOneWidget);
+    expect(find.text('発光の広がり'), findsNothing);
+    // エッジ発光スイッチ ON で関連パラメータが表示されることを確認
+    final glowSwitch = find.text('テキストエッジ発光');
+    await tester.ensureVisible(glowSwitch);
+    await tester.tap(glowSwitch);
+    await tester.pumpAndSettle();
+    expect(find.text('発光の広がり'), findsOneWidget);
+    expect(find.text('発光強度'), findsOneWidget);
+    expect(find.text('エッジ芯の太さ'), findsOneWidget);
+    expect(find.text('文字ドロップシャドウ'), findsOneWidget);
+    await tester.ensureVisible(catC);
+    await tester.tap(catC);
+    await tester.pumpAndSettle();
+    expect(find.text('出現モーション'), findsOneWidget);
 
     // 抽選画面のコメント抽選タブ切替でも崩れないことを確認
     await tester.pumpWidget(
       MaterialApp(
+        key: const ValueKey('lottery-tab'),
         theme: AppTheme.darkTheme(),
         home: Scaffold(
           body: Row(
@@ -682,5 +819,229 @@ void main() {
     await tester.tap(find.text('コメント抽選（開始〜終了の間の特定ワード）'));
     await tester.pumpAndSettle();
     expect(find.text('1. 受付開始'), findsOneWidget);
+  });
+
+  testWidgets('RichCommentText がカスタム絵文字・スタンプをインライン表示できる', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: const Scaffold(
+          body: RichCommentText(
+            message: 'テスト :star: :gg:',
+            runs: [
+              MessageRun(
+                kind: MessageRunKind.text,
+                text: 'テスト ',
+                isCustomEmoji: false,
+              ),
+              MessageRun(
+                kind: MessageRunKind.emoji,
+                text: ':star:',
+                emojiUrl:
+                    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><rect fill='%23eab308'/><text>★</text></svg>",
+                alt: ':star:',
+                isCustomEmoji: true,
+              ),
+              MessageRun(
+                kind: MessageRunKind.emoji,
+                text: ':gg:',
+                emojiUrl:
+                    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><rect fill='%2310b981'/><text>GG</text></svg>",
+                alt: ':gg:',
+                isCustomEmoji: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('★'), findsOneWidget);
+    expect(find.text('GG'), findsOneWidget);
+  });
+
+  testWidgets('背の高いウィンドウでもスクロール画面の上部に不要な空白が空かない', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final ctrl = StosupController();
+    ctrl.isInitialized = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme(),
+        home: StosupShell(controller: ctrl),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('連携・オートメーション'));
+    await tester.pumpAndSettle();
+
+    final titleFinder =
+        find.text('連携・オートメーション（OBS WebSocket / ホットキー / Stream Deck）');
+    expect(titleFinder, findsOneWidget);
+    final topLeft = tester.getTopLeft(titleFinder);
+    expect(topLeft.dy, lessThan(40));
+  });
+
+  testWidgets('高頻度コメント受信がフレーム単位で統合され無関係トピックへ波及しない',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final ctrl = _TestNoFfiController()..isInitialized = true;
+    addTearDown(ctrl.dispose);
+
+    var notifyCount = 0;
+    ctrl.addListener(() => notifyCount++);
+
+    final initialShellRev = ctrl.topicRevision(StosupTopic.shell);
+    final initialUsersRev = ctrl.topicRevision(StosupTopic.users);
+    final initialOverlayRev = ctrl.topicRevision(StosupTopic.overlay);
+    final initialCommentsRev = ctrl.topicRevision(StosupTopic.comments);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: StosupShell(controller: ctrl),
+      ),
+    );
+    await tester.pump();
+
+    // 20 件のコメントをバースト注入
+    for (var i = 0; i < 20; i++) {
+      ctrl.handleEventForTest(
+        AppEvent(
+          kind: AppEventKind.commentReceived,
+          comment: CommentItem(
+            id: 'burst-$i',
+            sessionId: 's1',
+            platform: PlatformKind.demo,
+            userId: 'u-$i',
+            userName: '視聴者$i',
+            userIconUrl: '',
+            userMemo: '',
+            isFirstTime: false,
+            message: 'バーストコメント #$i',
+            messageRuns: const [],
+            timestampMs: 1700000000000 + i * 10,
+            isOwner: false,
+            isModerator: false,
+            isMember: false,
+            isBanned: false,
+            isNgMasked: false,
+            hiddenFromOverlay: false,
+          ),
+        ),
+      );
+    }
+
+    // 16ms 経過前は通知を保留して統合し、経過後に 1 回だけ通知される
+    expect(notifyCount, 0);
+    await tester.pump(const Duration(milliseconds: 25));
+    expect(notifyCount, 1);
+    expect(ctrl.comments.length, 20);
+
+    // コメントトピックのみ更新され、シェル・ユーザー・オーバーレイは再ビルド対象外のまま
+    expect(ctrl.topicRevision(StosupTopic.comments), initialCommentsRev + 1);
+    expect(ctrl.topicRevision(StosupTopic.shell), initialShellRev);
+    expect(ctrl.topicRevision(StosupTopic.users), initialUsersRev);
+    expect(ctrl.topicRevision(StosupTopic.overlay), initialOverlayRev);
+
+    // カウンター更新イベントは comments と counters のみに限定される
+    final prevCountersRev = ctrl.topicRevision(StosupTopic.counters);
+    ctrl.handleEventForTest(
+      const AppEvent(
+        kind: AppEventKind.countersUpdated,
+        counters: [],
+      ),
+    );
+    expect(ctrl.topicRevision(StosupTopic.counters), prevCountersRev + 1);
+    expect(ctrl.topicRevision(StosupTopic.shell), initialShellRev);
+    expect(ctrl.topicRevision(StosupTopic.overlay), initialOverlayRev);
+
+    // NG ワード更新イベントは CommentsScreen の「NG防御 (件数)」バッジへ即座に反映される（トピック漏れ回帰防止）
+    expect(find.text('NG防御 (0)'), findsOneWidget);
+    final prevShellForNg = ctrl.topicRevision(StosupTopic.shell);
+    ctrl.handleEventForTest(
+      const AppEvent(
+        kind: AppEventKind.ngWordRulesUpdated,
+        ngWordRules: [
+          NgWordRule(
+            id: 'ng-1',
+            pattern: 'ネタバレ',
+            matchMode: MatchMode.contains,
+            caseSensitive: false,
+            action: NgWordAction.hideOnOverlay,
+            replacement: '***',
+            enabled: true,
+          ),
+          NgWordRule(
+            id: 'ng-2',
+            pattern: '無効ルール',
+            matchMode: MatchMode.contains,
+            caseSensitive: false,
+            action: NgWordAction.maskText,
+            replacement: '***',
+            enabled: false,
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+    expect(find.text('NG防御 (1)'), findsOneWidget);
+    expect(ctrl.topicRevision(StosupTopic.shell), prevShellForNg);
+
+    // 従来通りの直接 notifyListeners() 呼び出しは後方互換として全トピックを更新する
+    ctrl.notifyListeners();
+    expect(ctrl.topicRevision(StosupTopic.shell), initialShellRev + 1);
+    expect(ctrl.topicRevision(StosupTopic.users), initialUsersRev + 1);
+    expect(ctrl.topicRevision(StosupTopic.overlay), initialOverlayRev + 1);
+  });
+
+  testWidgets('LotteryScreen の候補抽出キャッシュが既当選更新イベントで正しく無効化される',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final ctrl = _TestNoFfiController()
+      ..isInitialized = true
+      ..users = [
+        _sampleUser('u1', '太郎', lastSeenMs: 3000),
+        _sampleUser('u2', '花子', lastSeenMs: 2000),
+      ];
+    addTearDown(ctrl.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: StosupShell(controller: ctrl),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('ドローボックス'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('2 名'), findsWidgets);
+
+    // Web リモコン経由の当選イベントを模擬して既当選 ID を更新すると候補が 1 名へ即時反映される
+    ctrl.handleEventForTest(
+      const AppEvent(
+        kind: AppEventKind.userLotteryWinnersUpdated,
+        userLotteryWonIds: ['u1'],
+      ),
+    );
+    await tester.pump();
+    expect(find.textContaining('1 名'), findsWidgets);
   });
 }

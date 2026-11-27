@@ -4,7 +4,18 @@ import '../src/rust/models.dart';
 import '../state/stosup_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/feature_toggle_banner.dart';
+import '../widgets/rich_comment_text.dart';
 import '../widgets/user_avatar.dart';
+
+enum _CommentFilter {
+  all,
+  firstTime,
+  member,
+  monetization,
+  highlighted,
+  question,
+  ngFlagged,
+}
 
 /// コメント表示 ＆ 配信接続画面（ライト/ダーク両対応）
 class CommentsScreen extends StatefulWidget {
@@ -18,19 +29,32 @@ class CommentsScreen extends StatefulWidget {
 
 class _CommentsScreenState extends State<CommentsScreen> {
   final _urlCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
   final _demoUserCtrl = TextEditingController(text: 'テスト視聴者A');
   final _demoMsgCtrl = TextEditingController();
   final _postChatCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
   ConnectionMode _selectedMode = ConnectionMode.youTubeInnerTube;
+  _CommentFilter _filter = _CommentFilter.all;
+  String _searchQuery = '';
   bool _autoScroll = true;
   int _lastCommentCount = 0;
   String? _lastCommentId;
 
+  // フィルタ／検索適用時のみメモ化し、同一コメント内容での再ビルド時に全件再走査を回避
+  StosupController? _cachedFilterCtrl;
+  int _cachedCommentsRev = -1;
+  int _cachedSourceLen = -1;
+  String? _cachedSourceLastId;
+  _CommentFilter? _cachedFilterMode;
+  String _cachedFilterQuery = '';
+  List<CommentItem> _cachedFilteredComments = const [];
+
   @override
   void dispose() {
     _urlCtrl.dispose();
+    _searchCtrl.dispose();
     _demoUserCtrl.dispose();
     _demoMsgCtrl.dispose();
     _postChatCtrl.dispose();
@@ -76,7 +100,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'BANされたユーザーはユーザー抽選・コメント抽選・ワードカウントに一切参加できなくなります。',
+              'BANされたユーザーはドローボックス・コールカウンター等に一切参加できなくなります。',
               style: TextStyle(fontSize: 13, color: p.textSecondary),
             ),
             const SizedBox(height: 12),
@@ -151,12 +175,14 @@ class _CommentsScreenState extends State<CommentsScreen> {
     final p = context.palette;
     final ctrl = widget.controller;
     final conn = ctrl.connectionState;
-    final connected = conn.status == ConnectionStatus.connected;
-    _maybeScrollToBottom(ctrl.comments);
+    final connected = conn.status == ConnectionStatus.connected ||
+        conn.status == ConnectionStatus.reconnecting;
+    final filteredComments = _applyFilter(ctrl.comments);
+    _maybeScrollToBottom(filteredComments);
 
     return Column(
       children: [
-        // 配信接続バー
+        // 配信接続バー（URL/動画ID/チャンネル自動検出・接続履歴・お気に入りチャンネル対応）
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -172,16 +198,22 @@ class _CommentsScreenState extends State<CommentsScreen> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   SizedBox(
-                    width: 360,
+                    width: 340,
                     child: TextField(
                       controller: _urlCtrl,
                       decoration: InputDecoration(
                         prefixIcon:
                             Icon(Icons.live_tv, color: p.danger, size: 19),
-                        labelText: 'YouTube Live 配信 URL または 動画 ID',
-                        hintText:
-                            '例: https://www.youtube.com/watch?v=XXXXXXXXXXX',
+                        labelText: 'YouTube 配信URL / 動画ID / @ハンドル',
+                        hintText: '例: @channel や youtube.com/watch?v=...',
                       ),
+                      onSubmitted: (_) {
+                        if (!ctrl.isConnecting &&
+                            _urlCtrl.text.trim().isNotEmpty) {
+                          ctrl.connectYouTube(
+                              _urlCtrl.text.trim(), _selectedMode);
+                        }
+                      },
                     ),
                   ),
                   DropdownButtonHideUnderline(
@@ -229,6 +261,15 @@ class _CommentsScreenState extends State<CommentsScreen> {
                     label: const Text('接続'),
                   ),
                   OutlinedButton.icon(
+                    onPressed: () => _openConnectionHistoryDialog(ctrl),
+                    icon: const Icon(Icons.history, size: 16),
+                    label: Text(
+                      ctrl.connectionHistory.isEmpty
+                          ? '履歴・自動検出'
+                          : '履歴 (${ctrl.connectionHistory.length})',
+                    ),
+                  ),
+                  OutlinedButton.icon(
                     onPressed: ctrl.isConnecting
                         ? null
                         : () => ctrl.connectDemo(autoGenerate: true),
@@ -247,6 +288,38 @@ class _CommentsScreenState extends State<CommentsScreen> {
                     ),
                 ],
               ),
+              if (ctrl.savedChannels.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      '自動検出:',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: p.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    ...ctrl.savedChannels.map(
+                      (ch) => ActionChip(
+                        visualDensity: VisualDensity.compact,
+                        avatar: Icon(Icons.radar, size: 14, color: p.accent),
+                        label: Text(ch.label, style: const TextStyle(fontSize: 11.5)),
+                        onPressed: ctrl.isConnecting
+                            ? null
+                            : () {
+                                _urlCtrl.text = ch.channelInput;
+                                ctrl.connectYouTube(
+                                    ch.channelInput, _selectedMode);
+                              },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -312,13 +385,34 @@ class _CommentsScreenState extends State<CommentsScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'コメント一覧 (${ctrl.comments.length}件)',
+                                  (_searchQuery.isEmpty &&
+                                          _filter == _CommentFilter.all)
+                                      ? 'コメント一覧 (${ctrl.comments.length}件)'
+                                      : 'コメント一覧 (表示 ${filteredComments.length} / ${ctrl.comments.length}件)',
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14),
                                 ),
                               ),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                onPressed: () => _openNgWordDialog(ctrl),
+                                icon: Icon(
+                                  Icons.shield_outlined,
+                                  size: 15,
+                                  color: ctrl.featureFlags.ngWordFilterEnabled
+                                      ? p.accent
+                                      : p.textMuted,
+                                ),
+                                label: Text(
+                                  'NG防御 (${ctrl.ngWordRules.where((r) => r.enabled).length})',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Text('自動スクロール',
                                   style: TextStyle(
                                       fontSize: 12, color: p.textSecondary)),
@@ -343,11 +437,11 @@ class _CommentsScreenState extends State<CommentsScreen> {
                             runSpacing: 6,
                             children: [
                               FeatureToggleSwitch(
-                                label: 'コメント表示',
+                                label: 'トークモニター',
                                 enabled: ctrl.featureFlags.commentDisplayEnabled,
                                 onChanged: (v) => ctrl.setFeatureEnabled(
                                   commentDisplay: v,
-                                  featureLabel: 'コメント表示機能',
+                                  featureLabel: 'トークモニター',
                                 ),
                               ),
                               FeatureToggleSwitch(
@@ -360,11 +454,64 @@ class _CommentsScreenState extends State<CommentsScreen> {
                                 ),
                               ),
                               FeatureToggleSwitch(
-                                label: 'ピックアップ',
+                                label: 'スポットテロップ',
                                 enabled: ctrl.featureFlags.pickupEnabled,
                                 onChanged: (v) => ctrl.setFeatureEnabled(
                                   pickup: v,
-                                  featureLabel: 'コメントピックアップ表示',
+                                  featureLabel: 'スポットテロップ',
+                                ),
+                              ),
+                              FeatureToggleSwitch(
+                                label: 'NGワード防御',
+                                enabled: ctrl.featureFlags.ngWordFilterEnabled,
+                                onChanged: (v) => ctrl.setFeatureEnabled(
+                                  ngWordFilter: v,
+                                  featureLabel: 'NGワード防御',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // 検索 & フィルタバー
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 220,
+                                child: TextField(
+                                  controller: _searchCtrl,
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    prefixIcon: const Icon(Icons.search, size: 16),
+                                    hintText: '本文・名前・メモを検索',
+                                    suffixIcon: _searchQuery.isEmpty
+                                        ? null
+                                        : IconButton(
+                                            icon: const Icon(Icons.close, size: 15),
+                                            onPressed: () {
+                                              _searchCtrl.clear();
+                                              setState(() => _searchQuery = '');
+                                            },
+                                          ),
+                                  ),
+                                  onChanged: (v) => setState(
+                                      () => _searchQuery = v.trim().toLowerCase()),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      _buildFilterChip(_CommentFilter.all, 'すべて'),
+                                      _buildFilterChip(_CommentFilter.firstTime, '初見'),
+                                      _buildFilterChip(_CommentFilter.member, 'メンバー'),
+                                      _buildFilterChip(_CommentFilter.monetization, 'エール'),
+                                      _buildFilterChip(_CommentFilter.highlighted, 'ハイライト'),
+                                      _buildFilterChip(_CommentFilter.question, '質問(?)'),
+                                      _buildFilterChip(_CommentFilter.ngFlagged, 'NG該当'),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -388,7 +535,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'OBS ピックアップ表示中: ${ctrl.pickedComment.comment!.userName}「${ctrl.pickedComment.comment!.message}」',
+                                'スポットテロップ表示中: ${ctrl.pickedComment.comment!.userName}「${ctrl.pickedComment.comment!.message}」',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -414,17 +561,17 @@ class _CommentsScreenState extends State<CommentsScreen> {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
                         child: FeatureDisabledBanner(
-                          featureName: 'コメント表示機能',
+                          featureName: 'トークモニター',
                           description:
-                              '新規コメントのアプリ内表示および OBS コメントオーバーレイ配信を一時停止しています。',
+                              '新規コメントのアプリ内表示および OBS トークモニター配信を一時停止しています。',
                           onEnable: () => ctrl.setFeatureEnabled(
                             commentDisplay: true,
-                            featureLabel: 'コメント表示機能',
+                            featureLabel: 'トークモニター',
                           ),
                         ),
                       ),
                     Expanded(
-                      child: ctrl.comments.isEmpty
+                      child: filteredComments.isEmpty
                           ? Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -433,13 +580,17 @@ class _CommentsScreenState extends State<CommentsScreen> {
                                       size: 44, color: p.textMuted),
                                   const SizedBox(height: 10),
                                   Text(
-                                    'コメントがまだありません',
+                                    ctrl.comments.isEmpty
+                                        ? 'コメントがまだありません'
+                                        : '検索・フィルタ条件に一致するコメントがありません',
                                     style: TextStyle(
                                         fontSize: 15, color: p.textSecondary),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'YouTube Live に接続するか「デモ配信」ボタンを押すとコメントが表示されます。',
+                                    ctrl.comments.isEmpty
+                                        ? 'YouTube 配信 URL や @ハンドルを入力するか「デモ配信」ボタンを押すとコメントが表示されます。'
+                                        : 'キーワードやフィルタを「すべて」に戻すと全コメントが表示されます。',
                                     style: TextStyle(
                                         fontSize: 12.5, color: p.textMuted),
                                   ),
@@ -449,23 +600,28 @@ class _CommentsScreenState extends State<CommentsScreen> {
                           : ListView.builder(
                               controller: _scrollCtrl,
                               padding: const EdgeInsets.all(12),
-                              itemCount: ctrl.comments.length,
+                              itemCount: filteredComments.length,
                               itemBuilder: (context, idx) {
-                                final c = ctrl.comments[idx];
+                                final c = filteredComments[idx];
                                 final isPicked =
                                     ctrl.pickedComment.comment?.id == c.id;
-                                return _CommentBubbleCard(
-                                  comment: c,
-                                  showMemo: ctrl
-                                      .featureFlags.userMemoDisplayEnabled,
-                                  pickupEnabled: ctrl.featureFlags.pickupEnabled,
-                                  isPicked: isPicked,
-                                  timeLabel: _formatTime(c.timestampMs),
-                                  onPickToggle: () => ctrl.togglePickComment(c),
-                                  onMemoTap: () => _editUserMemo(c),
-                                  onBanTap: () => _confirmBan(c),
-                                  onUnbanTap: () => ctrl.setUserBan(
-                                      c.userId, c.platform, false, ''),
+                                return RepaintBoundary(
+                                  key: ValueKey(c.id),
+                                  child: _CommentBubbleCard(
+                                    comment: c,
+                                    showMemo: ctrl
+                                        .featureFlags.userMemoDisplayEnabled,
+                                    pickupEnabled:
+                                        ctrl.featureFlags.pickupEnabled,
+                                    isPicked: isPicked,
+                                    timeLabel: _formatTime(c.timestampMs),
+                                    onPickToggle: () =>
+                                        ctrl.togglePickComment(c),
+                                    onMemoTap: () => _editUserMemo(c),
+                                    onBanTap: () => _confirmBan(c),
+                                    onUnbanTap: () => ctrl.setUserBan(
+                                        c.userId, c.platform, false, ''),
+                                  ),
                                 );
                               },
                             ),
@@ -505,7 +661,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
                                         ctrl.featureFlags
                                                 .firstTimeCounterEnabled
                                             ? '累計検知 ${ctrl.firstTimeState.totalDetectedAllTime}人'
-                                            : '初見カウンター OFF',
+                                            : 'ウェルカムカウンター OFF',
                                         style: TextStyle(
                                             fontSize: 11,
                                             color: p.textSecondary),
@@ -562,7 +718,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
                     Row(
                       children: [
                         const Text(
-                          '稼働中ワードカウンター',
+                          '稼働中コールカウンター',
                           style: TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 13.5),
                         ),
@@ -731,6 +887,91 @@ class _CommentsScreenState extends State<CommentsScreen> {
     );
   }
 
+  List<CommentItem> _applyFilter(List<CommentItem> source) {
+    // デフォルト（フィルタなし・検索語なし）は毎ビルドの 400 件コピーを回避してゼロコピー返却
+    if (_filter == _CommentFilter.all && _searchQuery.isEmpty) {
+      return source;
+    }
+    final rev = widget.controller.topicRevision(StosupTopic.comments);
+    final lastId = source.isNotEmpty ? source.last.id : null;
+    if (identical(_cachedFilterCtrl, widget.controller) &&
+        _cachedCommentsRev == rev &&
+        _cachedSourceLen == source.length &&
+        _cachedSourceLastId == lastId &&
+        _cachedFilterMode == _filter &&
+        _cachedFilterQuery == _searchQuery) {
+      return _cachedFilteredComments;
+    }
+    final result = source.where((c) {
+      if (_searchQuery.isNotEmpty) {
+        final hit = c.message.toLowerCase().contains(_searchQuery) ||
+            c.userName.toLowerCase().contains(_searchQuery) ||
+            c.userMemo.toLowerCase().contains(_searchQuery);
+        if (!hit) return false;
+      }
+      switch (_filter) {
+        case _CommentFilter.all:
+          return true;
+        case _CommentFilter.firstTime:
+          return c.isFirstTime;
+        case _CommentFilter.member:
+          return c.isMember;
+        case _CommentFilter.monetization:
+          return c.eventKind != null;
+        case _CommentFilter.highlighted:
+          return c.bubbleBgColor != null;
+        case _CommentFilter.question:
+          return c.message.contains('?') ||
+              c.message.contains('？') ||
+              c.message.contains('質問');
+        case _CommentFilter.ngFlagged:
+          return c.isNgMasked || c.hiddenFromOverlay;
+      }
+    }).toList();
+    _cachedFilterCtrl = widget.controller;
+    _cachedCommentsRev = rev;
+    _cachedSourceLen = source.length;
+    _cachedSourceLastId = lastId;
+    _cachedFilterMode = _filter;
+    _cachedFilterQuery = _searchQuery;
+    _cachedFilteredComments = result;
+    return result;
+  }
+
+  Widget _buildFilterChip(_CommentFilter target, String label) {
+    final selected = _filter == target;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        visualDensity: VisualDensity.compact,
+        label: Text(label, style: const TextStyle(fontSize: 11.5)),
+        selected: selected,
+        onSelected: (_) => setState(() => _filter = target),
+      ),
+    );
+  }
+
+  Future<void> _openConnectionHistoryDialog(StosupController ctrl) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _ConnectionHistoryDialog(
+        controller: ctrl,
+        onSelectUrl: (url, mode) {
+          _urlCtrl.text = url;
+          setState(() => _selectedMode = mode);
+          ctrl.connectYouTube(url, mode);
+        },
+      ),
+    );
+  }
+
+  Future<void> _openNgWordDialog(StosupController ctrl) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _NgWordManagerDialog(controller: ctrl),
+    );
+  }
+
   void _sendTestComment(StosupController ctrl) {
     final msg = _demoMsgCtrl.text.trim();
     if (msg.isEmpty) return;
@@ -756,6 +997,9 @@ class _StatusChip extends StatelessWidget {
       case ConnectionStatus.connecting:
         color = p.warning;
         label = '接続中...';
+      case ConnectionStatus.reconnecting:
+        color = p.warning;
+        label = '自動再接続中 (${state.reconnectAttempt}/10)';
       case ConnectionStatus.error:
         color = p.danger;
         label = '接続エラー';
@@ -937,6 +1181,10 @@ class _CommentBubbleCard extends StatelessWidget {
                                 _MiniBadge('メンバー', p.success, Colors.white),
                               if (comment.isBanned)
                                 _MiniBadge('BAN', p.danger, Colors.white),
+                              if (comment.hiddenFromOverlay)
+                                _MiniBadge('OBS非表示', p.warning, Colors.black),
+                              if (comment.isNgMasked)
+                                _MiniBadge('NG伏せ字', p.textMuted, Colors.white),
                             ],
                           ),
                         ),
@@ -951,8 +1199,9 @@ class _CommentBubbleCard extends StatelessWidget {
                         if (pickupEnabled) ...[
                           const SizedBox(width: 2),
                           IconButton(
-                            tooltip:
-                                isPicked ? 'ピックアップ表示を解除' : 'OBS にピックアップ表示',
+                            tooltip: isPicked
+                                ? 'スポットテロップを解除'
+                                : 'スポットテロップに表示',
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
@@ -1002,8 +1251,10 @@ class _CommentBubbleCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      comment.message,
+                    RichCommentText(
+                      message: comment.message,
+                      runs: comment.messageRuns,
+                      emojiSize: 22,
                       style: TextStyle(
                         color: fg,
                         fontSize: 14,
@@ -1040,5 +1291,432 @@ class _MiniBadge extends StatelessWidget {
         style: TextStyle(color: fg, fontSize: 10, fontWeight: FontWeight.bold),
       ),
     );
+  }
+}
+
+/// 接続履歴 ＆ お気に入りチャンネル自動検出ダイアログ
+class _ConnectionHistoryDialog extends StatefulWidget {
+  const _ConnectionHistoryDialog({
+    required this.controller,
+    required this.onSelectUrl,
+  });
+
+  final StosupController controller;
+  final void Function(String url, ConnectionMode mode) onSelectUrl;
+
+  @override
+  State<_ConnectionHistoryDialog> createState() =>
+      _ConnectionHistoryDialogState();
+}
+
+class _ConnectionHistoryDialogState extends State<_ConnectionHistoryDialog> {
+  final _chLabelCtrl = TextEditingController();
+  final _chInputCtrl = TextEditingController();
+  late List<ConnectionHistoryItem> _lastHistory;
+  late List<SavedChannelItem> _lastSavedChannels;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastHistory = widget.controller.connectionHistory;
+    _lastSavedChannels = widget.controller.savedChannels;
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  void _onControllerChanged() {
+    if (!mounted) return;
+    // コメント受信ごとの不要なダイアログ再ビルドを防ぎ、履歴・チャンネル更新時のみ再描画する
+    if (!identical(_lastHistory, widget.controller.connectionHistory) ||
+        !identical(_lastSavedChannels, widget.controller.savedChannels)) {
+      _lastHistory = widget.controller.connectionHistory;
+      _lastSavedChannels = widget.controller.savedChannels;
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    _chLabelCtrl.dispose();
+    _chInputCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final ctrl = widget.controller;
+    return AlertDialog(
+          title: const Text('接続履歴 ＆ チャンネル自動検出'),
+          content: SizedBox(
+            width: 640,
+            height: 460,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '自動検出用チャンネル（@ハンドル / チャンネルURL）',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 150,
+                      child: TextField(
+                        controller: _chLabelCtrl,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          labelText: '表示名',
+                          hintText: '自分のチャンネル',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _chInputCtrl,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          labelText: '@ハンドル または チャンネルURL',
+                          hintText: '例: @mychannel',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: () async {
+                        final input = _chInputCtrl.text.trim();
+                        if (input.isEmpty) return;
+                        await ctrl.saveSavedChannel(
+                          SavedChannelItem(
+                            id: '',
+                            label: _chLabelCtrl.text.trim().isEmpty
+                                ? input
+                                : _chLabelCtrl.text.trim(),
+                            channelInput: input,
+                            lastVideoId: '',
+                            lastCheckedMs: 0,
+                          ),
+                        );
+                        _chLabelCtrl.clear();
+                        _chInputCtrl.clear();
+                      },
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('登録'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (ctrl.savedChannels.isNotEmpty)
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: ctrl.savedChannels
+                        .map(
+                          (ch) => InputChip(
+                            avatar: Icon(Icons.radar, size: 15, color: p.accent),
+                            label: Text('${ch.label} (${ch.channelInput})'),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              widget.onSelectUrl(
+                                ch.channelInput,
+                                ConnectionMode.youTubeInnerTube,
+                              );
+                            },
+                            onDeleted: () => ctrl.deleteSavedChannel(ch.id),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                const Divider(height: 22),
+                const Text(
+                  '過去の接続履歴（クリックで再接続）',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                ),
+                const SizedBox(height: 6),
+                Expanded(
+                  child: ctrl.connectionHistory.isEmpty
+                      ? Center(
+                          child: Text(
+                            'まだ接続履歴がありません',
+                            style: TextStyle(color: p.textSecondary),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: ctrl.connectionHistory.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (_, idx) {
+                            final h = ctrl.connectionHistory[idx];
+                            return ListTile(
+                              dense: true,
+                              leading: IconButton(
+                                icon: Icon(
+                                  h.isFavorite ? Icons.star : Icons.star_border,
+                                  color: h.isFavorite ? p.warning : p.textMuted,
+                                  size: 19,
+                                ),
+                                onPressed: () =>
+                                    ctrl.toggleConnectionHistoryFavorite(
+                                        h.id, !h.isFavorite),
+                              ),
+                              title: Text(
+                                h.streamTitle.isEmpty
+                                    ? h.streamId
+                                    : h.streamTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                '${h.streamId} • ${h.mode == ConnectionMode.youTubeDataApi ? "Data API" : "InnerTube"}',
+                                style: TextStyle(
+                                    fontSize: 11.5, color: p.textSecondary),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  FilledButton.tonal(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      widget.onSelectUrl(h.streamId, h.mode);
+                                    },
+                                    child: const Text('接続'),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete_outline,
+                                        size: 18, color: p.textMuted),
+                                    onPressed: () =>
+                                        ctrl.deleteConnectionHistory(h.id),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('閉じる'),
+            ),
+          ],
+        );
+  }
+}
+
+/// NG ワード防御ルール管理ダイアログ
+class _NgWordManagerDialog extends StatefulWidget {
+  const _NgWordManagerDialog({required this.controller});
+  final StosupController controller;
+
+  @override
+  State<_NgWordManagerDialog> createState() => _NgWordManagerDialogState();
+}
+
+class _NgWordManagerDialogState extends State<_NgWordManagerDialog> {
+  final _patternCtrl = TextEditingController();
+  final _replCtrl = TextEditingController(text: '***');
+  MatchMode _mode = MatchMode.contains;
+  NgWordAction _action = NgWordAction.hideOnOverlay;
+  late List<NgWordRule> _lastNgRules;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastNgRules = widget.controller.ngWordRules;
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  void _onControllerChanged() {
+    if (!mounted) return;
+    // コメント受信ごとの不要なダイアログ再ビルドを防ぎ、NG ルール更新時のみ再描画する
+    if (!identical(_lastNgRules, widget.controller.ngWordRules)) {
+      _lastNgRules = widget.controller.ngWordRules;
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    _patternCtrl.dispose();
+    _replCtrl.dispose();
+    super.dispose();
+  }
+
+  String _actionLabel(NgWordAction a) {
+    switch (a) {
+      case NgWordAction.hideEverywhere:
+        return '完全非表示（アプリ・OBS・集計から除外）';
+      case NgWordAction.hideOnOverlay:
+        return 'OBS のみ非表示（アプリ内で確認可）';
+      case NgWordAction.maskText:
+        return '伏せ字マスク置換';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final ctrl = widget.controller;
+    return AlertDialog(
+          title: const Text('NG ワード防御ルール管理'),
+          content: SizedBox(
+            width: 660,
+            height: 480,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '荒らしコメントやネタバレを自動で遮断・伏せ字化し、OBS 配信画面への映り込みを防止します。',
+                  style: TextStyle(fontSize: 12.5, color: p.textSecondary),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 190,
+                      child: TextField(
+                        controller: _patternCtrl,
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          labelText: 'NG ワード / 正規表現',
+                          hintText: '例: ネタバレ',
+                        ),
+                      ),
+                    ),
+                    DropdownButton<MatchMode>(
+                      value: _mode,
+                      items: const [
+                        DropdownMenuItem(
+                            value: MatchMode.contains, child: Text('部分一致')),
+                        DropdownMenuItem(
+                            value: MatchMode.exact, child: Text('完全一致')),
+                        DropdownMenuItem(
+                            value: MatchMode.regex, child: Text('正規表現')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setState(() => _mode = v);
+                      },
+                    ),
+                    DropdownButton<NgWordAction>(
+                      value: _action,
+                      items: const [
+                        DropdownMenuItem(
+                          value: NgWordAction.hideOnOverlay,
+                          child: Text('OBS非表示'),
+                        ),
+                        DropdownMenuItem(
+                          value: NgWordAction.maskText,
+                          child: Text('伏せ字置換'),
+                        ),
+                        DropdownMenuItem(
+                          value: NgWordAction.hideEverywhere,
+                          child: Text('完全非表示'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setState(() => _action = v);
+                      },
+                    ),
+                    if (_action == NgWordAction.maskText)
+                      SizedBox(
+                        width: 90,
+                        child: TextField(
+                          controller: _replCtrl,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            labelText: '置換文字',
+                          ),
+                        ),
+                      ),
+                    FilledButton.icon(
+                      onPressed: () async {
+                        final pat = _patternCtrl.text.trim();
+                        if (pat.isEmpty) return;
+                        await ctrl.saveNgWordRule(
+                          NgWordRule(
+                            id: '',
+                            pattern: pat,
+                            matchMode: _mode,
+                            caseSensitive: false,
+                            action: _action,
+                            replacement: _replCtrl.text.trim().isEmpty
+                                ? '***'
+                                : _replCtrl.text.trim(),
+                            enabled: true,
+                          ),
+                        );
+                        _patternCtrl.clear();
+                      },
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('追加'),
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+                Expanded(
+                  child: ctrl.ngWordRules.isEmpty
+                      ? Center(
+                          child: Text(
+                            'NG ワードルールはまだ登録されていません',
+                            style: TextStyle(color: p.textSecondary),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: ctrl.ngWordRules.length,
+                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          itemBuilder: (_, idx) {
+                            final r = ctrl.ngWordRules[idx];
+                            return ListTile(
+                              dense: true,
+                              leading: Switch(
+                                value: r.enabled,
+                                onChanged: (v) => ctrl.saveNgWordRule(
+                                  NgWordRule(
+                                    id: r.id,
+                                    pattern: r.pattern,
+                                    matchMode: r.matchMode,
+                                    caseSensitive: r.caseSensitive,
+                                    action: r.action,
+                                    replacement: r.replacement,
+                                    enabled: v,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                r.pattern,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: Text(
+                                '${_actionLabel(r.action)}${r.action == NgWordAction.maskText ? " (→ ${r.replacement})" : ""}',
+                                style: TextStyle(
+                                    fontSize: 11.5, color: p.textSecondary),
+                              ),
+                              trailing: IconButton(
+                                icon: Icon(Icons.delete_outline,
+                                    color: p.danger, size: 19),
+                                onPressed: () => ctrl.deleteNgWordRule(r.id),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('閉じる'),
+            ),
+          ],
+        );
   }
 }

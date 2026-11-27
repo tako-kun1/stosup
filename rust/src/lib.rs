@@ -1,13 +1,18 @@
 pub mod api;
+pub mod backup;
 pub mod db;
 pub mod engine;
 pub mod fonts;
 mod frb_generated;
+pub mod hotkeys;
 pub mod license;
 pub mod media;
 pub mod models;
+pub mod obs_ws;
 pub mod overlay;
 pub mod platform;
+pub mod profile;
 pub mod remote;
+pub mod report;
 pub mod state;
 pub mod updater;

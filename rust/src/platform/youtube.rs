@@ -1,19 +1,81 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{json, Value};
 use tokio::sync::{watch, Mutex};
 
 use crate::db::Database;
-use crate::models::{MonetizationEventKind, PlatformKind, RawIncomingComment};
-use crate::platform::{youtube_oauth, IncomingCommentTx, ProviderConnection};
+use crate::models::{
+    ConnectionStatus, MessageRun, MessageRunKind, MonetizationEventKind, PlatformKind,
+    RawIncomingComment, ResolvedYouTubeLive,
+};
+use crate::platform::{
+    parse_youtube_input_target, youtube_oauth, IncomingCommentTx, ProviderConnection,
+    YouTubeInputTarget,
+};
 
 const USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+static RE_CANONICAL_VID: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"<link\s+rel="canonical"\s+href="https://www\.youtube\.com/watch\?v=([A-Za-z0-9_-]{11})""#)
+        .unwrap()
+});
+static RE_VIDEO_ID: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#""videoId"\s*:\s*"([A-Za-z0-9_-]{11})""#).unwrap());
+static RE_TITLE: Lazy<Regex> = Lazy::new(|| Regex::new(r#"<title>(.*?)</title>"#).unwrap());
+static RE_API_KEY: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#""INNERTUBE_API_KEY"\s*:\s*"([^"]+)""#).unwrap());
+static RE_CLIENT_VER: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#""INNERTUBE_CLIENT_VERSION"\s*:\s*"([^"]+)""#).unwrap());
+static RE_CONT_FALLBACK: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#""continuation"\s*:\s*"([^"]{20,})""#).unwrap());
+static RE_CONT_PATTERNS: Lazy<[Regex; 3]> = Lazy::new(|| {
+    [
+        Regex::new(r#""invalidationContinuationData"\s*:\s*\{[^}]*?"continuation"\s*:\s*"([^"]+)""#)
+            .unwrap(),
+        Regex::new(r#""timedContinuationData"\s*:\s*\{[^}]*?"continuation"\s*:\s*"([^"]+)""#)
+            .unwrap(),
+        Regex::new(r#""reloadContinuationData"\s*:\s*\{[^}]*?"continuation"\s*:\s*"([^"]+)""#)
+            .unwrap(),
+    ]
+});
+
+/// FIFO 上限付き重複排除セット（長時間配信でのメモリ肥大化と全消去による再取得スパイクを両方防止）
+struct BoundedIdSet {
+    max_len: usize,
+    set: HashSet<String>,
+    order: VecDeque<String>,
+}
+
+impl BoundedIdSet {
+    fn new(max_len: usize) -> Self {
+        Self {
+            max_len: max_len.max(1),
+            set: HashSet::new(),
+            order: VecDeque::new(),
+        }
+    }
+
+    fn insert(&mut self, id: String) -> bool {
+        if self.set.contains(&id) {
+            return false;
+        }
+        if self.set.len() >= self.max_len {
+            if let Some(oldest) = self.order.pop_front() {
+                self.set.remove(&oldest);
+            }
+        }
+        self.set.insert(id.clone());
+        self.order.push_back(id);
+        true
+    }
+}
 
 struct InnerTubeBootstrap {
     api_key: String,
@@ -22,13 +84,83 @@ struct InnerTubeBootstrap {
     stream_title: String,
 }
 
+/// チャンネル URL / @ハンドル / 動画 URL から現在のライブ配信または待機枠の video_id を解決する
+pub async fn resolve_youtube_live_target(input: &str) -> Result<ResolvedYouTubeLive> {
+    let target = parse_youtube_input_target(input)?;
+    match target {
+        YouTubeInputTarget::VideoId(vid) => Ok(ResolvedYouTubeLive {
+            video_id: vid,
+            title: String::new(),
+            is_live: true,
+            is_upcoming: false,
+            source_input: input.trim().to_string(),
+        }),
+        YouTubeInputTarget::ChannelLiveUrl(live_url) => {
+            let client = reqwest::Client::builder()
+                .user_agent(USER_AGENT)
+                .timeout(Duration::from_secs(15))
+                .build()?;
+            let html = client
+                .get(&live_url)
+                .header("Accept-Language", "ja-JP,ja;q=0.9,en-US;q=0.8")
+                .send()
+                .await
+                .context("チャンネルのライブページ取得に失敗しました")?
+                .text()
+                .await?;
+            parse_channel_live_html(&html, input.trim())
+        }
+    }
+}
+
+fn parse_channel_live_html(html: &str, source_input: &str) -> Result<ResolvedYouTubeLive> {
+    let video_id = RE_CANONICAL_VID
+        .captures(html)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().to_string())
+        .or_else(|| {
+            // /live ページ内にライブ配信枠の videoId がある場合のみ抽出
+            if html.contains(r#""isLive":true"#)
+                || html.contains(r#""isUpcoming":true"#)
+                || html.contains(r#""liveBroadcastDetails""#)
+            {
+                RE_VIDEO_ID
+                    .captures(html)
+                    .and_then(|c| c.get(1))
+                    .map(|m| m.as_str().to_string())
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| {
+            anyhow!("指定されたチャンネルで現在配信中・待機中のライブ枠が見つかりませんでした")
+        })?;
+
+    let title = RE_TITLE
+        .captures(html)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().replace(" - YouTube", "").trim().to_string())
+        .unwrap_or_else(|| format!("YouTube Live ({})", video_id));
+    let is_live = html.contains(r#""isLiveNow":true"#) || html.contains(r#""isLive":true"#);
+    let is_upcoming = html.contains(r#""isUpcoming":true"#);
+
+    Ok(ResolvedYouTubeLive {
+        video_id,
+        title,
+        is_live,
+        is_upcoming,
+        source_input: source_input.to_string(),
+    })
+}
+
 /// YouTube Live に InnerTube 方式（クォータ消費なし）で接続する。
-/// OAuth 認証済みの場合はチャット投稿用に live_chat_id も並行して自動解決する。
+/// 通信瞬断時は指数バックオフ＋再ブートストラップで自動再接続する。
 pub async fn connect_youtube_innertube(
     video_id: &str,
     db: Arc<Mutex<Database>>,
     comment_tx: IncomingCommentTx,
     on_error: impl Fn(String) + Send + Sync + 'static,
+    on_status: impl Fn(ConnectionStatus, u32, Option<String>) + Send + Sync + 'static,
 ) -> Result<ProviderConnection> {
     let client = reqwest::Client::builder()
         .user_agent(USER_AGENT)
@@ -52,37 +184,37 @@ pub async fn connect_youtube_innertube(
     let video_id_owned = video_id.to_string();
 
     tokio::spawn(async move {
+        let mut api_key = bootstrap.api_key;
+        let mut client_version = bootstrap.client_version;
         let mut continuation = bootstrap.continuation;
-        let mut seen_ids: HashSet<String> = HashSet::new();
+        let mut seen_ids = BoundedIdSet::new(15_000);
         let mut consecutive_errors = 0u32;
+        const MAX_RECONNECT_ATTEMPTS: u32 = 10;
 
         loop {
             if *cancel_rx.borrow() {
                 break;
             }
 
-            match poll_innertube_chat(
-                &client,
-                &bootstrap.api_key,
-                &bootstrap.client_version,
-                &continuation,
-            )
-            .await
-            {
+            match poll_innertube_chat(&client, &api_key, &client_version, &continuation).await {
                 Ok((comments, next_cont, timeout_ms)) => {
-                    consecutive_errors = 0;
+                    if consecutive_errors > 0 {
+                        consecutive_errors = 0;
+                        on_status(ConnectionStatus::Connected, 0, None);
+                    }
                     for c in comments {
                         if seen_ids.insert(c.id.clone()) {
                             let _ = comment_tx.send(c);
                         }
                     }
-                    // メモリ肥大化防止
-                    if seen_ids.len() > 20_000 {
-                        seen_ids.clear();
-                    }
                     match next_cont {
                         Some(nc) => continuation = nc,
                         None => {
+                            on_status(
+                                ConnectionStatus::Disconnected,
+                                0,
+                                Some("ライブチャットが終了しました。".to_string()),
+                            );
                             on_error("ライブチャットが終了しました。".to_string());
                             break;
                         }
@@ -96,17 +228,45 @@ pub async fn connect_youtube_innertube(
                 }
                 Err(e) => {
                     consecutive_errors += 1;
-                    if consecutive_errors >= 5 {
-                        on_error(format!(
-                            "YouTube チャット取得エラー（video={}）: {}",
+                    if consecutive_errors > MAX_RECONNECT_ATTEMPTS {
+                        let msg = format!(
+                            "YouTube チャット再接続上限に達しました（video={}）: {}",
                             video_id_owned, e
-                        ));
+                        );
+                        on_status(ConnectionStatus::Error, consecutive_errors, Some(msg.clone()));
+                        on_error(msg);
                         break;
                     }
-                    let wait = Duration::from_secs(2 * consecutive_errors as u64);
+
+                    let backoff_sec = match consecutive_errors {
+                        1 => 2,
+                        2 => 4,
+                        3 => 8,
+                        4 => 15,
+                        _ => 25,
+                    };
+                    on_status(
+                        ConnectionStatus::Reconnecting,
+                        consecutive_errors,
+                        Some(format!(
+                            "通信エラーのため自動再接続中 ({}/{}): {}",
+                            consecutive_errors, MAX_RECONNECT_ATTEMPTS, e
+                        )),
+                    );
+
                     tokio::select! {
-                        _ = tokio::time::sleep(wait) => {}
+                        _ = tokio::time::sleep(Duration::from_secs(backoff_sec)) => {}
                         _ = cancel_rx.changed() => { break; }
+                    }
+
+                    // 2回以上連続失敗した場合は continuation 失効の可能性があるため再ブートストラップ
+                    if consecutive_errors >= 2 {
+                        if let Ok(fresh) = fetch_innertube_bootstrap(&client, &video_id_owned).await
+                        {
+                            api_key = fresh.api_key;
+                            client_version = fresh.client_version;
+                            continuation = fresh.continuation;
+                        }
                     }
                 }
             }
@@ -123,12 +283,13 @@ pub async fn connect_youtube_innertube(
     })
 }
 
-/// YouTube Data API v3 公式ポーリングで接続する（OAuth 認証必須）
+/// YouTube Data API v3 公式ポーリングで接続する（OAuth 認証必須・自動再接続対応）
 pub async fn connect_youtube_data_api(
     video_id: &str,
     db: Arc<Mutex<Database>>,
     comment_tx: IncomingCommentTx,
     on_error: impl Fn(String) + Send + Sync + 'static,
+    on_status: impl Fn(ConnectionStatus, u32, Option<String>) + Send + Sync + 'static,
 ) -> Result<ProviderConnection> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(20))
@@ -143,8 +304,10 @@ pub async fn connect_youtube_data_api(
 
     tokio::spawn(async move {
         let mut page_token: Option<String> = None;
-        let mut seen_ids: HashSet<String> = HashSet::new();
+        let mut seen_ids = BoundedIdSet::new(15_000);
         let mut first_poll = true;
+        let mut consecutive_errors = 0u32;
+        const MAX_RECONNECT_ATTEMPTS: u32 = 10;
 
         loop {
             if *cancel_rx.borrow() {
@@ -154,7 +317,9 @@ pub async fn connect_youtube_data_api(
             let access_token = match youtube_oauth::get_valid_access_token(Arc::clone(&db)).await {
                 Ok(t) => t,
                 Err(e) => {
-                    on_error(format!("OAuth トークン取得エラー: {}", e));
+                    let msg = format!("OAuth トークン取得エラー: {}", e);
+                    on_status(ConnectionStatus::Error, 0, Some(msg.clone()));
+                    on_error(msg);
                     break;
                 }
             };
@@ -173,6 +338,10 @@ pub async fn connect_youtube_data_api(
 
             match req.send().await {
                 Ok(resp) if resp.status().is_success() => {
+                    if consecutive_errors > 0 {
+                        consecutive_errors = 0;
+                        on_status(ConnectionStatus::Connected, 0, None);
+                    }
                     if let Ok(val) = resp.json::<Value>().await {
                         let poll_ms = val["pollingIntervalMillis"].as_u64().unwrap_or(5000);
                         page_token = val["nextPageToken"].as_str().map(|s| s.to_string());
@@ -201,13 +370,46 @@ pub async fn connect_youtube_data_api(
                 Ok(resp) => {
                     let status = resp.status();
                     let body = resp.text().await.unwrap_or_default();
-                    on_error(format!("YouTube Data API エラー ({}): {}", status, body));
+                    if status.as_u16() >= 500 || status.as_u16() == 429 {
+                        consecutive_errors += 1;
+                        if consecutive_errors <= MAX_RECONNECT_ATTEMPTS {
+                            on_status(
+                                ConnectionStatus::Reconnecting,
+                                consecutive_errors,
+                                Some(format!("YouTube Data API 一時エラー ({}) 再試行中...", status)),
+                            );
+                            let wait = Duration::from_secs((3 * consecutive_errors as u64).min(30));
+                            tokio::select! {
+                                _ = tokio::time::sleep(wait) => {}
+                                _ = cancel_rx.changed() => { break; }
+                            }
+                            continue;
+                        }
+                    }
+                    let msg = format!("YouTube Data API エラー ({}): {}", status, body);
+                    on_status(ConnectionStatus::Error, consecutive_errors, Some(msg.clone()));
+                    on_error(msg);
                     break;
                 }
                 Err(e) => {
-                    on_error(format!("YouTube Data API 通信エラー: {}", e));
+                    consecutive_errors += 1;
+                    if consecutive_errors > MAX_RECONNECT_ATTEMPTS {
+                        let msg = format!("YouTube Data API 再接続上限に達しました: {}", e);
+                        on_status(ConnectionStatus::Error, consecutive_errors, Some(msg.clone()));
+                        on_error(msg);
+                        break;
+                    }
+                    on_status(
+                        ConnectionStatus::Reconnecting,
+                        consecutive_errors,
+                        Some(format!(
+                            "YouTube Data API 通信エラー ({}/{}): {}",
+                            consecutive_errors, MAX_RECONNECT_ATTEMPTS, e
+                        )),
+                    );
+                    let wait = Duration::from_secs((3 * consecutive_errors as u64).min(25));
                     tokio::select! {
-                        _ = tokio::time::sleep(Duration::from_secs(5)) => {}
+                        _ = tokio::time::sleep(wait) => {}
                         _ = cancel_rx.changed() => { break; }
                     }
                 }
@@ -310,61 +512,58 @@ async fn fetch_innertube_bootstrap(
     video_id: &str,
 ) -> Result<InnerTubeBootstrap> {
     let watch_url = format!("https://www.youtube.com/watch?v={}", video_id);
-    let html = client
-        .get(&watch_url)
-        .header("Accept-Language", "ja-JP,ja;q=0.9,en-US;q=0.8")
-        .send()
-        .await
-        .context("YouTube 配信ページの取得に失敗しました")?
-        .text()
-        .await?;
+    let popout_url = format!(
+        "https://www.youtube.com/live_chat?is_popout=1&v={}",
+        video_id
+    );
 
-    let api_key_re = Regex::new(r#""INNERTUBE_API_KEY"\s*:\s*"([^"]+)""#).unwrap();
-    let client_ver_re = Regex::new(r#""INNERTUBE_CLIENT_VERSION"\s*:\s*"([^"]+)""#).unwrap();
-    let title_re = Regex::new(r#"<title>(.*?)</title>"#).unwrap();
-    let cont_re = Regex::new(r#""continuation"\s*:\s*"([^"]{20,})""#).unwrap();
+    // 配信ページと live_chat ポップアウトを並列取得し接続開始レイテンシを短縮
+    let watch_fut = async {
+        let resp = client
+            .get(&watch_url)
+            .header("Accept-Language", "ja-JP,ja;q=0.9,en-US;q=0.8")
+            .send()
+            .await
+            .context("YouTube 配信ページの取得に失敗しました")?;
+        resp.text().await.map_err(anyhow::Error::from)
+    };
+    let popout_fut = async {
+        match client
+            .get(&popout_url)
+            .header("Accept-Language", "ja-JP,ja;q=0.9,en-US;q=0.8")
+            .send()
+            .await
+        {
+            Ok(resp) => resp.text().await.unwrap_or_default(),
+            Err(_) => String::new(),
+        }
+    };
 
-    let api_key = api_key_re
+    let (html_res, popout_text) = tokio::join!(watch_fut, popout_fut);
+    let html = html_res?;
+
+    let api_key = RE_API_KEY
         .captures(&html)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str().to_string())
         .ok_or_else(|| anyhow!("YouTube API キーの抽出に失敗しました（配信URLをご確認ください）"))?;
 
-    let client_version = client_ver_re
+    let client_version = RE_CLIENT_VER
         .captures(&html)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str().to_string())
         .unwrap_or_else(|| "2.20250101.00.00".to_string());
 
-    let stream_title = title_re
+    let stream_title = RE_TITLE
         .captures(&html)
         .and_then(|c| c.get(1))
         .map(|m| m.as_str().replace(" - YouTube", "").trim().to_string())
         .unwrap_or_else(|| format!("YouTube Live ({})", video_id));
 
-    // live_chat ポップアウトページから確実にチャット用 continuation を取得
-    let popout_url = format!(
-        "https://www.youtube.com/live_chat?is_popout=1&v={}",
-        video_id
-    );
-    let popout_html = client
-        .get(&popout_url)
-        .header("Accept-Language", "ja-JP,ja;q=0.9,en-US;q=0.8")
-        .send()
-        .await
-        .ok()
-        .and_then(|r| Some(r))
-        .map(|r| r.text());
-
-    let popout_text = match popout_html {
-        Some(fut) => fut.await.unwrap_or_default(),
-        None => String::new(),
-    };
-
     let continuation = extract_live_chat_continuation(&popout_text)
         .or_else(|| extract_live_chat_continuation(&html))
         .or_else(|| {
-            cont_re
+            RE_CONT_FALLBACK
                 .captures(&popout_text)
                 .and_then(|c| c.get(1))
                 .map(|m| m.as_str().to_string())
@@ -383,17 +582,10 @@ async fn fetch_innertube_bootstrap(
 
 fn extract_live_chat_continuation(html: &str) -> Option<String> {
     // subMenuItems の中にある「チャット」（リアルタイム）または最初の reloadContinuationData / invalidationContinuationData を探す
-    let patterns = [
-        r#""invalidationContinuationData"\s*:\s*\{[^}]*?"continuation"\s*:\s*"([^"]+)""#,
-        r#""timedContinuationData"\s*:\s*\{[^}]*?"continuation"\s*:\s*"([^"]+)""#,
-        r#""reloadContinuationData"\s*:\s*\{[^}]*?"continuation"\s*:\s*"([^"]+)""#,
-    ];
-    for pat in patterns {
-        if let Ok(re) = Regex::new(pat) {
-            if let Some(cap) = re.captures(html) {
-                if let Some(m) = cap.get(1) {
-                    return Some(m.as_str().to_string());
-                }
+    for re in RE_CONT_PATTERNS.iter() {
+        if let Some(cap) = re.captures(html) {
+            if let Some(m) = cap.get(1) {
+                return Some(m.as_str().to_string());
             }
         }
     }
@@ -562,8 +754,8 @@ fn extract_common_innertube_author(
 fn parse_innertube_text_renderer(renderer: &Value) -> Option<RawIncomingComment> {
     let (id, user_id, user_name, user_icon_url, timestamp_ms, is_owner, is_moderator, is_member) =
         extract_common_innertube_author(renderer)?;
-    let message = extract_runs_text(&renderer["message"]["runs"]);
-    if message.is_empty() {
+    let (message, message_runs) = extract_runs_with_emojis(&renderer["message"]["runs"]);
+    if message.is_empty() && message_runs.is_empty() {
         return None;
     }
 
@@ -574,6 +766,7 @@ fn parse_innertube_text_renderer(renderer: &Value) -> Option<RawIncomingComment>
         user_name,
         user_icon_url,
         message,
+        message_runs,
         timestamp_ms,
         is_owner,
         is_moderator,
@@ -593,9 +786,10 @@ fn parse_innertube_paid_message_renderer(renderer: &Value) -> Option<RawIncoming
         .as_str()
         .unwrap_or("Super Chat")
         .to_string();
-    let mut message = extract_runs_text(&renderer["message"]["runs"]);
+    let (mut message, mut message_runs) = extract_runs_with_emojis(&renderer["message"]["runs"]);
     if message.is_empty() {
         message = format!("（メッセージなしのスーパーチャット: {}）", amount_display);
+        message_runs = Vec::new();
     }
     let tier_color = renderer["bodyBackgroundColor"]
         .as_u64()
@@ -611,6 +805,7 @@ fn parse_innertube_paid_message_renderer(renderer: &Value) -> Option<RawIncoming
         user_name,
         user_icon_url,
         message,
+        message_runs,
         timestamp_ms,
         is_owner,
         is_moderator,
@@ -634,6 +829,38 @@ fn parse_innertube_paid_sticker_renderer(renderer: &Value) -> Option<RawIncoming
         .as_str()
         .unwrap_or("スーパーステッカー");
     let message = format!("ステッカー: {}", label);
+    let sticker_url = renderer["sticker"]["thumbnails"]
+        .as_array()
+        .and_then(|arr| arr.last())
+        .and_then(|t| t["url"].as_str())
+        .map(|u| {
+            if u.starts_with("//") {
+                format!("https:{}", u)
+            } else {
+                u.to_string()
+            }
+        })
+        .filter(|u| u.starts_with("https://"));
+    let message_runs = if let Some(url) = sticker_url {
+        vec![
+            MessageRun {
+                kind: MessageRunKind::Emoji,
+                text: format!(":{}:", label),
+                emoji_url: Some(url),
+                alt: Some(label.to_string()),
+                is_custom_emoji: true,
+            },
+            MessageRun {
+                kind: MessageRunKind::Text,
+                text: format!(" {}", label),
+                emoji_url: None,
+                alt: None,
+                is_custom_emoji: false,
+            },
+        ]
+    } else {
+        Vec::new()
+    };
     let tier_color = renderer["backgroundColor"]
         .as_u64()
         .map(argb_u64_to_hex)
@@ -647,6 +874,7 @@ fn parse_innertube_paid_sticker_renderer(renderer: &Value) -> Option<RawIncoming
         user_name,
         user_icon_url,
         message,
+        message_runs,
         timestamp_ms,
         is_owner,
         is_moderator,
@@ -662,9 +890,9 @@ fn parse_innertube_paid_sticker_renderer(renderer: &Value) -> Option<RawIncoming
 fn parse_innertube_membership_renderer(renderer: &Value) -> Option<RawIncomingComment> {
     let (id, user_id, user_name, user_icon_url, timestamp_ms, is_owner, is_moderator, _) =
         extract_common_innertube_author(renderer)?;
-    let primary = extract_runs_text(&renderer["headerPrimaryText"]["runs"]);
-    let subtext = extract_runs_text(&renderer["headerSubtext"]["runs"]);
-    let body = extract_runs_text(&renderer["message"]["runs"]);
+    let (primary, _) = extract_runs_with_emojis(&renderer["headerPrimaryText"]["runs"]);
+    let (subtext, _) = extract_runs_with_emojis(&renderer["headerSubtext"]["runs"]);
+    let (body, body_runs) = extract_runs_with_emojis(&renderer["message"]["runs"]);
     let is_milestone = !primary.is_empty();
     let kind = if is_milestone {
         MonetizationEventKind::MembershipMilestone
@@ -678,12 +906,12 @@ fn parse_innertube_membership_renderer(renderer: &Value) -> Option<RawIncomingCo
     } else {
         "新規メンバー加入".to_string()
     };
-    let message = if !body.is_empty() {
-        body
+    let (message, message_runs) = if !body.is_empty() {
+        (body, body_runs)
     } else if !subtext.is_empty() {
-        subtext
+        (subtext, Vec::new())
     } else {
-        "メンバーシップに加入しました！".to_string()
+        ("メンバーシップに加入しました！".to_string(), Vec::new())
     };
 
     Some(RawIncomingComment {
@@ -693,6 +921,7 @@ fn parse_innertube_membership_renderer(renderer: &Value) -> Option<RawIncomingCo
         user_name,
         user_icon_url,
         message,
+        message_runs,
         timestamp_ms,
         is_owner,
         is_moderator,
@@ -727,11 +956,11 @@ fn parse_innertube_gift_renderer(renderer: &Value) -> Option<RawIncomingComment>
         .and_then(|s| s.parse::<i64>().ok())
         .map(|usec| usec / 1000)
         .unwrap_or_else(|| Utc::now().timestamp_millis());
-    let primary = extract_runs_text(&header["primaryText"]["runs"]);
-    let message = if primary.is_empty() {
-        "メンバーシップギフトを贈りました！".to_string()
+    let (primary, primary_runs) = extract_runs_with_emojis(&header["primaryText"]["runs"]);
+    let (message, message_runs) = if primary.is_empty() {
+        ("メンバーシップギフトを贈りました！".to_string(), Vec::new())
     } else {
-        primary.clone()
+        (primary, primary_runs)
     };
 
     Some(RawIncomingComment {
@@ -741,6 +970,7 @@ fn parse_innertube_gift_renderer(renderer: &Value) -> Option<RawIncomingComment>
         user_name,
         user_icon_url,
         message,
+        message_runs,
         timestamp_ms,
         is_owner: false,
         is_moderator: false,
@@ -753,27 +983,81 @@ fn parse_innertube_gift_renderer(renderer: &Value) -> Option<RawIncomingComment>
     })
 }
 
-fn extract_runs_text(runs: &Value) -> String {
+/// InnerTube の message.runs からプレーンテキストと絵文字・メンバースタンプ画像付きランを抽出する
+pub fn extract_runs_with_emojis(runs: &Value) -> (String, Vec<MessageRun>) {
     let mut out = String::new();
+    let mut parsed_runs = Vec::new();
     if let Some(arr) = runs.as_array() {
         for run in arr {
             if let Some(t) = run["text"].as_str() {
                 out.push_str(t);
+                parsed_runs.push(MessageRun {
+                    kind: MessageRunKind::Text,
+                    text: t.to_string(),
+                    emoji_url: None,
+                    alt: None,
+                    is_custom_emoji: false,
+                });
             } else if let Some(emoji) = run["emoji"].as_object() {
-                if let Some(sc) = emoji
+                let shortcut = emoji
                     .get("shortcuts")
                     .and_then(|v| v.as_array())
                     .and_then(|a| a.first())
                     .and_then(|v| v.as_str())
-                {
-                    out.push_str(sc);
-                } else if let Some(eid) = emoji.get("emojiId").and_then(|v| v.as_str()) {
-                    out.push_str(eid);
+                    .map(|s| s.to_string());
+                let emoji_id = emoji
+                    .get("emojiId")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                let label = emoji
+                    .get("image")
+                    .and_then(|im| im["accessibility"]["accessibilityData"]["label"].as_str())
+                    .map(|s| s.to_string());
+                let display_code = shortcut
+                    .clone()
+                    .or_else(|| emoji_id.clone())
+                    .or_else(|| label.clone())
+                    .unwrap_or_default();
+                let is_custom = emoji
+                    .get("isCustomEmoji")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                let img_url = emoji
+                    .get("image")
+                    .and_then(|im| im["thumbnails"].as_array())
+                    .and_then(|arr| arr.last())
+                    .and_then(|t| t["url"].as_str())
+                    .map(|u| {
+                        if u.starts_with("//") {
+                            format!("https:{}", u)
+                        } else {
+                            u.to_string()
+                        }
+                    })
+                    .filter(|u| u.starts_with("https://"));
+
+                out.push_str(&display_code);
+                if let Some(url) = img_url {
+                    parsed_runs.push(MessageRun {
+                        kind: MessageRunKind::Emoji,
+                        text: display_code.clone(),
+                        emoji_url: Some(url),
+                        alt: label.or(Some(display_code)),
+                        is_custom_emoji: is_custom,
+                    });
+                } else if !display_code.is_empty() {
+                    parsed_runs.push(MessageRun {
+                        kind: MessageRunKind::Text,
+                        text: display_code,
+                        emoji_url: None,
+                        alt: None,
+                        is_custom_emoji: false,
+                    });
                 }
             }
         }
     }
-    out
+    (out, parsed_runs)
 }
 
 fn super_chat_tier_color(tier: u64) -> &'static str {
@@ -907,6 +1191,7 @@ fn parse_data_api_message(item: &Value) -> Option<RawIncomingComment> {
         user_name,
         user_icon_url,
         message,
+        message_runs: Vec::new(),
         timestamp_ms,
         is_owner: author["isChatOwner"].as_bool().unwrap_or(false),
         is_moderator: author["isChatModerator"].as_bool().unwrap_or(false),
@@ -925,4 +1210,70 @@ fn parse_data_api_message(item: &Value) -> Option<RawIncomingComment> {
         currency,
         tier_color,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_runs_with_custom_emoji_and_text() {
+        let runs = json!([
+            { "text": "こんちゃ！" },
+            {
+                "emoji": {
+                    "emojiId": "UC123/abc",
+                    "shortcuts": [":_custom_wave:"],
+                    "isCustomEmoji": true,
+                    "image": {
+                        "thumbnails": [
+                            { "url": "https://yt3.ggpht.com/stamp-24.png" },
+                            { "url": "https://yt3.ggpht.com/stamp-48.png" }
+                        ],
+                        "accessibility": {
+                            "accessibilityData": { "label": "手を振るスタンプ" }
+                        }
+                    }
+                }
+            },
+            { "text": " 楽しみ！" }
+        ]);
+
+        let (text, parsed) = extract_runs_with_emojis(&runs);
+        assert_eq!(text, "こんちゃ！:_custom_wave: 楽しみ！");
+        assert_eq!(parsed.len(), 3);
+        assert_eq!(parsed[0].kind, MessageRunKind::Text);
+        assert_eq!(parsed[1].kind, MessageRunKind::Emoji);
+        assert!(parsed[1].is_custom_emoji);
+        assert_eq!(
+            parsed[1].emoji_url.as_deref(),
+            Some("https://yt3.ggpht.com/stamp-48.png")
+        );
+        assert_eq!(parsed[1].alt.as_deref(), Some("手を振るスタンプ"));
+    }
+
+    #[test]
+    fn test_parse_channel_live_html() {
+        let html = r#"<html><head><title>雑談ライブ配信 - YouTube</title><link rel="canonical" href="https://www.youtube.com/watch?v=AbCdEfGhIjK"></head><body>{"isLiveNow":true}</body></html>"#;
+        let resolved = parse_channel_live_html(html, "@mych").unwrap();
+        assert_eq!(resolved.video_id, "AbCdEfGhIjK");
+        assert_eq!(resolved.title, "雑談ライブ配信");
+        assert!(resolved.is_live);
+    }
+
+    #[test]
+    fn test_bounded_id_set_fifo_eviction() {
+        let mut set = BoundedIdSet::new(3);
+        assert!(set.insert("id-1".to_string()));
+        assert!(set.insert("id-2".to_string()));
+        assert!(set.insert("id-3".to_string()));
+        // 重複は拒否される
+        assert!(!set.insert("id-2".to_string()));
+        // 上限超過時は最古 (id-1) のみ追い出し、直近 (id-2, id-3) は保持
+        assert!(set.insert("id-4".to_string()));
+        assert!(!set.insert("id-2".to_string()));
+        assert!(!set.insert("id-3".to_string()));
+        assert!(!set.insert("id-4".to_string()));
+        assert!(set.insert("id-1".to_string()));
+    }
 }

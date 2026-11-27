@@ -1,6 +1,7 @@
 use chrono::Utc;
 use flutter_rust_bridge::frb;
 
+use crate::backup;
 use crate::engine::lottery;
 use crate::fonts;
 use crate::frb_generated::StreamSink;
@@ -34,9 +35,16 @@ pub async fn subscribe_events(sink: StreamSink<AppEvent>) -> Result<(), String> 
     let runtime = get_runtime().map_err(|e| e.to_string())?;
     let mut rx = runtime.event_tx.subscribe();
 
-    while let Ok(ev) = rx.recv().await {
-        if sink.add(ev).is_err() {
-            break;
+    loop {
+        match rx.recv().await {
+            Ok(ev) => {
+                if sink.add(ev).is_err() {
+                    break;
+                }
+            }
+            // 高頻度コメントバーストで一時的に遅延してもイベント購読を切断せず継続
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
         }
     }
     Ok(())
@@ -80,7 +88,13 @@ pub async fn get_connection_state() -> Result<ConnectionStateDto, String> {
 
 pub async fn get_recent_comments() -> Result<Vec<CommentItem>, String> {
     let runtime = get_runtime().map_err(|e| e.to_string())?;
-    let comments = runtime.recent_comments.read().await.clone();
+    let comments = runtime
+        .recent_comments
+        .read()
+        .await
+        .iter()
+        .cloned()
+        .collect();
     Ok(comments)
 }
 
@@ -117,6 +131,7 @@ pub async fn send_demo_comment(
         user_name: name,
         user_icon_url: demo::make_svg_avatar("%2338bdf8", &initial),
         message,
+        message_runs: Vec::new(),
         timestamp_ms: Utc::now().timestamp_millis(),
         is_owner: false,
         is_moderator: false,
@@ -894,4 +909,315 @@ pub async fn accept_license_agreement(
 #[frb(sync)]
 pub fn terminate_app_process() {
     std::process::exit(0);
+}
+
+// ==================== 接続履歴・お気に入りチャンネル・自動検出 ====================
+
+pub async fn resolve_youtube_live(input: String) -> Result<ResolvedYouTubeLive, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .resolve_youtube_live(&input)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn list_connection_history() -> Result<Vec<ConnectionHistoryItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .list_connection_history()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn toggle_connection_history_favorite(
+    id: String,
+    favorite: bool,
+) -> Result<Vec<ConnectionHistoryItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .toggle_connection_history_favorite(&id, favorite)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn delete_connection_history(id: String) -> Result<Vec<ConnectionHistoryItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .delete_connection_history(&id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn list_saved_channels() -> Result<Vec<SavedChannelItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .list_saved_channels()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn save_saved_channel(item: SavedChannelItem) -> Result<Vec<SavedChannelItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .save_saved_channel(item)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn delete_saved_channel(id: String) -> Result<Vec<SavedChannelItem>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .delete_saved_channel(&id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ==================== NG ワード防御 ====================
+
+pub async fn list_ng_word_rules() -> Result<Vec<NgWordRule>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.list_ng_word_rules().await)
+}
+
+pub async fn save_ng_word_rule(rule: NgWordRule) -> Result<Vec<NgWordRule>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .save_ng_word_rule(rule)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn delete_ng_word_rule(id: String) -> Result<Vec<NgWordRule>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .delete_ng_word_rule(&id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ==================== OBS WebSocket 連携 ====================
+
+pub async fn get_obs_ws_config() -> Result<ObsWsConfig, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.get_obs_ws_config().await)
+}
+
+pub async fn save_obs_ws_config(config: ObsWsConfig) -> Result<ObsWsConfig, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .save_obs_ws_config(config)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn get_obs_ws_status() -> Result<ObsWsStatus, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.get_obs_ws_status().await)
+}
+
+pub async fn connect_obs_ws() -> Result<ObsWsStatus, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime.connect_obs_ws().await.map_err(|e| e.to_string())
+}
+
+pub async fn disconnect_obs_ws() -> Result<ObsWsStatus, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.disconnect_obs_ws().await)
+}
+
+pub async fn refresh_obs_scenes() -> Result<(), String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime.refresh_obs_scenes().await.map_err(|e| e.to_string())
+}
+
+pub async fn test_obs_rule(rule_id: String) -> Result<(), String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .test_obs_rule(&rule_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ==================== ホットキー ＆ Stream Deck オートメーション ====================
+
+pub async fn list_hotkey_bindings() -> Result<Vec<HotkeyBinding>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.list_hotkey_bindings().await)
+}
+
+pub async fn save_hotkey_bindings(
+    bindings: Vec<HotkeyBinding>,
+) -> Result<Vec<HotkeyBinding>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .save_hotkey_bindings(bindings)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn execute_automation_action(
+    action: AutomationActionKind,
+    target_id: String,
+    secondary_target: String,
+) -> Result<String, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .execute_automation_action(action, &target_id, &secondary_target)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ==================== 配信プロファイル切替 ====================
+
+pub async fn list_stream_profiles() -> Result<Vec<StreamProfileSummary>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .list_stream_profiles()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn save_current_as_profile(
+    id: Option<String>,
+    name: String,
+    description: String,
+) -> Result<Vec<StreamProfileSummary>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .save_current_as_profile(id, &name, &description)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn create_template_profile(
+    template_id: String,
+    name: String,
+) -> Result<Vec<StreamProfileSummary>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .create_template_profile(&template_id, &name)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn apply_stream_profile(id: String) -> Result<Vec<StreamProfileSummary>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .apply_stream_profile(&id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn delete_stream_profile(id: String) -> Result<Vec<StreamProfileSummary>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .delete_stream_profile(&id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ==================== バックアップ / 引っ越し (ZIP) ====================
+
+pub async fn pick_backup_save_path() -> Option<String> {
+    tokio::task::spawn_blocking(backup::pick_backup_save_path)
+        .await
+        .ok()
+        .flatten()
+}
+
+pub async fn pick_backup_open_path() -> Option<String> {
+    tokio::task::spawn_blocking(backup::pick_backup_open_path)
+        .await
+        .ok()
+        .flatten()
+}
+
+pub async fn export_backup_zip(dest_path: String) -> Result<BackupExportResult, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .export_backup_zip(&dest_path)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn import_backup_zip(zip_path: String) -> Result<BackupImportResult, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .import_backup_zip(&zip_path)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ==================== オンエアレポート ====================
+
+pub async fn list_stream_sessions(limit: u32) -> Result<Vec<StreamSessionSummary>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .list_stream_sessions(limit as usize)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn get_on_air_report(session_id: String) -> Result<OnAirReportDto, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .get_on_air_report(&session_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn delete_stream_session(
+    session_id: String,
+) -> Result<Vec<StreamSessionSummary>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .delete_stream_session(&session_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn export_report_csv_with_dialog(session_id: String) -> Result<Option<String>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    let default_name = format!("stosup-report-{}.csv", Utc::now().format("%Y%m%d-%H%M%S"));
+    let path = tokio::task::spawn_blocking(move || {
+        backup::pick_export_file_path(&default_name, "CSV ファイル (*.csv)", "csv")
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    match path {
+        Some(p) => runtime
+            .export_report_csv(&session_id, &p)
+            .await
+            .map(Some)
+            .map_err(|e| e.to_string()),
+        None => Ok(None),
+    }
+}
+
+pub async fn export_report_json_with_dialog(session_id: String) -> Result<Option<String>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    let default_name = format!("stosup-report-{}.json", Utc::now().format("%Y%m%d-%H%M%S"));
+    let path = tokio::task::spawn_blocking(move || {
+        backup::pick_export_file_path(&default_name, "JSON ファイル (*.json)", "json")
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    match path {
+        Some(p) => runtime
+            .export_report_json(&session_id, &p)
+            .await
+            .map(Some)
+            .map_err(|e| e.to_string()),
+        None => Ok(None),
+    }
+}
+
+// ==================== オーバーレイスタジオ: テスト演出送信 ====================
+
+pub async fn send_overlay_test_event(target: String) -> Result<String, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .send_overlay_test_event(&target)
+        .await
+        .map_err(|e| e.to_string())
 }

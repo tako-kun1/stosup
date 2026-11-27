@@ -46,7 +46,7 @@ class HighlightRulesScreen extends StatelessWidget {
           final bd = AppTheme.parseCssHex(borderColor, fallback: p.border);
 
           return AlertDialog(
-            title: Text(existing == null ? 'ワード反応ルールを追加' : 'ワード反応ルールを編集'),
+            title: Text(existing == null ? 'ハイライトサインを追加' : 'ハイライトサインを編集'),
             content: SizedBox(
               width: 540,
               child: SingleChildScrollView(
@@ -242,7 +242,7 @@ class HighlightRulesScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      '特定ワード反応（吹き出し色変更）',
+                      'ハイライトサイン（吹き出し色反応）',
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
@@ -255,11 +255,11 @@ class HighlightRulesScreen extends StatelessWidget {
                 ),
               ),
               FeatureToggleSwitch(
-                label: 'ワード色反応',
+                label: 'ハイライトサイン',
                 enabled: featureEnabled,
                 onChanged: (v) => controller.setFeatureEnabled(
                   wordHighlight: v,
-                  featureLabel: '特定ワード反応（吹き出し色変更）',
+                  featureLabel: 'ハイライトサイン',
                 ),
               ),
               const SizedBox(width: 10),
@@ -273,12 +273,12 @@ class HighlightRulesScreen extends StatelessWidget {
           const SizedBox(height: 14),
           if (!featureEnabled)
             FeatureDisabledBanner(
-              featureName: '特定ワード反応（吹き出し色変更）',
+              featureName: 'ハイライトサイン',
               description:
                   '個別ルールが有効でも、すべてのコメントを通常の吹き出し色で表示します。',
               onEnable: () => controller.setFeatureEnabled(
                 wordHighlight: true,
-                featureLabel: '特定ワード反応（吹き出し色変更）',
+                featureLabel: 'ハイライトサイン',
               ),
             ),
           Expanded(

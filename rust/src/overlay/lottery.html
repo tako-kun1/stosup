@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Stosup 抽選オーバーレイ</title>
+<title>Stosup ドローボックス</title>
 <link rel="icon" href="/favicon.ico" />
+<script src="/overlay/stosup-overlay.js"></script>
 <style id="stosup-base-css">
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -12,10 +13,11 @@
     height: 100%;
     background: var(--page-bg, transparent) !important;
     overflow: hidden;
-    font-family: var(--font-family, "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif);
+    font-family: var(--font-family, "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", sans-serif);
     display: flex;
     align-items: center;
     justify-content: center;
+    -webkit-font-smoothing: antialiased;
   }
   #stage {
     width: 100%;
@@ -27,157 +29,227 @@
     gap: 16px;
   }
   #stage.visible { display: flex; }
+
+  /* ==================== 既定: broadcast (受賞発表プレート) ==================== */
   .banner {
-    background: #27272a;
-    color: #fafafa;
-    border: 1.5px solid #eab308;
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    padding: 8px 28px;
-    border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-    animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    background: #111317;
+    color: #f7f8fa;
+    border-left: 5px solid var(--accent, #d99b26);
+    border-right: 5px solid var(--accent, #d99b26);
+    font-size: 17px;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    padding: 9px 34px;
+    border-radius: 2px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+    animation: revealWipe 0.34s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .winners-grid {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 18px;
+    gap: 16px;
     width: 100%;
   }
   .winner-card {
-    background: rgba(24, 24, 27, 0.94);
-    border: 2px solid #eab308;
-    border-radius: 12px;
-    padding: 22px 30px;
-    min-width: 280px;
-    max-width: 440px;
+    background: rgba(17, 19, 23, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-top: 4px solid var(--accent, #d99b26);
+    border-radius: 2px;
+    padding: 22px 32px;
+    min-width: 300px;
+    max-width: 460px;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
     gap: 12px;
-    color: #f4f4f5;
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
-    animation: popIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+    color: #f7f8fa;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+    contain: layout style;
+    animation: revealWipe 0.42s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .winner-avatar {
-    width: 88px;
-    height: 88px;
-    border-radius: 50%;
+    width: 84px;
+    height: 84px;
+    border-radius: 4px;
     object-fit: cover;
-    border: 3px solid #eab308;
-    background: #3f3f46;
+    border: 2.5px solid var(--accent, #d99b26);
+    background: #1f232b;
   }
   .winner-name {
-    font-size: 26px;
-    font-weight: 800;
-    color: #fde047;
+    font-size: 27px;
+    font-weight: 900;
+    color: #f5d061;
+    letter-spacing: 0.02em;
     word-break: break-word;
   }
   .winner-comment {
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border-left: 3px solid var(--accent, #d99b26);
     padding: 10px 14px;
     font-size: 15px;
-    color: #e4e4e7;
-    line-height: 1.45;
+    color: #e4e7ee;
+    line-height: 1.48;
     width: 100%;
+    text-align: left;
     word-break: break-word;
   }
   .rolling {
-    background: rgba(24, 24, 27, 0.94);
-    border: 2px solid #3b82f6;
-    border-radius: 10px;
-    padding: 24px 44px;
-    color: #93c5fd;
-    font-size: 26px;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    animation: pulse 0.45s infinite alternate;
-  }
-  @keyframes popIn {
-    from { opacity: 0; transform: scale(0.82) translateY(16px); }
-    to   { opacity: 1; transform: scale(1) translateY(0); }
-  }
-  @keyframes pulse {
-    from { transform: scale(0.97); opacity: 0.85; }
-    to   { transform: scale(1.03); opacity: 1; }
-  }
-
-  /* プリセット: festive (お祭り・派手演出) */
-  body[data-theme="festive"] .banner {
-    background: linear-gradient(135deg, #dc2626, #f59e0b);
-    border: 2px solid #fef08a;
-    border-radius: 999px;
+    background: rgba(17, 19, 23, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-top: 4px solid var(--accent, #d99b26);
+    border-radius: 2px;
+    padding: 22px 44px;
+    color: #f7f8fa;
     font-size: 24px;
-    box-shadow: 0 8px 28px rgba(220, 38, 38, 0.45);
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    animation: drumPulse 0.38s infinite alternate;
   }
-  body[data-theme="festive"] .winner-card {
-    background: linear-gradient(160deg, rgba(127, 29, 29, 0.95), rgba(39, 24, 15, 0.95));
-    border: 3px solid #facc15;
-    border-radius: 20px;
-    box-shadow: 0 0 36px rgba(250, 204, 21, 0.4), 0 12px 32px rgba(0, 0, 0, 0.5);
+  @keyframes revealWipe {
+    from { opacity: 0; transform: translateY(14px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes drumPulse {
+    from { opacity: 0.78; transform: scale(0.985); }
+    to   { opacity: 1; transform: scale(1.015); }
   }
 
-  /* プリセット: minimal (シンプル・下部テロップ) */
-  body[data-theme="minimal"] { align-items: flex-end; }
-  body[data-theme="minimal"] #stage { gap: 10px; padding-bottom: 20px; }
-  body[data-theme="minimal"] .banner {
-    font-size: 14px;
-    padding: 4px 14px;
+  /* ==================== editorial ==================== */
+  body[data-theme="editorial"] .banner {
+    background: #1c1b18;
+    color: #f8f5ef;
+    border-color: #c2593f;
+  }
+  body[data-theme="editorial"] .winner-card,
+  body[data-theme="editorial"] .rolling {
+    background: rgba(248, 245, 239, 0.98);
+    color: #1c1b18;
+    border: 1px solid #d4cdc0;
+    border-top: 4px solid #c2593f;
+    box-shadow: 0 12px 30px rgba(28, 27, 24, 0.15);
+  }
+  body[data-theme="editorial"] .winner-avatar { border-radius: 50%; border-color: #c2593f; }
+  body[data-theme="editorial"] .winner-name { color: #1c1b18; }
+  body[data-theme="editorial"] .winner-comment { background: #efeae0; color: #3f3c36; border-left-color: #c2593f; }
+
+  /* ==================== tactical ==================== */
+  body[data-theme="tactical"] .banner {
+    background: #e5a93b;
+    color: #121417;
     border: none;
-    background: rgba(24, 24, 27, 0.86);
-    border-left: 4px solid #3b82f6;
-    border-radius: 4px;
+    border-radius: 0;
+    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
   }
-  body[data-theme="minimal"] .winner-card {
-    flex-direction: row;
-    text-align: left;
-    padding: 12px 20px;
-    min-width: 320px;
-    max-width: 640px;
-    border-width: 1px;
-    border-color: rgba(255, 255, 255, 0.25);
-    border-radius: 8px;
+  body[data-theme="tactical"] .winner-card,
+  body[data-theme="tactical"] .rolling {
+    background: rgba(18, 20, 23, 0.96);
+    color: #edebe4;
+    border: 1px solid rgba(237, 235, 228, 0.24);
+    border-top: 3px solid #e5a93b;
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+    box-shadow: none;
   }
-  body[data-theme="minimal"] .winner-avatar { width: 52px; height: 52px; border-width: 2px; }
-  body[data-theme="minimal"] .winner-name { font-size: 20px; color: #ffffff; }
+  body[data-theme="tactical"] .winner-avatar { border-radius: 0; border-color: #e5a93b; }
+  body[data-theme="tactical"] .winner-name { color: #e5a93b; }
 
-  /* プリセット: neon (サイバー・ステージ) */
-  body[data-theme="neon"] .banner {
-    background: rgba(9, 11, 20, 0.94);
-    border: 2px solid #22d3ee;
-    color: #67e8f9;
-    box-shadow: 0 0 22px rgba(34, 211, 238, 0.4);
+  /* ==================== variety ==================== */
+  body[data-theme="variety"] .banner {
+    background: #e5484d;
+    color: #ffffff;
+    border: 3px solid #182033;
+    border-radius: 10px;
+    box-shadow: 5px 5px 0 #182033;
   }
-  body[data-theme="neon"] .winner-card {
-    background: rgba(9, 11, 20, 0.94);
-    border: 2px solid #e879f9;
+  body[data-theme="variety"] .winner-card,
+  body[data-theme="variety"] .rolling {
+    background: #fffdf7;
+    color: #182033;
+    border: 3.5px solid #182033;
+    border-radius: 16px;
+    box-shadow: 7px 7px 0 #182033;
+  }
+  body[data-theme="variety"] .winner-avatar { border-radius: 50%; border: 3px solid #182033; }
+  body[data-theme="variety"] .winner-name {
+    color: #182033;
+    background: #f5c518;
+    padding: 2px 14px;
     border-radius: 6px;
-    box-shadow: 0 0 28px rgba(232, 121, 249, 0.35);
   }
-  body[data-theme="neon"] .winner-avatar { border-color: #22d3ee; }
-  body[data-theme="neon"] .winner-name { color: #f0abfc; }
+  body[data-theme="variety"] .winner-comment { background: #f5f2e9; color: #182033; border: 2px solid #182033; border-radius: 8px; }
 
-  /* プリセット: cute (パステル・ふんわり) */
-  body[data-theme="cute"] .banner {
-    background: #fbcfe8;
-    color: #831843;
-    border: 2px solid #f472b6;
-    border-radius: 999px;
+  /* ==================== cinema ==================== */
+  body[data-theme="cinema"] .banner {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid #f5c518;
+    box-shadow: none;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 3.5px rgba(10, 12, 16, 0.94);
   }
-  body[data-theme="cute"] .winner-card {
-    background: rgba(255, 251, 245, 0.96);
-    color: #3f3f46;
-    border: 3px solid #f9a8d4;
-    border-radius: 26px;
-    box-shadow: 0 10px 26px rgba(244, 114, 182, 0.28);
+  body[data-theme="cinema"] .winner-card,
+  body[data-theme="cinema"] .rolling {
+    background: rgba(12, 14, 18, 0.48);
+    border: none;
+    border-top: 3px solid #f5c518;
+    box-shadow: none;
   }
-  body[data-theme="cute"] .winner-avatar { border-color: #f472b6; }
-  body[data-theme="cute"] .winner-name { color: #db2777; }
-  body[data-theme="cute"] .winner-comment { background: #fdf2f8; color: #52525b; }
+  body[data-theme="cinema"] .winner-name,
+  body[data-theme="cinema"] .winner-comment {
+    paint-order: stroke fill;
+    -webkit-text-stroke: 3.5px rgba(10, 12, 16, 0.94);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
+  }
+
+  /* ==================== edge_glow (エッジ・グロウ) ==================== */
+  body[data-theme="edge_glow"] .banner {
+    background: rgba(9, 13, 22, 0.84);
+    color: #e0f2fe;
+    border: 1px solid rgba(125, 211, 252, 0.4);
+    border-bottom: 3px solid var(--accent, #38bdf8);
+    border-radius: 5px;
+    box-shadow: 0 8px 22px rgba(2, 6, 23, 0.55);
+    text-shadow:
+      1px 0 2px rgba(56, 189, 248, 0.82),
+      -1px 0 2px rgba(56, 189, 248, 0.82),
+      0 1px 2px rgba(56, 189, 248, 0.82),
+      0 -1px 2px rgba(56, 189, 248, 0.82),
+      0 0 12px rgba(56, 189, 248, 0.62);
+  }
+  body[data-theme="edge_glow"] .winner-card,
+  body[data-theme="edge_glow"] .rolling {
+    background: rgba(9, 13, 22, 0.8);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-top: 3px solid var(--accent, #38bdf8);
+    border-radius: 6px;
+    box-shadow: 0 12px 30px rgba(2, 6, 23, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  body[data-theme="edge_glow"] .winner-avatar {
+    border-radius: 50%;
+    border: 2px solid rgba(125, 211, 252, 0.8);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.48);
+  }
+  body[data-theme="edge_glow"] .winner-name {
+    color: #ffffff;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 2px rgba(8, 13, 24, 0.9);
+    text-shadow:
+      2px 0 3px rgba(56, 189, 248, 0.84),
+      -2px 0 3px rgba(56, 189, 248, 0.84),
+      0 2px 3px rgba(56, 189, 248, 0.84),
+      0 -2px 3px rgba(56, 189, 248, 0.84),
+      0 0 12px rgba(56, 189, 248, 0.68),
+      0 0 24px rgba(56, 189, 248, 0.4);
+  }
+  body[data-theme="edge_glow"] .winner-comment {
+    background: rgba(15, 23, 42, 0.65);
+    color: #f1f5f9;
+    border: 1px solid rgba(125, 211, 252, 0.24);
+    text-shadow: 0 0 6px rgba(56, 189, 248, 0.45);
+  }
 
   body.has-custom-font,
   body.has-custom-font * {
@@ -186,123 +258,120 @@
 </style>
 <style id="stosup-custom-css"></style>
 </head>
-<body data-theme="default">
+<body data-theme="broadcast">
   <div id="stage"></div>
 <script>
   const stage = document.getElementById('stage');
   const customStyleEl = document.getElementById('stosup-custom-css');
-  const searchParams = new URLSearchParams(location.search);
-  const urlThemeOverride = searchParams.get('theme');
-  const urlBgOverride = searchParams.get('bg');
-  const urlFontOverride = searchParams.get('font');
-  let rollingTimer = null;
-  let config = { lottery_theme: 'default', lottery_bg_color: 'transparent', lottery_font_family: '', lottery_custom_css: '' };
+  const params = new URLSearchParams(location.search);
+  const urlTheme = params.get('theme');
+  const urlBg = params.get('bg');
+  const urlFont = params.get('font');
 
-  function applyFontFamily(rawFont) {
-    const f = (rawFont || '').trim();
-    if (f) {
-      const safe = f.replace(/["\\]/g, '');
-      document.documentElement.style.setProperty('--font-family', `"${safe}", "Yu Gothic UI", "Meiryo", sans-serif`);
-      document.body.classList.add('has-custom-font');
-    } else {
-      document.documentElement.style.removeProperty('--font-family');
-      document.body.classList.remove('has-custom-font');
-    }
-  }
-
-  function resolvePageBg(raw) {
-    const val = (raw || 'transparent').trim();
-    if (!val || val.toLowerCase() === 'transparent') return 'transparent';
-    if (/^[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return '#' + val;
-    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(val)) return val;
-    return 'transparent';
-  }
+  let config = {
+    lottery_theme: 'broadcast',
+    lottery_bg_color: 'transparent',
+    lottery_font_family: '',
+    lottery_custom_css: '',
+    visual_styles: {}
+  };
+  let rollTimer = null;
 
   function applyDesign() {
-    document.body.dataset.theme = urlThemeOverride || config.lottery_theme || 'default';
-    document.documentElement.style.setProperty('--page-bg', resolvePageBg(urlBgOverride || config.lottery_bg_color));
-    applyFontFamily(urlFontOverride || config.lottery_font_family);
-    customStyleEl.textContent = config.lottery_custom_css || '';
+    document.body.dataset.theme = StosupOverlay.normalizeTheme(urlTheme || config.lottery_theme);
+    document.documentElement.style.setProperty('--page-bg', StosupOverlay.resolveBg(urlBg || config.lottery_bg_color));
+    StosupOverlay.applyFont(urlFont || config.lottery_font_family);
+    StosupOverlay.applyOverlayVisualStyle('lottery', config, {
+      card: '.winner-card',
+      text: '.winner-name, .winner-comment',
+      author: '.winner-name',
+      animate: '.winner-card'
+    });
+    StosupOverlay.applyCustomCss(customStyleEl, config.lottery_custom_css);
   }
 
-  function fallbackAvatar(name) {
-    const ch = (name || '?').slice(0, 1);
-    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%2352525b'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
+  function clearStage() {
+    if (rollTimer) { clearTimeout(rollTimer); rollTimer = null; }
+    stage.innerHTML = '';
+    stage.classList.remove('visible');
   }
 
-  function renderResult(result, animate) {
-    if (rollingTimer) { clearTimeout(rollingTimer); rollingTimer = null; }
+  function renderWinners(result) {
+    stage.innerHTML = '';
     if (!result || !result.winners || result.winners.length === 0) {
-      stage.className = '';
-      stage.innerHTML = '';
+      stage.classList.remove('visible');
       return;
     }
+    stage.classList.add('visible');
 
-    const showFinal = () => {
-      stage.innerHTML = '';
-      stage.className = 'visible';
+    const banner = document.createElement('div');
+    banner.className = 'banner';
+    const label = result.kind === 'comment' ? 'COMMENT DRAW WINNER' : 'DRAW WINNER';
+    banner.textContent = `${label}  （候補 ${result.candidate_count} 名）`;
+    stage.appendChild(banner);
 
-      const banner = document.createElement('div');
-      banner.className = 'banner';
-      banner.textContent = result.kind === 'comment' ? 'コメント抽選 当選者発表！' : '抽選結果 当選者発表！';
-      stage.appendChild(banner);
+    const grid = document.createElement('div');
+    grid.className = 'winners-grid';
 
-      const grid = document.createElement('div');
-      grid.className = 'winners-grid';
+    for (const w of result.winners) {
+      const card = document.createElement('div');
+      card.className = 'winner-card';
 
-      result.winners.forEach((w) => {
-        const card = document.createElement('div');
-        card.className = 'winner-card';
+      const img = document.createElement('img');
+      img.className = 'winner-avatar';
+      img.src = w.user_icon_url || StosupOverlay.fallbackAvatar(w.user_name);
+      img.onerror = () => { img.src = StosupOverlay.fallbackAvatar(w.user_name); };
 
-        const img = document.createElement('img');
-        img.className = 'winner-avatar';
-        img.src = w.user_icon_url || fallbackAvatar(w.user_name);
-        img.onerror = () => { img.src = fallbackAvatar(w.user_name); };
-        card.appendChild(img);
+      const name = document.createElement('div');
+      name.className = 'winner-name';
+      name.textContent = w.user_name;
 
-        const bodyWrap = document.createElement('div');
-        bodyWrap.className = 'winner-info';
-        const name = document.createElement('div');
-        name.className = 'winner-name';
-        name.textContent = w.user_name;
-        bodyWrap.appendChild(name);
+      card.appendChild(img);
+      card.appendChild(name);
 
-        if (w.comment_text) {
-          const cm = document.createElement('div');
-          cm.className = 'winner-comment';
-          cm.textContent = w.comment_text;
-          bodyWrap.appendChild(cm);
-        }
-        card.appendChild(bodyWrap);
-        grid.appendChild(card);
-      });
-
-      stage.appendChild(grid);
-    };
-
-    if (animate) {
-      stage.className = 'visible';
-      stage.innerHTML = '<div class="rolling">抽選中...</div>';
-      rollingTimer = setTimeout(showFinal, 1000);
-    } else {
-      showFinal();
+      if (w.comment_text) {
+        const cm = document.createElement('div');
+        cm.className = 'winner-comment';
+        cm.textContent = `「${w.comment_text}」`;
+        card.appendChild(cm);
+      }
+      grid.appendChild(card);
     }
+    stage.appendChild(grid);
+  }
+
+  function showWithRoulette(result) {
+    if (rollTimer) { clearTimeout(rollTimer); rollTimer = null; }
+    if (!result || !result.winners || result.winners.length === 0) {
+      clearStage();
+      return;
+    }
+    stage.innerHTML = '';
+    stage.classList.add('visible');
+    const rolling = document.createElement('div');
+    rolling.className = 'rolling';
+    rolling.textContent = 'DRAWING...';
+    stage.appendChild(rolling);
+
+    rollTimer = setTimeout(() => {
+      renderWinners(result);
+    }, 1100);
   }
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${location.host}/ws?channel=lottery`);
+    const ws = new WebSocket(window.StosupOverlay.buildWsUrl('lottery'));
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
         if (data.type === 'snapshot') {
           config = Object.assign(config, data.config || {});
           applyDesign();
-          renderResult(data.last_lottery, false);
+          if (data.last_lottery) renderWinners(data.last_lottery);
         } else if (data.type === 'lottery_result') {
-          renderResult(data.result, true);
+          showWithRoulette(data.result);
         } else if (data.type === 'clear_lottery') {
-          renderResult(null, false);
+          clearStage();
         } else if (data.type === 'config_updated') {
           config = Object.assign(config, data.config || {});
           applyDesign();
@@ -312,6 +381,7 @@
     ws.onclose = () => setTimeout(connect, 2000);
     ws.onerror = () => ws.close();
   }
+
   applyDesign();
   connect();
 </script>

@@ -33,7 +33,7 @@ class CountersScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
-          title: Text(existing == null ? 'ワードカウンターを作成' : 'ワードカウンターを編集'),
+          title: Text(existing == null ? 'コールカウンターを作成' : 'コールカウンターを編集'),
           content: SizedBox(
             width: 500,
             child: SingleChildScrollView(
@@ -206,7 +206,7 @@ class CountersScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      '特定ワードカウンター',
+                      'コールカウンター（特定ワード集計）',
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
@@ -219,11 +219,11 @@ class CountersScreen extends StatelessWidget {
                 ),
               ),
               FeatureToggleSwitch(
-                label: 'ワードカウント',
+                label: 'コールカウンター',
                 enabled: featureEnabled,
                 onChanged: (v) => controller.setFeatureEnabled(
                   wordCounter: v,
-                  featureLabel: '特定ワードカウント機能',
+                  featureLabel: 'コールカウンター',
                 ),
               ),
               const SizedBox(width: 10),
@@ -237,12 +237,12 @@ class CountersScreen extends StatelessWidget {
           const SizedBox(height: 14),
           if (!featureEnabled)
             FeatureDisabledBanner(
-              featureName: '特定ワードカウント機能',
+              featureName: 'コールカウンター',
               description:
-                  'コメント受信時の自動カウント加算および OBS カウンター表示を一括停止しています。',
+                  'コメント受信時の自動カウント加算および OBS コールカウンター表示を一括停止しています。',
               onEnable: () => controller.setFeatureEnabled(
                 wordCounter: true,
-                featureLabel: '特定ワードカウント機能',
+                featureLabel: 'コールカウンター',
               ),
             ),
           Expanded(

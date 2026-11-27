@@ -25,6 +25,17 @@ class _UsersScreenState extends State<UsersScreen> {
   _UserFilter _filter = _UserFilter.all;
   _UserSort _sort = _UserSort.lastSeen;
 
+  StosupController? _cachedController;
+  List<UserRecord>? _cachedSource;
+  int _cachedSourceLen = -1;
+  int _cachedUsersRev = -1;
+  String _cachedQuery = '';
+  _UserFilter? _cachedFilter;
+  _UserSort? _cachedSort;
+  List<UserRecord> _cachedFiltered = const [];
+  int _cachedInSessionCount = 0;
+  int _cachedBannedCount = 0;
+
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -47,7 +58,7 @@ class _UsersScreenState extends State<UsersScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'BANされたユーザーはユーザー抽選・コメント抽選・ワードカウントに一切参加できなくなります。',
+              'BANされたユーザーはドローボックス・コールカウンター等に一切参加できなくなります。',
               style: TextStyle(fontSize: 13, color: p.textSecondary),
             ),
             const SizedBox(height: 12),
@@ -170,26 +181,39 @@ class _UsersScreenState extends State<UsersScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    final allUsers = widget.controller.users;
-    final query = _searchCtrl.text.trim().toLowerCase();
+  void _ensureFilteredCache(List<UserRecord> allUsers, String query) {
+    final usersRev = widget.controller.topicRevision(StosupTopic.users);
+    if (identical(widget.controller, _cachedController) &&
+        identical(allUsers, _cachedSource) &&
+        allUsers.length == _cachedSourceLen &&
+        usersRev == _cachedUsersRev &&
+        query == _cachedQuery &&
+        _filter == _cachedFilter &&
+        _sort == _cachedSort) {
+      return;
+    }
 
-    final filtered = allUsers.where((u) {
+    var inSession = 0;
+    var banned = 0;
+    final filtered = <UserRecord>[];
+    for (final u in allUsers) {
+      if (u.inCurrentSession) inSession++;
+      if (u.isBanned) banned++;
+
       if (_filter == _UserFilter.currentSession && !u.inCurrentSession) {
-        return false;
+        continue;
       }
       if (_filter == _UserFilter.bannedOnly && !u.isBanned) {
-        return false;
+        continue;
       }
       if (query.isNotEmpty) {
-        return u.displayName.toLowerCase().contains(query) ||
+        final hit = u.displayName.toLowerCase().contains(query) ||
             u.userId.toLowerCase().contains(query) ||
             u.memo.toLowerCase().contains(query);
+        if (!hit) continue;
       }
-      return true;
-    }).toList();
+      filtered.add(u);
+    }
 
     filtered.sort((a, b) {
       switch (_sort) {
@@ -204,8 +228,28 @@ class _UsersScreenState extends State<UsersScreen> {
       }
     });
 
-    final inSessionCount = allUsers.where((u) => u.inCurrentSession).length;
-    final bannedCount = allUsers.where((u) => u.isBanned).length;
+    _cachedController = widget.controller;
+    _cachedSource = allUsers;
+    _cachedSourceLen = allUsers.length;
+    _cachedUsersRev = usersRev;
+    _cachedQuery = query;
+    _cachedFilter = _filter;
+    _cachedSort = _sort;
+    _cachedFiltered = filtered;
+    _cachedInSessionCount = inSession;
+    _cachedBannedCount = banned;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final allUsers = widget.controller.users;
+    final query = _searchCtrl.text.trim().toLowerCase();
+    _ensureFilteredCache(allUsers, query);
+
+    final filtered = _cachedFiltered;
+    final inSessionCount = _cachedInSessionCount;
+    final bannedCount = _cachedBannedCount;
     final trackingEnabled = widget.controller.featureFlags.userTrackingEnabled;
 
     return Padding(
@@ -220,13 +264,13 @@ class _UsersScreenState extends State<UsersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'コメント参加ユーザーリスト ＆ BAN 管理',
+                      'リスナー名簿 ＆ BAN 管理',
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '1配信につき1回でもコメントすると視聴回数が +1 されます。BANしたユーザーは抽選システム等に一切参加できなくなります。',
+                      '1配信につき1回でもコメントすると視聴回数が +1 されます。BANしたユーザーはドローボックス等に一切参加できなくなります。',
                       style: TextStyle(color: p.textSecondary, fontSize: 13),
                     ),
                   ],
@@ -237,7 +281,7 @@ class _UsersScreenState extends State<UsersScreen> {
                 enabled: trackingEnabled,
                 onChanged: (v) => widget.controller.setFeatureEnabled(
                   userTracking: v,
-                  featureLabel: 'ユーザーリスト自動記録',
+                  featureLabel: 'リスナー名簿（自動記録）',
                 ),
               ),
               const SizedBox(width: 10),
@@ -251,12 +295,12 @@ class _UsersScreenState extends State<UsersScreen> {
           const SizedBox(height: 14),
           if (!trackingEnabled)
             FeatureDisabledBanner(
-              featureName: 'ユーザーリスト自動記録',
+              featureName: 'リスナー名簿（自動記録）',
               description:
                   'コメント受信時の視聴回数・コメント回数の自動集計を停止しています（既存リストの閲覧および BAN 管理は引き続き利用できます）。',
               onEnable: () => widget.controller.setFeatureEnabled(
                 userTracking: true,
-                featureLabel: 'ユーザーリスト自動記録',
+                featureLabel: 'リスナー名簿（自動記録）',
               ),
             ),
 
@@ -354,6 +398,7 @@ class _UsersScreenState extends State<UsersScreen> {
                       itemBuilder: (context, idx) {
                         final u = filtered[idx];
                         return ListTile(
+                          key: ValueKey('${u.platform.name}:${u.userId}'),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 14, vertical: 4),
                           leading: UserAvatar(
@@ -509,7 +554,7 @@ class _ResetUsersDialogState extends State<_ResetUsersDialog> {
         : widget.totalCount;
 
     return AlertDialog(
-      title: const Text('ユーザーリストを一括リセットしますか？'),
+      title: const Text('リスナー名簿を一括リセットしますか？'),
       content: SizedBox(
         width: 460,
         child: Column(

@@ -168,7 +168,7 @@ class _PollScreenState extends State<PollScreen> {
     final url = '${widget.controller.overlayBaseUrl}/overlay/poll';
     Clipboard.setData(ClipboardData(text: url));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('リアルタイム投票の OBS 用 URL をコピーしました')),
+      const SnackBar(content: Text('ライブアンケートの OBS 用 URL をコピーしました')),
     );
   }
 
@@ -200,7 +200,7 @@ class _PollScreenState extends State<PollScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'リアルタイム投票 / アンケート',
+                      'ライブアンケート（リアルタイム投票）',
                       style:
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
@@ -213,11 +213,11 @@ class _PollScreenState extends State<PollScreen> {
                 ),
               ),
               FeatureToggleSwitch(
-                label: '投票機能',
+                label: 'ライブアンケート',
                 enabled: enabled,
                 onChanged: (v) => ctrl.setFeatureEnabled(
                   poll: v,
-                  featureLabel: 'リアルタイム投票 / アンケート',
+                  featureLabel: 'ライブアンケート',
                 ),
               ),
               const SizedBox(width: 8),
@@ -231,12 +231,12 @@ class _PollScreenState extends State<PollScreen> {
           const SizedBox(height: 12),
           if (!enabled)
             FeatureDisabledBanner(
-              featureName: 'リアルタイム投票 / アンケート',
+              featureName: 'ライブアンケート',
               description:
-                  'コメントからの投票集計と OBS 投票グラフの表示を一時停止しています。',
+                  'コメントからの投票集計と OBS ライブアンケート表示を一時停止しています。',
               onEnable: () => ctrl.setFeatureEnabled(
                 poll: true,
-                featureLabel: 'リアルタイム投票 / アンケート',
+                featureLabel: 'ライブアンケート',
               ),
             ),
 
