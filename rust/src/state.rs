@@ -1,12 +1,13 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use chrono::Utc;
 use once_cell::sync::OnceCell;
-use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
+use tokio::sync::{broadcast, mpsc, Mutex, RwLock, Semaphore};
 
 use crate::backup;
 use crate::db::Database;
@@ -25,8 +26,8 @@ use crate::models::{
     AppEvent, AutomationActionKind, BackupExportResult, BackupImportResult, CommentItem,
     CommentLotteryConfig, CommentLotteryState, ConnectionHistoryItem, ConnectionMode,
     ConnectionStateDto, ConnectionStatus, FeatureFlags, FirstTimeCounterConfig,
-    FirstTimeCounterState, FirstTimeUser, HighlightRule, HotkeyBinding, ImportedMediaFile,
-    InstalledMod, LotteryResult, LotteryWinner, MatchMode, MediaAnimationKind, MediaEffectType,
+    FirstTimeCounterState, FirstTimeUser, HighlightRule, HotkeyBinding, InstalledMod,
+    LotteryResult, LotteryWinner, MatchMode, MediaAnimationKind, MediaEffectType,
     MediaKind, MediaPosition, MediaReactionConfig, MediaReactionRule, MediaTriggerEvent,
     MessageRun, MessageRunKind, ModSavedState, ModScriptLogEntry, MonetizationEventKind,
     MonetizationItem, NgWordRule, ObsActionType, ObsAutomationRule, ObsTriggerType, ObsWsConfig,
@@ -37,7 +38,9 @@ use crate::models::{
 };
 use crate::mods;
 use crate::obs_ws::{ObsIncomingEvent, ObsWsManager};
-use crate::overlay::{start_overlay_server, OverlayServerHandle, OverlaySharedState};
+use crate::overlay::{
+    start_overlay_server, start_overlay_server_with_retry, OverlayServerHandle, OverlaySharedState,
+};
 use crate::platform::{demo, youtube, ProviderConnection};
 use crate::profile;
 use crate::remote;
@@ -53,11 +56,15 @@ pub struct AppRuntime {
     pub mods_dir: PathBuf,
     pub installed_mods: RwLock<Vec<InstalledMod>>,
     pub mod_script_runtime: Arc<Mutex<ModScriptRuntime>>,
+    pub has_active_mod_scripts: AtomicBool,
+    pub mod_states_lock: Mutex<()>,
+    pub obs_pulse_semaphore: Arc<Semaphore>,
     pub overlay_state: Arc<OverlaySharedState>,
     pub overlay_server: Mutex<Option<OverlayServerHandle>>,
     pub remote_config: RwLock<RemoteAccessConfig>,
     pub feature_flags: RwLock<FeatureFlags>,
     pub connection_state: RwLock<ConnectionStateDto>,
+    pub connection_gen: AtomicU64,
     pub active_provider: Mutex<Option<ProviderConnection>>,
     pub recent_comments: RwLock<VecDeque<CommentItem>>,
     pub user_lottery_won_ids: Mutex<HashSet<String>>,
@@ -215,6 +222,7 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
     let auto_connect_obs = initial_obs_ws_cfg.enabled && initial_obs_ws_cfg.auto_connect;
     let obs_cfg_for_auto = initial_obs_ws_cfg.clone();
 
+    let has_initial_scripts = initial_script_rt.has_any_scripts();
     let runtime = Arc::new(AppRuntime {
         db: db_arc,
         db_path,
@@ -222,11 +230,15 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
         mods_dir,
         installed_mods: RwLock::new(initial_mods),
         mod_script_runtime: Arc::new(Mutex::new(initial_script_rt)),
+        has_active_mod_scripts: AtomicBool::new(has_initial_scripts),
+        mod_states_lock: Mutex::new(()),
+        obs_pulse_semaphore: Arc::new(Semaphore::new(32)),
         overlay_state,
         overlay_server: Mutex::new(server_handle),
         remote_config: RwLock::new(remote_config),
         feature_flags: RwLock::new(feature_flags),
         connection_state: RwLock::new(ConnectionStateDto::default()),
+        connection_gen: AtomicU64::new(0),
         active_provider: Mutex::new(None),
         recent_comments: RwLock::new(VecDeque::new()),
         user_lottery_won_ids: Mutex::new(HashSet::new()),
@@ -409,7 +421,7 @@ impl AppRuntime {
         let hidden_from_overlay = ng_flags.hide_from_overlay;
         let is_ng_masked = ng_flags.masked;
 
-        // コメントを利用する全機能が OFF でもオンエアレポート用に最低限のセッション記録のみ考慮
+        // コメントを利用する全機能が OFF でも MOD スクリプトや OBS 連動が稼働中なら評価を継続する
         if !flags.comment_display_enabled
             && !flags.user_tracking_enabled
             && !flags.word_counter_enabled
@@ -419,6 +431,8 @@ impl AppRuntime {
             && !flags.poll_enabled
             && !flags.queue_enabled
             && !flags.media_reaction_enabled
+            && !self.has_active_mod_scripts.load(Ordering::Relaxed)
+            && !self.obs_ws.is_connected()
         {
             return Ok(());
         }
@@ -979,11 +993,12 @@ impl AppRuntime {
 
         // OBS オーバーレイ / LAN サーバーの起動 / 停止を即時反映
         let allow_lan = self.remote_config.read().await.allow_lan_access;
+        let mut port_changed_cfg: Option<OverlayConfig> = None;
         if new_flags.obs_overlay_enabled || allow_lan {
             let mut srv_guard = self.overlay_server.lock().await;
             if srv_guard.is_none() {
                 let mut cfg = self.overlay_state.config.read().await.clone();
-                let handle = match start_overlay_server(
+                let handle = match start_overlay_server_with_retry(
                     cfg.port,
                     allow_lan,
                     Arc::clone(&self.overlay_state),
@@ -1000,6 +1015,7 @@ impl AppRuntime {
                     self.overlay_state.update_config(cfg.clone()).await;
                     let db = self.db.lock().await;
                     let _ = db.set_overlay_config(&cfg);
+                    port_changed_cfg = Some(cfg);
                 }
                 *srv_guard = Some(handle);
             }
@@ -1009,6 +1025,9 @@ impl AppRuntime {
                 old.stop();
             }
             *srv_guard = None;
+        }
+        if let Some(updated_cfg) = port_changed_cfg {
+            self.emit(AppEvent::overlay_config_updated(updated_cfg));
         }
 
         // OBS オーバーレイ有効状態を即時反映（OFF 時は接続中の全 OBS WebSocket を即切断・/overlay/* を遮断）
@@ -1112,6 +1131,7 @@ impl AppRuntime {
     }
 
     pub async fn disconnect_current(&self) {
+        self.connection_gen.fetch_add(1, Ordering::AcqRel);
         if let Some(prev) = self.active_provider.lock().await.take() {
             prev.stop();
         }
@@ -1128,6 +1148,7 @@ impl AppRuntime {
         let resolved = youtube::resolve_youtube_live_target(input).await?;
         let video_id = resolved.video_id.clone();
         self.disconnect_current().await;
+        let my_gen = self.connection_gen.fetch_add(1, Ordering::AcqRel) + 1;
 
         {
             let mut st = self.connection_state.write().await;
@@ -1150,8 +1171,14 @@ impl AppRuntime {
         let on_status = move |status: ConnectionStatus, attempt: u32, err_msg: Option<String>| {
             if let Ok(rt) = get_runtime() {
                 tokio::spawn(async move {
+                    if rt.connection_gen.load(Ordering::Acquire) != my_gen {
+                        return;
+                    }
                     let dto = {
                         let mut st = rt.connection_state.write().await;
+                        if rt.connection_gen.load(Ordering::Acquire) != my_gen {
+                            return;
+                        }
                         if st.status == ConnectionStatus::Disconnected
                             && status == ConnectionStatus::Reconnecting
                         {
@@ -1198,6 +1225,11 @@ impl AppRuntime {
 
         match conn_res {
             Ok(conn) => {
+                // 接続待機中に切断または別接続が割り込んだ場合は即停止してリークを防止
+                if self.connection_gen.load(Ordering::Acquire) != my_gen {
+                    conn.stop();
+                    return Err(anyhow!("配信接続がキャンセルされました"));
+                }
                 let now_ms = Utc::now().timestamp_millis();
                 let session_id = {
                     let db = self.db.lock().await;
@@ -1231,7 +1263,16 @@ impl AppRuntime {
                     can_post_chat: conn.can_post_chat,
                     reconnect_attempt: 0,
                 };
-                *self.active_provider.lock().await = Some(conn);
+                {
+                    let mut guard = self.active_provider.lock().await;
+                    if self.connection_gen.load(Ordering::Acquire) != my_gen {
+                        conn.stop();
+                        return Err(anyhow!("配信接続がキャンセルされました"));
+                    }
+                    if let Some(prev) = guard.replace(conn) {
+                        prev.stop();
+                    }
+                }
                 *self.connection_state.write().await = dto.clone();
                 self.maybe_auto_reset_first_time_for_session(&dto.session_id)
                     .await;
@@ -1241,19 +1282,21 @@ impl AppRuntime {
                 Ok(dto)
             }
             Err(e) => {
-                let dto = ConnectionStateDto {
-                    status: ConnectionStatus::Error,
-                    platform: PlatformKind::YouTube,
-                    mode,
-                    stream_title: String::new(),
-                    stream_id: video_id,
-                    session_id: String::new(),
-                    error_message: Some(e.to_string()),
-                    can_post_chat: false,
-                    reconnect_attempt: 0,
-                };
-                *self.connection_state.write().await = dto.clone();
-                self.emit(AppEvent::connection_changed(dto));
+                if self.connection_gen.load(Ordering::Acquire) == my_gen {
+                    let dto = ConnectionStateDto {
+                        status: ConnectionStatus::Error,
+                        platform: PlatformKind::YouTube,
+                        mode,
+                        stream_title: String::new(),
+                        stream_id: video_id,
+                        session_id: String::new(),
+                        error_message: Some(e.to_string()),
+                        can_post_chat: false,
+                        reconnect_attempt: 0,
+                    };
+                    *self.connection_state.write().await = dto.clone();
+                    self.emit(AppEvent::connection_changed(dto));
+                }
                 Err(e)
             }
         }
@@ -1261,6 +1304,7 @@ impl AppRuntime {
 
     pub async fn connect_demo(&self, session_name: &str, auto_generate: bool) -> Result<ConnectionStateDto> {
         self.disconnect_current().await;
+        let my_gen = self.connection_gen.fetch_add(1, Ordering::AcqRel) + 1;
         let stream_id = if session_name.trim().is_empty() {
             format!("demo-{}", Utc::now().format("%Y%m%d-%H%M%S"))
         } else {
@@ -1285,7 +1329,16 @@ impl AppRuntime {
             can_post_chat: true,
             reconnect_attempt: 0,
         };
-        *self.active_provider.lock().await = Some(conn);
+        {
+            let mut guard = self.active_provider.lock().await;
+            if self.connection_gen.load(Ordering::Acquire) != my_gen {
+                conn.stop();
+                return Err(anyhow!("デモ接続がキャンセルされました"));
+            }
+            if let Some(prev) = guard.replace(conn) {
+                prev.stop();
+            }
+        }
         *self.connection_state.write().await = dto.clone();
         self.maybe_auto_reset_first_time_for_session(&dto.session_id)
             .await;
@@ -1348,24 +1401,51 @@ impl AppRuntime {
     pub async fn save_overlay_config_and_restart(&self, cfg: OverlayConfig) -> Result<OverlayConfig> {
         let obs_enabled = self.feature_flags.read().await.obs_overlay_enabled;
         let allow_lan = self.remote_config.read().await.allow_lan_access;
-        let current_port = self
-            .overlay_server
-            .lock()
-            .await
-            .as_ref()
-            .map(|h| h.port)
-            .unwrap_or(0);
 
         let mut final_cfg = cfg.clone();
-        if (obs_enabled || allow_lan) && cfg.port != current_port {
+        if obs_enabled || allow_lan {
             let mut srv_guard = self.overlay_server.lock().await;
-            if let Some(ref mut old) = *srv_guard {
-                old.stop();
+            let need_restart = match srv_guard.as_ref() {
+                None => true,
+                Some(h) => h.port != cfg.port || h.allow_lan_access != allow_lan,
+            };
+            if need_restart {
+                let prev_binding = srv_guard.as_ref().map(|h| (h.port, h.allow_lan_access));
+                if let Some(mut old) = srv_guard.take() {
+                    old.stop();
+                }
+                match start_overlay_server_with_retry(
+                    cfg.port,
+                    allow_lan,
+                    Arc::clone(&self.overlay_state),
+                )
+                .await
+                {
+                    Ok(new_handle) => {
+                        final_cfg.port = new_handle.port;
+                        *srv_guard = Some(new_handle);
+                    }
+                    Err(bind_err) => {
+                        // 新設定のバインドに失敗した場合は旧設定で自動ロールバック復旧しサーバー停止残留を防ぐ
+                        if let Some((old_port, old_allow_lan)) = prev_binding {
+                            if let Ok(recovered) = start_overlay_server_with_retry(
+                                old_port,
+                                old_allow_lan,
+                                Arc::clone(&self.overlay_state),
+                            )
+                            .await
+                            {
+                                *srv_guard = Some(recovered);
+                            }
+                        }
+                        return Err(anyhow!(
+                            "オーバーレイサーバーのポート {} での起動に失敗しました（他のアプリが使用中の可能性があります）: {}",
+                            cfg.port,
+                            bind_err
+                        ));
+                    }
+                }
             }
-            let new_handle =
-                start_overlay_server(cfg.port, allow_lan, Arc::clone(&self.overlay_state)).await?;
-            final_cfg.port = new_handle.port;
-            *srv_guard = Some(new_handle);
         }
 
         self.overlay_state.update_config(final_cfg.clone()).await;
@@ -1420,6 +1500,7 @@ impl AppRuntime {
         let desired_port = self.overlay_state.config.read().await.port;
 
         let mut srv_guard = self.overlay_server.lock().await;
+        let mut port_changed_cfg: Option<OverlayConfig> = None;
         if !need_server {
             if let Some(ref mut old) = *srv_guard {
                 old.stop();
@@ -1431,13 +1512,10 @@ impl AppRuntime {
                 Some(h) => h.allow_lan_access != cfg.allow_lan_access,
             };
             if need_restart {
-                if let Some(ref mut old) = *srv_guard {
+                if let Some(mut old) = srv_guard.take() {
                     old.stop();
                 }
-                *srv_guard = None;
-                // 旧ソケットの解放をわずかに待つ
-                tokio::time::sleep(std::time::Duration::from_millis(60)).await;
-                let new_handle = match start_overlay_server(
+                let new_handle = match start_overlay_server_with_retry(
                     desired_port,
                     cfg.allow_lan_access,
                     Arc::clone(&self.overlay_state),
@@ -1460,11 +1538,15 @@ impl AppRuntime {
                     self.overlay_state.update_config(oc.clone()).await;
                     let db = self.db.lock().await;
                     let _ = db.set_overlay_config(&oc);
+                    port_changed_cfg = Some(oc);
                 }
                 *srv_guard = Some(new_handle);
             }
         }
         drop(srv_guard);
+        if let Some(updated_cfg) = port_changed_cfg {
+            self.emit(AppEvent::overlay_config_updated(updated_cfg));
+        }
 
         Ok(self.get_remote_access_status().await)
     }
@@ -1641,6 +1723,7 @@ impl AppRuntime {
         if flags.obs_overlay_enabled {
             self.overlay_state.show_lottery(result.clone()).await;
         }
+        self.evaluate_obs_rules_for_lottery().await;
         self.evaluate_mod_scripts_for_lottery(&result).await;
         self.emit(AppEvent::user_lottery_winners_updated(won_ids));
         self.emit(AppEvent::lottery_drawn(result.clone()));
@@ -1953,15 +2036,14 @@ impl AppRuntime {
     }
 
     pub async fn save_poll_config(&self, config: PollConfig) -> Result<PollState> {
-        {
-            let db = self.db.lock().await;
-            db.set_poll_config(&config)?;
-        }
         let state = {
             let mut pr = self.poll_runtime.lock().await;
-            pr.state.config = config;
-            pr.state.clone()
+            pr.update_config(config)
         };
+        {
+            let db = self.db.lock().await;
+            db.set_poll_config(&state.config)?;
+        }
         let enabled = self.feature_flags.read().await.poll_enabled;
         self.overlay_state.update_poll(state.clone(), enabled).await;
         self.emit(AppEvent::poll_updated(state.clone()));
@@ -2143,10 +2225,6 @@ impl AppRuntime {
 
     // ==================== 特定ワード反応メディアアニメーション ====================
 
-    pub fn import_media_file(&self, source_path: &str) -> Result<ImportedMediaFile> {
-        media::import_media_file(&self.media_dir, source_path)
-    }
-
     pub async fn list_media_reaction_rules(&self) -> Result<Vec<MediaReactionRule>> {
         Ok((**self.cached_media_rules.read().await).clone())
     }
@@ -2158,11 +2236,14 @@ impl AppRuntime {
         if rule.id.trim().is_empty() {
             rule.id = uuid::Uuid::new_v4().to_string();
         }
-        let list = {
+        let (list, unused_files) = {
             let db = self.db.lock().await;
-            db.upsert_media_reaction_rule(&rule)?;
-            db.list_media_reaction_rules()?
+            let orphans = db.upsert_media_reaction_rule(&rule)?;
+            (db.list_media_reaction_rules()?, orphans)
         };
+        for fname in unused_files {
+            media::remove_stored_media_file(&self.media_dir, &fname);
+        }
         *self.cached_media_rules.write().await = Arc::new(list.clone());
         self.emit(AppEvent::media_rules_updated(list.clone()));
         Ok(list)
@@ -2921,7 +3002,11 @@ impl AppRuntime {
         *self.cached_word_counters.write().await = Arc::new(c_list.clone());
         *self.cached_media_rules.write().await = Arc::new(m_rules.clone());
         *self.cached_ng_word_rules.write().await = Arc::new(ng_rules.clone());
+        let obs_enabled = obs_cfg.enabled;
         *self.obs_ws_config.write().await = obs_cfg;
+        if !obs_enabled {
+            self.obs_ws.disconnect().await;
+        }
         *self.hotkey_bindings.write().await = hotkeys.clone();
         self.hotkey_manager.update_bindings(hotkeys);
         *self.media_config.lock().await = m_cfg.clone();
@@ -2983,6 +3068,8 @@ impl AppRuntime {
         {
             let mut script_rt = self.mod_script_runtime.lock().await;
             script_rt.reload_from_mods(&self.mods_dir, &scanned);
+            self.has_active_mod_scripts
+                .store(script_rt.has_any_scripts(), Ordering::Relaxed);
         }
         self.overlay_state.update_mods(scanned.clone()).await;
         self.emit(AppEvent::mods_updated(scanned.clone()));
@@ -2990,6 +3077,7 @@ impl AppRuntime {
     }
 
     pub async fn import_mod_archive(&self, archive_path: &str) -> Result<InstalledMod> {
+        let _mod_lock = self.mod_states_lock.lock().await;
         let mut states = {
             let db = self.db.lock().await;
             db.get_mod_states()?
@@ -3012,6 +3100,7 @@ impl AppRuntime {
     }
 
     pub async fn set_mod_enabled(&self, mod_id: &str, enabled: bool) -> Result<Vec<InstalledMod>> {
+        let _mod_lock = self.mod_states_lock.lock().await;
         let mut states = {
             let db = self.db.lock().await;
             db.get_mod_states()?
@@ -3029,6 +3118,7 @@ impl AppRuntime {
     }
 
     pub async fn uninstall_mod(&self, mod_id: &str) -> Result<Vec<InstalledMod>> {
+        let _mod_lock = self.mod_states_lock.lock().await;
         let mut states = {
             let db = self.db.lock().await;
             db.get_mod_states()?
@@ -3349,19 +3439,27 @@ impl AppRuntime {
                     duration_ms,
                 } => {
                     if !preview_only && self.obs_ws.is_connected() {
-                        let obs = Arc::clone(&self.obs_ws);
-                        tokio::spawn(async move {
-                            if obs
-                                .set_scene_item_visible(&scene_name, &source_name, Some(true))
-                                .await
-                                .is_ok()
-                            {
-                                tokio::time::sleep(Duration::from_millis(duration_ms)).await;
-                                let _ = obs
-                                    .set_scene_item_visible(&scene_name, &source_name, Some(false))
-                                    .await;
-                            }
-                        });
+                        if let Ok(permit) = Arc::clone(&self.obs_pulse_semaphore).try_acquire_owned()
+                        {
+                            let obs = Arc::clone(&self.obs_ws);
+                            tokio::spawn(async move {
+                                let _permit = permit;
+                                if obs
+                                    .set_scene_item_visible(&scene_name, &source_name, Some(true))
+                                    .await
+                                    .is_ok()
+                                {
+                                    tokio::time::sleep(Duration::from_millis(duration_ms)).await;
+                                    let _ = obs
+                                        .set_scene_item_visible(
+                                            &scene_name,
+                                            &source_name,
+                                            Some(false),
+                                        )
+                                        .await;
+                                }
+                            });
+                        }
                     }
                 }
                 ModScriptAction::Notify { level, message } => {
@@ -3802,10 +3900,6 @@ impl AppRuntime {
                 Ok("プレビュー環境 (/overlay/preview/queue) へテスト順番待ちデータを送信しました（本番には影響しません）".to_string())
             }
             "media" => {
-                use crate::models::{
-                    MediaAnimationKind, MediaEffectType, MediaKind, MediaPosition,
-                    MediaTriggerEvent,
-                };
                 let effect = match seq % 3 {
                     0 => MediaEffectType::Confetti,
                     1 => MediaEffectType::Cracker,

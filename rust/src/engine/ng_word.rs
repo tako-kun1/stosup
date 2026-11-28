@@ -75,6 +75,7 @@ fn replace_pattern_in_text(text: &str, rule: &NgWordRule) -> Option<String> {
 }
 
 /// 受信コメントの本文・ランをインプレースで評価する（非ヒット時はゼロアロケーション）
+/// 評価優先順: HideEverywhere → HideOnOverlay → MaskText（MaskText による原文書き換えで遮断ルールがバイパスされるのを防止）
 pub fn evaluate_ng_words_in_place(
     message: &mut String,
     runs: &mut Vec<MessageRun>,
@@ -82,52 +83,73 @@ pub fn evaluate_ng_words_in_place(
 ) -> NgWordFlags {
     let mut flags = NgWordFlags::default();
 
+    // 1. 完全除外 (HideEverywhere) を最優先で評価
     for rule in rules {
-        if !rule.enabled || rule.pattern.trim().is_empty() {
+        if !rule.enabled
+            || rule.action != NgWordAction::HideEverywhere
+            || rule.pattern.trim().is_empty()
+        {
+            continue;
+        }
+        if matches_pattern(message, &rule.pattern, rule.match_mode, rule.case_sensitive) {
+            message.clear();
+            runs.clear();
+            return NgWordFlags {
+                drop_everywhere: true,
+                hide_from_overlay: true,
+                masked: false,
+            };
+        }
+    }
+
+    // 2. OBS 非表示 (HideOnOverlay) を MaskText 適用前の原文に対して評価
+    for rule in rules {
+        if !rule.enabled
+            || rule.action != NgWordAction::HideOnOverlay
+            || rule.pattern.trim().is_empty()
+        {
+            continue;
+        }
+        if matches_pattern(message, &rule.pattern, rule.match_mode, rule.case_sensitive) {
+            flags.hide_from_overlay = true;
+            break;
+        }
+    }
+
+    // 3. 伏せ字マスク (MaskText) を適用
+    for rule in rules {
+        if !rule.enabled
+            || rule.action != NgWordAction::MaskText
+            || rule.pattern.trim().is_empty()
+        {
             continue;
         }
         if !matches_pattern(message, &rule.pattern, rule.match_mode, rule.case_sensitive) {
             continue;
         }
-        match rule.action {
-            NgWordAction::HideEverywhere => {
-                message.clear();
-                runs.clear();
-                return NgWordFlags {
-                    drop_everywhere: true,
-                    hide_from_overlay: true,
-                    masked: false,
-                };
-            }
-            NgWordAction::HideOnOverlay => {
-                flags.hide_from_overlay = true;
-            }
-            NgWordAction::MaskText => {
-                if let Some(next_msg) = replace_pattern_in_text(message, rule) {
-                    flags.masked = true;
-                    *message = next_msg;
-                    if !runs.is_empty() {
-                        // 各テキストランにも伏せ字置換をインプレース適用（絵文字境界を跨ぐ場合は安全にプレーンテキストへ統合）
-                        let mut any_run_changed = false;
-                        for r in runs.iter_mut() {
-                            if r.kind == MessageRunKind::Text {
-                                if let Some(replaced) = replace_pattern_in_text(&r.text, rule) {
-                                    r.text = replaced;
-                                    any_run_changed = true;
-                                }
-                            }
-                        }
-                        if !any_run_changed {
-                            runs.clear();
-                            runs.push(MessageRun {
-                                kind: MessageRunKind::Text,
-                                text: message.clone(),
-                                emoji_url: None,
-                                alt: None,
-                                is_custom_emoji: false,
-                            });
+        if let Some(next_msg) = replace_pattern_in_text(message, rule) {
+            flags.masked = true;
+            *message = next_msg;
+            if !runs.is_empty() {
+                // 各テキストランにも伏せ字置換をインプレース適用（絵文字境界を跨ぐ場合は安全にプレーンテキストへ統合）
+                let mut any_run_changed = false;
+                for r in runs.iter_mut() {
+                    if r.kind == MessageRunKind::Text {
+                        if let Some(replaced) = replace_pattern_in_text(&r.text, rule) {
+                            r.text = replaced;
+                            any_run_changed = true;
                         }
                     }
+                }
+                if !any_run_changed {
+                    runs.clear();
+                    runs.push(MessageRun {
+                        kind: MessageRunKind::Text,
+                        text: message.clone(),
+                        emoji_url: None,
+                        alt: None,
+                        is_custom_emoji: false,
+                    });
                 }
             }
         }
@@ -248,5 +270,13 @@ mod tests {
         let f_jp = evaluate_ng_words_in_place(&mut msg_jp, &mut runs_jp, &jp_rules);
         assert!(f_jp.masked);
         assert_eq!(msg_jp, "ラスボスの***注意！***禁止");
+
+        // 先に MaskText があっても後続の HideEverywhere がバイパスされないこと
+        let priority_rules = vec![
+            mk_rule("bad", MatchMode::Contains, NgWordAction::MaskText),
+            mk_rule("badword", MatchMode::Contains, NgWordAction::HideEverywhere),
+        ];
+        let res_prio = evaluate_ng_words("これは badword です", &[], &priority_rules);
+        assert!(res_prio.drop_everywhere);
     }
 }

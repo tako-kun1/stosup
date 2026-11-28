@@ -142,6 +142,9 @@ class _StosupShellState extends State<StosupShell> {
 
   @override
   void dispose() {
+    if (widget.controller.onNotice == _showNotice) {
+      widget.controller.onNotice = null;
+    }
     widget.controller.removeListener(_onStateChanged);
     super.dispose();
   }
@@ -182,7 +185,7 @@ class _StosupShellState extends State<StosupShell> {
     Color accent = p.accent;
     if (level == 'error') accent = p.danger;
     if (level == 'success') accent = p.success;
-    if (level == 'warning') accent = p.warning;
+    if (level == 'warning' || level == 'warn') accent = p.warning;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -390,6 +393,7 @@ class _StosupShellState extends State<StosupShell> {
                           onPressed: () {
                             showDialog<void>(
                               context: context,
+                              barrierDismissible: false,
                               builder: (_) => UpdateDialog(
                                 controller: ctrl,
                                 info: updateInfo,
@@ -406,6 +410,7 @@ class _StosupShellState extends State<StosupShell> {
                           onPressed: () {
                             showDialog<void>(
                               context: context,
+                              barrierDismissible: false,
                               builder: (_) => UpdateDialog(
                                 controller: ctrl,
                                 info: updateInfo,

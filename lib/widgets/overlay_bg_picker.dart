@@ -73,10 +73,9 @@ class _OverlayBgPickerState extends State<OverlayBgPicker> {
       context: context,
       builder: (_) => _CustomBgColorDialog(initialColor: initial),
     );
-    if (result != null) {
-      _hexCtrl.text = result;
-      widget.onChanged(result);
-    }
+    if (!mounted || result == null) return;
+    _hexCtrl.text = result;
+    widget.onChanged(result);
   }
 
   @override
@@ -246,16 +245,11 @@ class _CustomBgColorDialogState extends State<_CustomBgColorDialog> {
   }
 
   String _toCssHex() {
-    final c = _hsv.toColor();
-    final r = (c.r * 255).round().toRadixString(16).padLeft(2, '0');
-    final g = (c.g * 255).round().toRadixString(16).padLeft(2, '0');
-    final b = (c.b * 255).round().toRadixString(16).padLeft(2, '0');
     final a = (_alpha * 255).round().clamp(0, 255);
-    if (a >= 255) {
-      return '#${r.toUpperCase()}${g.toUpperCase()}${b.toUpperCase()}';
-    }
-    final ah = a.toRadixString(16).padLeft(2, '0').toUpperCase();
-    return '#${r.toUpperCase()}${g.toUpperCase()}${b.toUpperCase()}$ah';
+    return AppTheme.toCssHex(
+      _hsv.toColor().withValues(alpha: _alpha),
+      includeAlpha: a < 255,
+    );
   }
 
   @override

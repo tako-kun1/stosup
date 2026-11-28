@@ -17,7 +17,6 @@ use crate::models::{
 /// オンエアレポート集計用のコメント履歴 1 行
 #[derive(Debug, Clone)]
 pub struct SessionCommentRow {
-    pub comment_id: String,
     pub user_id: String,
     pub user_name: String,
     pub message: String,
@@ -753,19 +752,6 @@ impl Database {
         Ok(())
     }
 
-    pub fn is_user_banned(&self, user_id: &str) -> Result<bool> {
-        let banned: Option<i64> = self
-            .conn
-            .query_row(
-                "SELECT MAX(is_banned) FROM users WHERE user_id = ?1",
-                params![user_id],
-                |row| row.get(0),
-            )
-            .optional()?
-            .flatten();
-        Ok(banned.unwrap_or(0) != 0)
-    }
-
     pub fn get_banned_user_ids(&self) -> Result<HashSet<String>> {
         let mut stmt = self
             .conn
@@ -1076,21 +1062,6 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_counter_user_counts(&self, counter_id: &str) -> Result<HashMap<String, u32>> {
-        let mut stmt = self.conn.prepare_cached(
-            "SELECT user_id, count FROM word_counter_user_counts WHERE counter_id = ?1",
-        )?;
-        let rows = stmt.query_map(params![counter_id], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? as u32))
-        })?;
-        let mut map = HashMap::new();
-        for r in rows {
-            let (uid, cnt) = r?;
-            map.insert(uid, cnt);
-        }
-        Ok(map)
-    }
-
     pub fn increment_counter_for_user(
         &self,
         counter_id: &str,
@@ -1374,7 +1345,17 @@ impl Database {
         Ok(list)
     }
 
-    pub fn upsert_media_reaction_rule(&self, rule: &MediaReactionRule) -> Result<()> {
+    /// リアクション演出ルールを保存・更新し、差し替えによって他ルールから参照されなくなった旧メディア／効果音ファイル一覧を返す
+    pub fn upsert_media_reaction_rule(&self, rule: &MediaReactionRule) -> Result<Vec<String>> {
+        let prev_files: Option<(String, String)> = self
+            .conn
+            .query_row(
+                "SELECT stored_file_name, sound_stored_file_name FROM media_reaction_rules WHERE id = ?1",
+                params![rule.id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+
         self.conn.execute(
             "INSERT INTO media_reaction_rules (
                 id, name, pattern, match_mode, case_sensitive, media_kind,
@@ -1460,7 +1441,29 @@ impl Database {
                 rule.mod_params_json,
             ],
         )?;
-        Ok(())
+
+        let mut removable = Vec::new();
+        if let Some((old_media, old_sound)) = prev_files {
+            for old_name in [old_media, old_sound] {
+                let trimmed = old_name.trim();
+                if trimmed.is_empty()
+                    || trimmed == rule.stored_file_name.trim()
+                    || trimmed == rule.sound_stored_file_name.trim()
+                    || removable.iter().any(|x| x == trimmed)
+                {
+                    continue;
+                }
+                let still_used: i64 = self.conn.query_row(
+                    "SELECT COUNT(*) FROM media_reaction_rules WHERE stored_file_name = ?1 OR sound_stored_file_name = ?1",
+                    params![trimmed],
+                    |row| row.get(0),
+                )?;
+                if still_used == 0 {
+                    removable.push(trimmed.to_string());
+                }
+            }
+        }
+        Ok(removable)
     }
 
     pub fn delete_media_reaction_rule(&self, id: &str) -> Result<Vec<String>> {
@@ -1943,7 +1946,7 @@ impl Database {
     pub fn list_session_comments(&self, session_id: &str) -> Result<Vec<SessionCommentRow>> {
         let mut stmt = self.conn.prepare_cached(
             "SELECT
-                comment_id, user_id, user_name, message, timestamp_ms,
+                user_id, user_name, message, timestamp_ms,
                 is_first_time, is_member, event_kind, amount_display, amount_micros, currency
              FROM session_comments
              WHERE session_id = ?1
@@ -1951,17 +1954,16 @@ impl Database {
         )?;
         let rows = stmt.query_map(params![session_id], |row| {
             Ok(SessionCommentRow {
-                comment_id: row.get(0)?,
-                user_id: row.get(1)?,
-                user_name: row.get(2)?,
-                message: row.get(3)?,
-                timestamp_ms: row.get(4)?,
-                is_first_time: row.get::<_, i64>(5)? != 0,
-                is_member: row.get::<_, i64>(6)? != 0,
-                event_kind: row.get(7)?,
-                amount_display: row.get(8)?,
-                amount_micros: row.get::<_, i64>(9)?.max(0) as u64,
-                currency: row.get(10)?,
+                user_id: row.get(0)?,
+                user_name: row.get(1)?,
+                message: row.get(2)?,
+                timestamp_ms: row.get(3)?,
+                is_first_time: row.get::<_, i64>(4)? != 0,
+                is_member: row.get::<_, i64>(5)? != 0,
+                event_kind: row.get(6)?,
+                amount_display: row.get(7)?,
+                amount_micros: row.get::<_, i64>(8)?.max(0) as u64,
+                currency: row.get(9)?,
             })
         })?;
         let mut list = Vec::new();

@@ -32,7 +32,12 @@ body[data-theme="mod:retro-arcade-theme:retro_arcade"] .bubble.monetization {
   border-left: 6px solid var(--arcade-gold);
 }
 
-body[data-theme="mod:retro-arcade-theme:retro_arcade"] .author {
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .author,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .sc-name,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .pickup-author,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .winner-name,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .q-name,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .ft-user-name {
   color: var(--arcade-cyan);
   letter-spacing: 0.05em;
 }
@@ -40,11 +45,13 @@ body[data-theme="mod:retro-arcade-theme:retro_arcade"] .author {
 /* エールボックス / スポットテロップ / カウンター / 初見 / 投票 / キュー / 抽選 / リアクション共通カード */
 body[data-theme="mod:retro-arcade-theme:retro_arcade"] .sc-card,
 body[data-theme="mod:retro-arcade-theme:retro_arcade"] .pickup-card,
-body[data-theme="mod:retro-arcade-theme:retro_arcade"] .counter-card,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .card,
 body[data-theme="mod:retro-arcade-theme:retro_arcade"] .ft-card,
-body[data-theme="mod:retro-arcade-theme:retro_arcade"] .poll-option,
-body[data-theme="mod:retro-arcade-theme:retro_arcade"] .queue-item,
-body[data-theme="mod:retro-arcade-theme:retro_arcade"] .lottery-card,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .poll-card,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .poll-opt,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .q-card,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .q-item,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .banner,
 body[data-theme="mod:retro-arcade-theme:retro_arcade"] .winner-card,
 body[data-theme="mod:retro-arcade-theme:retro_arcade"] .media-caption {
   border-radius: 0;
@@ -55,11 +62,11 @@ body[data-theme="mod:retro-arcade-theme:retro_arcade"] .media-caption {
   box-shadow: 4px 4px 0 rgba(9, 11, 22, 0.95);
 }
 
-body[data-theme="mod:retro-arcade-theme:retro_arcade"] .poll-bar-fill {
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .poll-bar {
   background: linear-gradient(90deg, var(--arcade-pink), var(--arcade-cyan));
 }
 
-body[data-theme="mod:retro-arcade-theme:retro_arcade"] .counter-value,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .value,
 body[data-theme="mod:retro-arcade-theme:retro_arcade"] .ft-count {
   color: var(--arcade-gold);
   font-variant-numeric: tabular-nums;

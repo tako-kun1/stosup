@@ -201,14 +201,14 @@ fn rank_local_lan_ips(
     udp_default_ips: &HashSet<Ipv4Addr>,
     udp_lan_ips: &HashSet<Ipv4Addr>,
 ) -> Vec<String> {
-    // 各 IP の最良メタデータ（has_gateway, is_virtual, is_default_route, is_udp_lan）を集約
-    let mut by_ip: BTreeMap<Ipv4Addr, (bool, bool, bool, bool)> = BTreeMap::new();
+    // 各 IP の最良メタデータ（has_gateway, is_virtual, is_default_route）を集約
+    let mut by_ip: BTreeMap<Ipv4Addr, (bool, bool, bool)> = BTreeMap::new();
 
     for c in adapter_candidates {
         if !is_usable_lan_v4(c.ip) {
             continue;
         }
-        let entry = by_ip.entry(c.ip).or_insert((false, c.is_virtual, false, false));
+        let entry = by_ip.entry(c.ip).or_insert((false, c.is_virtual, false));
         entry.0 |= c.has_gateway;
         entry.1 &= c.is_virtual;
     }
@@ -217,7 +217,7 @@ fn rank_local_lan_ips(
         if !is_usable_lan_v4(ip) {
             continue;
         }
-        let entry = by_ip.entry(ip).or_insert((false, false, false, false));
+        let entry = by_ip.entry(ip).or_insert((false, false, false));
         entry.2 = true;
     }
 
@@ -225,21 +225,20 @@ fn rank_local_lan_ips(
         if !is_usable_lan_v4(ip) {
             continue;
         }
-        let entry = by_ip.entry(ip).or_insert((false, false, false, false));
-        entry.3 = true;
+        by_ip.entry(ip).or_insert((false, false, false));
     }
 
     let has_physical = by_ip
         .values()
-        .any(|(has_gw, is_virt, is_def, _)| !*is_virt || *has_gw || *is_def);
+        .any(|(has_gw, is_virt, is_def)| !*is_virt || *has_gw || *is_def);
 
     let mut ranked: Vec<(u8, u8, Ipv4Addr)> = by_ip
         .into_iter()
-        .filter(|(_, (has_gw, is_virt, is_def, _))| {
+        .filter(|(_, (has_gw, is_virt, is_def))| {
             // 実 LAN IP が見つかっている場合は WSL / Hyper-V 等の仮想 NIC のみの IP を除外
             !has_physical || !*is_virt || *has_gw || *is_def
         })
-        .map(|(ip, (has_gw, is_virt, is_def, _is_udp))| {
+        .map(|(ip, (has_gw, is_virt, is_def))| {
             let tier = if !is_virt && has_gw && is_def {
                 0
             } else if !is_virt && has_gw {

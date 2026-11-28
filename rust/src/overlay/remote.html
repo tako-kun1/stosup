@@ -400,6 +400,7 @@
           <option value="Throw">投てき（画面中央へ飛ぶ）</option>
           <option value="Ambient">環境演出（雪/桜/雨/キラキラ/ハート/火の粉）</option>
           <option value="Fixed">固定表示（画像/GIF/動画/テロップ）</option>
+          <option value="Mod">MOD 独自演出（PC 側設定を維持）</option>
         </select>
       </div>
       <div>
@@ -475,6 +476,11 @@
         <label class="field-label">SE 音量: <span id="mm-sound-vol-val">85</span>%</label>
         <input id="mm-sound-vol" type="range" min="0" max="100" step="5" value="85" oninput="document.getElementById('mm-sound-vol-val').textContent=this.value" />
       </div>
+    </div>
+
+    <div id="mm-mod-box" class="upload-box" style="display:none">
+      <div style="font-size:12.5px;font-weight:800;margin-bottom:4px">MOD 独自演出設定（保持）</div>
+      <div id="mm-mod-info" class="muted">MOD 演出の詳細パラメータは PC 側の Stosup 画面から編集できます。ここから保存しても MOD 設定はそのまま維持されます。</div>
     </div>
 
     <div id="mm-ambient-box" class="form-row" style="display:none">
@@ -627,9 +633,11 @@
 
 <script>
   const urlParams = new URLSearchParams(location.search);
-  let pin = urlParams.get('pin') || localStorage.getItem('stosup_remote_pin') || '';
+  // 旧バージョンの localStorage に保存されていた PIN を掃除し、タブ隔離の sessionStorage で安全に保持
+  try { localStorage.removeItem('stosup_remote_pin'); } catch (_) {}
+  let pin = urlParams.get('pin') || sessionStorage.getItem('stosup_remote_pin') || '';
   if (urlParams.get('pin')) {
-    localStorage.setItem('stosup_remote_pin', pin);
+    sessionStorage.setItem('stosup_remote_pin', pin);
     history.replaceState({}, '', location.pathname);
   }
 
@@ -638,13 +646,16 @@
   let ws = null;
   let usersRefreshTimer = null;
 
-  // モーダル内で保持するアップロード済みファイル情報
+  // モーダル内で保持するアップロード済みファイル・MOD 情報
   let modalMediaState = {
     mediaKind: 'Image',
     storedFileName: '',
     originalFileName: '',
     soundStoredFileName: '',
-    soundOriginalFileName: ''
+    soundOriginalFileName: '',
+    modId: '',
+    modEffectId: '',
+    modParamsJson: '{}'
   };
 
   document.getElementById('tab-bar').addEventListener('click', (e) => {
@@ -653,6 +664,44 @@
     currentTab = btn.dataset.tab;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
     render();
+  });
+
+  // 動的生成ボタン用の安全なクリックイベント委譲（インライン onclick による XSS / シングルクォート破損を根絶）
+  document.getElementById('content').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-rm-action]');
+    if (!btn || btn.disabled) return;
+    const act = btn.dataset.rmAction;
+    if (act === 'pick_comment') {
+      sendAction({ action: 'pick_comment', comment_id: btn.dataset.id || '' });
+    } else if (act === 'set_monetization_checked') {
+      sendAction({ action: 'set_monetization_checked', id: btn.dataset.id || '', checked: btn.dataset.checked === 'true' });
+    } else if (act === 'pick_monetization') {
+      sendAction({ action: 'pick_monetization', id: btn.dataset.id || '' });
+    } else if (act === 'test_media_rule') {
+      sendAction({ action: 'test_media_rule', id: btn.dataset.id || '' });
+    } else if (act === 'toggle_media_rule') {
+      sendAction({ action: 'toggle_media_rule', id: btn.dataset.id || '', enabled: btn.dataset.enabled === 'true' });
+    } else if (act === 'open_media_modal') {
+      openMediaModalById(btn.dataset.id || '');
+    } else if (act === 'delete_media_rule') {
+      deleteMediaRuleConfirm(btn.dataset.id || '', btn.dataset.name || '');
+    } else if (act === 'set_media_bg') {
+      setMediaBgFromRemote(btn.dataset.bg || 'transparent');
+    } else if (act === 'queue_set_status') {
+      sendAction({ action: 'queue_set_status', user_id: btn.dataset.uid || '', status: btn.dataset.status || 'Waiting' });
+    } else if (act === 'queue_move_entry') {
+      sendAction({ action: 'queue_move_entry', user_id: btn.dataset.uid || '', delta: Number(btn.dataset.delta || 0) });
+    } else if (act === 'queue_remove_entry') {
+      sendAction({ action: 'queue_remove_entry', user_id: btn.dataset.uid || '' });
+    } else if (act === 'adjust_word_counter') {
+      sendAction({ action: 'adjust_word_counter', id: btn.dataset.id || '', delta: Number(btn.dataset.delta || 0) });
+    } else if (act === 'reset_word_counter') {
+      sendAction({ action: 'reset_word_counter', id: btn.dataset.id || '' });
+    } else if (act === 'delete_word_counter') {
+      sendAction({ action: 'delete_word_counter', id: btn.dataset.id || '' });
+    } else if (act === 'set_feature_flag') {
+      sendAction({ action: 'set_feature_flag', flag: btn.dataset.flag || '', enabled: btn.dataset.enabled === 'true' });
+    }
   });
 
   document.getElementById('pin-input').addEventListener('keydown', (e) => {
@@ -672,10 +721,15 @@
     return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
+  function safeCssColor(raw, fallback) {
+    const s = String(raw || '').trim();
+    return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(s) ? s : fallback;
+  }
+
   function effectLabel(t) {
     return ({
       Fixed: '固定表示', Cracker: 'クラッカー', Drop: '落下物',
-      Confetti: '紙吹雪', Throw: '投てき', Ambient: '環境演出'
+      Confetti: '紙吹雪', Throw: '投てき', Ambient: '環境演出', Mod: 'MOD演出'
     })[t] || t || '演出';
   }
 
@@ -703,7 +757,7 @@
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.ok) {
       pin = val;
-      localStorage.setItem('stosup_remote_pin', pin);
+      sessionStorage.setItem('stosup_remote_pin', pin);
       document.getElementById('login-screen').style.display = 'none';
       await refreshState();
       connectWs();
@@ -755,7 +809,6 @@
       if (data.data.overlay_config) appState.overlay_config = data.data.overlay_config;
       if (data.data.poll) appState.poll = data.data.poll;
       if (Array.isArray(data.data.counters)) appState.counters = data.data.counters;
-      if (Array.isArray(data.data.highlight_rules)) appState.highlight_rules = data.data.highlight_rules;
       updateHeader();
       render();
     }
@@ -850,12 +903,6 @@
           shouldRender = (currentTab === 'media');
         }
         break;
-      case 'HighlightRulesUpdated':
-        if (Array.isArray(ev.highlight_rules)) {
-          appState.highlight_rules = ev.highlight_rules;
-          shouldRender = (currentTab === 'flags');
-        }
-        break;
       case 'FeatureFlagsUpdated':
         if (ev.feature_flags) {
           appState.feature_flags = ev.feature_flags;
@@ -865,12 +912,6 @@
       case 'CommentLotteryUpdated':
         if (ev.comment_lottery) {
           appState.comment_lottery = ev.comment_lottery;
-          shouldRender = (currentTab === 'counters');
-        }
-        break;
-      case 'UserLotteryWinnersUpdated':
-        if (Array.isArray(ev.user_lottery_won_ids)) {
-          appState.user_lottery_won_count = ev.user_lottery_won_ids.length;
           shouldRender = (currentTab === 'counters');
         }
         break;
@@ -978,7 +1019,7 @@
         </div>
         <div class="item-msg">${renderRunsHtml(c.message, c.message_runs)}</div>
       </div>
-      <button class="btn sm ${isPicked ? 'primary' : ''}" onclick="sendAction({action:'pick_comment',comment_id:'${esc(c.id)}'})">${isPicked ? '解除' : '📌表示'}</button>
+      <button class="btn sm ${isPicked ? 'primary' : ''}" data-rm-action="pick_comment" data-id="${esc(c.id)}">${isPicked ? '解除' : '📌表示'}</button>
     </div>`;
   }
 
@@ -1059,7 +1100,7 @@
       html += '<div class="muted">まだスパチャ・メンバー履歴がありません</div>';
     } else {
       items.forEach(it => {
-        html += `<div class="item-row ${it.is_checked ? 'checked' : ''}" style="border-left:4px solid ${esc(it.tier_color || '#eab308')}">
+        html += `<div class="item-row ${it.is_checked ? 'checked' : ''}" style="border-left:4px solid ${safeCssColor(it.tier_color, '#eab308')}">
           <div class="item-main">
             <div class="item-author">
               <span>${esc(it.user_name)}</span>
@@ -1069,8 +1110,8 @@
             <div class="item-msg">${renderRunsHtml(it.message, it.message_runs)}</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <button class="btn sm ${it.is_checked ? '' : 'success'}" onclick="sendAction({action:'set_monetization_checked',id:'${esc(it.id)}',checked:${!it.is_checked}})">${it.is_checked ? '未読に戻す' : '✓ お礼済'}</button>
-            <button class="btn sm" onclick="sendAction({action:'pick_monetization',id:'${esc(it.id)}'})">📌表示</button>
+            <button class="btn sm ${it.is_checked ? '' : 'success'}" data-rm-action="set_monetization_checked" data-id="${esc(it.id)}" data-checked="${!it.is_checked}">${it.is_checked ? '未読に戻す' : '✓ お礼済'}</button>
+            <button class="btn sm" data-rm-action="pick_monetization" data-id="${esc(it.id)}">📌表示</button>
           </div>
         </div>`;
       });
@@ -1101,7 +1142,7 @@
     } else {
       html += '<div class="grid-2">';
       rules.forEach(r => {
-        html += `<button class="deck-btn ${r.enabled ? '' : 'off'}" onclick="sendAction({action:'test_media_rule',id:'${esc(r.id)}'})">
+        html += `<button class="deck-btn ${r.enabled ? '' : 'off'}" data-rm-action="test_media_rule" data-id="${esc(r.id)}">
           <div class="deck-name">▶ ${esc(r.name)}</div>
           <div class="deck-sub">${esc(effectLabel(r.effect_type))} / ${esc(r.original_file_name || r.particle_text || r.ambient_preset || '演出')}</div>
         </button>`;
@@ -1163,7 +1204,7 @@
       <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
         <label class="field-label">リアクションステージ オーバーレイ背景色（現在: ${esc(curBg)} / クリックで即時反映）</label>
         <div class="btn-row" style="margin-bottom:8px">
-          ${bgPresets.map(([lbl, val]) => `<button class="btn sm ${curBg.toLowerCase() === val.toLowerCase() ? 'primary' : ''}" onclick="setMediaBgFromRemote('${val}')">${lbl}</button>`).join('')}
+          ${bgPresets.map(([lbl, val]) => `<button class="btn sm ${curBg.toLowerCase() === val.toLowerCase() ? 'primary' : ''}" data-rm-action="set_media_bg" data-bg="${esc(val)}">${esc(lbl)}</button>`).join('')}
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input id="mc-bg-color" type="color" value="${esc(pickerHex)}" style="width:44px;height:36px;padding:2px;cursor:pointer" onchange="document.getElementById('mc-bg-hex').value=this.value.toUpperCase();setMediaBgFromRemote(this.value.toUpperCase())" />
@@ -1196,9 +1237,9 @@
             </div>
           </div>
           <div class="btn-row">
-            <button class="btn sm ${r.enabled ? 'success' : ''}" onclick="sendAction({action:'toggle_media_rule',id:'${esc(r.id)}',enabled:${!r.enabled}})">${r.enabled ? 'ON' : 'OFF'}</button>
-            <button class="btn sm" onclick="openMediaModalById('${esc(r.id)}')">編集</button>
-            <button class="btn sm danger" onclick="deleteMediaRuleConfirm('${esc(r.id)}','${esc(r.name)}')">削除</button>
+            <button class="btn sm ${r.enabled ? 'success' : ''}" data-rm-action="toggle_media_rule" data-id="${esc(r.id)}" data-enabled="${!r.enabled}">${r.enabled ? 'ON' : 'OFF'}</button>
+            <button class="btn sm" data-rm-action="open_media_modal" data-id="${esc(r.id)}">編集</button>
+            <button class="btn sm danger" data-rm-action="delete_media_rule" data-id="${esc(r.id)}" data-name="${esc(r.name)}">削除</button>
           </div>
         </div>`;
       });
@@ -1251,8 +1292,17 @@
       storedFileName: r.stored_file_name || '',
       originalFileName: r.original_file_name || '',
       soundStoredFileName: r.sound_stored_file_name || '',
-      soundOriginalFileName: r.sound_original_file_name || ''
+      soundOriginalFileName: r.sound_original_file_name || '',
+      modId: r.mod_id || '',
+      modEffectId: r.mod_effect_id || '',
+      modParamsJson: r.mod_params_json || '{}'
     };
+    const modInfoEl = document.getElementById('mm-mod-info');
+    if (modInfoEl) {
+      modInfoEl.textContent = r.mod_id
+        ? `MOD: ${r.mod_id} / 演出ID: ${r.mod_effect_id || '(未指定)'}（保存しても MOD 設定は維持されます）`
+        : 'MOD 演出の詳細パラメータは PC 側の Stosup 画面から設定してください。';
+    }
     refreshModalFileLabels();
 
     const sv = r.sound_volume ?? 85;
@@ -1301,8 +1351,9 @@
     const trg = document.getElementById('mm-trigger').value;
     document.getElementById('mm-keyword-box').style.display = trg === 'Keyword' ? 'block' : 'none';
     document.getElementById('mm-sc-box').style.display = trg === 'SuperChat' ? 'block' : 'none';
+    document.getElementById('mm-mod-box').style.display = eff === 'Mod' ? 'block' : 'none';
     document.getElementById('mm-fixed-box').style.display = eff === 'Fixed' ? 'block' : 'none';
-    document.getElementById('mm-particle-box').style.display = eff === 'Fixed' ? 'none' : 'block';
+    document.getElementById('mm-particle-box').style.display = (eff === 'Fixed' || eff === 'Mod') ? 'none' : 'block';
     document.getElementById('mm-ambient-box').style.display = eff === 'Ambient' ? 'block' : 'none';
     document.getElementById('mm-ptext-row').style.display = eff === 'Ambient' ? 'none' : 'block';
   }
@@ -1425,7 +1476,10 @@
       cooldown_sec: Math.max(0, Number(document.getElementById('mm-cd').value || 3)),
       exclude_banned: document.getElementById('mm-excl-ban').checked,
       caption_template: document.getElementById('mm-caption').value.trim(),
-      enabled: document.getElementById('mm-enabled').checked
+      enabled: document.getElementById('mm-enabled').checked,
+      mod_id: modalMediaState.modId || '',
+      mod_effect_id: modalMediaState.modEffectId || '',
+      mod_params_json: modalMediaState.modParamsJson || '{}'
     };
     const res = await sendAction({ action: 'save_media_rule', rule });
     if (res) closeMediaModal();
@@ -1457,7 +1511,7 @@
           <span>${i + 1}. ${esc(o.label)}</span>
           <span>${pct}% (${v}票)</span>
         </div>
-        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${esc(o.color || '#3b82f6')}"></div></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${safeCssColor(o.color, '#3b82f6')}"></div></div>
       </div>`;
     });
     html += '</div>';
@@ -1521,8 +1575,8 @@
     active.forEach(e => {
       html += `<div class="item-row">
         <div class="item-main"><div class="item-author">${esc(e.user_name)} <span class="pill accent">${e.play_count}回</span></div></div>
-        <button class="btn sm success" onclick="sendAction({action:'queue_set_status',user_id:'${esc(e.user_id)}',status:'Completed'})">完了</button>
-        <button class="btn sm" onclick="sendAction({action:'queue_set_status',user_id:'${esc(e.user_id)}',status:'Waiting'})">戻す</button>
+        <button class="btn sm success" data-rm-action="queue_set_status" data-uid="${esc(e.user_id)}" data-status="Completed">完了</button>
+        <button class="btn sm" data-rm-action="queue_set_status" data-uid="${esc(e.user_id)}" data-status="Waiting">戻す</button>
       </div>`;
     });
     html += '</div>';
@@ -1532,10 +1586,10 @@
     waiting.forEach((e, i) => {
       html += `<div class="item-row">
         <div class="item-main"><div class="item-author">${i + 1}. ${esc(e.user_name)} ${e.is_first_time ? '<span class="pill success">初見</span>' : ''} <span class="pill">${e.play_count}回</span></div></div>
-        <button class="btn sm primary" onclick="sendAction({action:'queue_set_status',user_id:'${esc(e.user_id)}',status:'Active'})">参加へ</button>
-        <button class="btn sm" onclick="sendAction({action:'queue_move_entry',user_id:'${esc(e.user_id)}',delta:-1})">↑</button>
-        <button class="btn sm" onclick="sendAction({action:'queue_move_entry',user_id:'${esc(e.user_id)}',delta:1})">↓</button>
-        <button class="btn sm danger" onclick="sendAction({action:'queue_remove_entry',user_id:'${esc(e.user_id)}'})">×</button>
+        <button class="btn sm primary" data-rm-action="queue_set_status" data-uid="${esc(e.user_id)}" data-status="Active">参加へ</button>
+        <button class="btn sm" data-rm-action="queue_move_entry" data-uid="${esc(e.user_id)}" data-delta="-1">↑</button>
+        <button class="btn sm" data-rm-action="queue_move_entry" data-uid="${esc(e.user_id)}" data-delta="1">↓</button>
+        <button class="btn sm danger" data-rm-action="queue_remove_entry" data-uid="${esc(e.user_id)}">×</button>
       </div>`;
     });
     html += '</div>';
@@ -1577,13 +1631,13 @@
       html += `<div class="item-row">
         <div class="item-main">
           <div class="item-author">${esc(c.name)} <span class="muted">${esc((c.keywords || []).join(', '))}</span></div>
-          <div style="font-size:22px;font-weight:900;color:${esc(c.accent_color || '#3b82f6')}">${c.total_count}</div>
+          <div style="font-size:22px;font-weight:900;color:${safeCssColor(c.accent_color, '#3b82f6')}">${c.total_count}</div>
         </div>
         <div class="btn-row">
-          <button class="btn sm" onclick="sendAction({action:'adjust_word_counter',id:'${esc(c.id)}',delta:1})">+1</button>
-          <button class="btn sm" onclick="sendAction({action:'adjust_word_counter',id:'${esc(c.id)}',delta:-1})">-1</button>
-          <button class="btn sm warning" onclick="sendAction({action:'reset_word_counter',id:'${esc(c.id)}'})">0</button>
-          <button class="btn sm danger" onclick="sendAction({action:'delete_word_counter',id:'${esc(c.id)}'})">削除</button>
+          <button class="btn sm" data-rm-action="adjust_word_counter" data-id="${esc(c.id)}" data-delta="1">+1</button>
+          <button class="btn sm" data-rm-action="adjust_word_counter" data-id="${esc(c.id)}" data-delta="-1">-1</button>
+          <button class="btn sm warning" data-rm-action="reset_word_counter" data-id="${esc(c.id)}">0</button>
+          <button class="btn sm danger" data-rm-action="delete_word_counter" data-id="${esc(c.id)}">削除</button>
         </div>
       </div>`;
     });
@@ -1638,7 +1692,7 @@
     defs.forEach(([key, label, val]) => {
       html += `<div class="toggle-row">
         <span style="font-weight:700">${esc(label)}</span>
-        <button class="btn sm ${val ? 'success' : ''}" onclick="sendAction({action:'set_feature_flag',flag:'${key}',enabled:${!val}})">${val ? 'ON' : 'OFF'}</button>
+        <button class="btn sm ${val ? 'success' : ''}" data-rm-action="set_feature_flag" data-flag="${esc(key)}" data-enabled="${!val}">${val ? 'ON' : 'OFF'}</button>
       </div>`;
     });
     html += '</div>';

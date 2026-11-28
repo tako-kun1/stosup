@@ -289,7 +289,18 @@ pub fn build_on_air_report(db: &Database, session_id: &str) -> Result<OnAirRepor
 }
 
 fn csv_escape(s: &str) -> Cow<'_, str> {
-    if s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') {
+    // Excel / スプレッドシートの CSV Formula Injection 対策（先頭の数式開始文字を無害化）
+    let needs_formula_guard = s.starts_with(['=', '+', '-', '@', '\t', '\r']);
+    let needs_quotes =
+        s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r');
+    if needs_formula_guard {
+        let guarded = format!("'{}", s);
+        if needs_quotes {
+            Cow::Owned(format!("\"{}\"", guarded.replace('"', "\"\"")))
+        } else {
+            Cow::Owned(guarded)
+        }
+    } else if needs_quotes {
         Cow::Owned(format!("\"{}\"", s.replace('"', "\"\"")))
     } else {
         Cow::Borrowed(s)
@@ -327,12 +338,6 @@ pub fn write_session_csv_from_rows(rows: &[SessionCommentRow], dest_path: &Path)
     Ok(dest_path.to_string_lossy().to_string())
 }
 
-/// セッションのコメントログを Excel 互換 UTF-8 BOM 付き CSV へ書き出す
-pub fn export_session_csv(db: &Database, session_id: &str, dest_path: &Path) -> Result<String> {
-    let rows: Vec<SessionCommentRow> = db.list_session_comments(session_id)?;
-    write_session_csv_from_rows(&rows, dest_path)
-}
-
 /// 取得済みデータからレポート JSON を高速バッファ書き出しする（DB ロック不要）
 pub fn write_session_json_from_rows(
     summary: StreamSessionSummary,
@@ -345,15 +350,6 @@ pub fn write_session_json_from_rows(
     serde_json::to_writer_pretty(&mut writer, &report)?;
     writer.flush()?;
     Ok(dest_path.to_string_lossy().to_string())
-}
-
-/// レポートサマリー＋コメントログを JSON へ書き出す
-pub fn export_session_json(db: &Database, session_id: &str, dest_path: &Path) -> Result<String> {
-    let summary = db
-        .get_stream_session_summary(session_id)?
-        .ok_or_else(|| anyhow!("指定された配信セッションが見つかりません"))?;
-    let rows = db.list_session_comments(session_id)?;
-    write_session_json_from_rows(summary, &rows, dest_path)
 }
 
 #[cfg(test)]
@@ -408,5 +404,10 @@ mod tests {
         assert!(rep.top_words.iter().any(|w| w.word == "草" && w.count == 3));
         assert_eq!(rep.top_users[0].user_id, "u1");
         assert_eq!(rep.top_users[0].comment_count, 2);
+
+        // CSV Formula Injection 防御の検証
+        assert_eq!(csv_escape("=CMD|' /C calc'!A0"), "'=CMD|' /C calc'!A0");
+        assert_eq!(csv_escape("+1+1,test"), "\"'+1+1,test\"");
+        assert_eq!(csv_escape("通常メッセージ"), "通常メッセージ");
     }
 }

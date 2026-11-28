@@ -10,18 +10,15 @@
   // オーバーレイテーマフック登録テーブル
   const themeHookRegistry = new Map();
 
-  // スクリプトロード中に登録元の modId / componentId を自動ひも付けするためのコンテキスト
+  // スクリプトロード中に登録元の modId を自動ひも付けするためのコンテキスト
   let activeLoadingModId = '';
-  let activeLoadingComponentId = '';
 
-  function _setLoadingContext(modId, componentId) {
+  function _setLoadingContext(modId) {
     activeLoadingModId = String(modId || '');
-    activeLoadingComponentId = String(componentId || '');
   }
 
   function _clearLoadingContext() {
     activeLoadingModId = '';
-    activeLoadingComponentId = '';
   }
 
   /**
@@ -39,8 +36,12 @@
       effectRegistry.set(id, handler);
     } else if (activeLoadingModId) {
       effectRegistry.set(`${activeLoadingModId}:${id}`, handler);
+      if (!effectRegistry.has(id)) {
+        effectRegistry.set(id, handler);
+      }
+    } else {
+      effectRegistry.set(id, handler);
     }
-    effectRegistry.set(id, handler);
   }
 
   function _getEffect(modId, effectId) {
@@ -63,8 +64,12 @@
       themeHookRegistry.set(id, hooks);
     } else if (activeLoadingModId) {
       themeHookRegistry.set(`mod:${activeLoadingModId}:${id}`, hooks);
+      if (!themeHookRegistry.has(id)) {
+        themeHookRegistry.set(id, hooks);
+      }
+    } else {
+      themeHookRegistry.set(id, hooks);
     }
-    themeHookRegistry.set(id, hooks);
   }
 
   function _getThemeHook(modId, themeId) {

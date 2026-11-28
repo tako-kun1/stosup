@@ -102,14 +102,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-    if (ok == true && nameCtrl.text.trim().isNotEmpty) {
+    final name = nameCtrl.text.trim();
+    final desc = descCtrl.text.trim();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      nameCtrl.dispose();
+      descCtrl.dispose();
+    });
+    if (ok == true && name.isNotEmpty && mounted) {
       await ctrl.saveCurrentAsProfile(
-        name: nameCtrl.text.trim(),
-        description: descCtrl.text.trim(),
+        name: name,
+        description: desc,
       );
     }
-    nameCtrl.dispose();
-    descCtrl.dispose();
   }
 
   Widget _buildProfilesAndBackupCard(
@@ -348,6 +352,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (info.hasUpdate) {
       await showDialog<void>(
         context: context,
+        barrierDismissible: false,
         builder: (_) => UpdateDialog(
           controller: widget.controller,
           info: info,
@@ -866,7 +871,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     secondary: const Icon(Icons.campaign_outlined, size: 20),
                     title: const Text('先行版（pre）の更新アナウンスを含める'),
                     subtitle: const Text(
-                      'オンにすると pre 版の公開時にアナウンスのみ表示します（自動更新は行いません）',
+                      'オンにすると pre 版の公開時にお知らせを表示します（自動更新は行わず、詳細画面から手動更新できます）',
                     ),
                     value: flags.includePrereleaseUpdates,
                     onChanged: (v) => ctrl.setFeatureEnabled(

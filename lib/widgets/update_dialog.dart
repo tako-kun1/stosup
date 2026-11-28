@@ -27,8 +27,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
   StreamSubscription<UpdateDownloadProgress>? _sub;
   UpdateDownloadProgress? _progress;
   bool _isDownloading = false;
-  bool _silentInstall = true;
+  late bool _silentInstall;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // 正式版はスムーズなサイレント更新を既定 ON、先行版（pre）はウィザード確認を挟む既定 OFF とする
+    _silentInstall = !widget.info.isPrerelease;
+  }
 
   @override
   void dispose() {
@@ -37,10 +44,14 @@ class _UpdateDialogState extends State<UpdateDialog> {
   }
 
   void _startDownload() {
-    if (widget.info.isPrerelease || widget.info.installerUrl == null) {
+    if (widget.info.installerUrl == null ||
+        widget.info.installerUrl!.trim().isEmpty) {
       widget.controller.openUrl(widget.info.htmlUrl);
       return;
     }
+
+    unawaited(_sub?.cancel());
+    _sub = null;
 
     setState(() {
       _isDownloading = true;
@@ -81,6 +92,15 @@ class _UpdateDialogState extends State<UpdateDialog> {
           _isDownloading = false;
         });
       },
+      onDone: () {
+        if (!mounted) return;
+        if (_isDownloading && _progress?.status != 'ready') {
+          setState(() {
+            _isDownloading = false;
+            _error ??= 'アップデート処理が途中で終了しました。もう一度お試しください。';
+          });
+        }
+      },
     );
   }
 
@@ -102,7 +122,9 @@ class _UpdateDialogState extends State<UpdateDialog> {
           _progress!.totalBytes!.toDouble();
     }
 
-    return AlertDialog(
+    return PopScope(
+      canPop: !_isDownloading,
+      child: AlertDialog(
       title: Row(
         children: [
           Icon(
@@ -156,8 +178,8 @@ class _UpdateDialogState extends State<UpdateDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'pre が付く先行バージョンは自動更新を行いません（利用可能のアナウンスのみ表示しています）。'
-                        'お試しになりたい場合のみ GitHub リリースページから手動でご利用ください。',
+                        'pre が付く先行バージョンは自動更新を行いません。'
+                        'お試しになる場合は、事前に「設定・機能管理」のバックアップ機能でデータを保存したうえで、下のボタンから手動で更新してください。',
                         style: TextStyle(
                           fontSize: 12.5,
                           color: p.textPrimary,
@@ -191,11 +213,11 @@ class _UpdateDialogState extends State<UpdateDialog> {
               ),
             ),
             const SizedBox(height: 10),
-            if (!isPre && !_isDownloading)
+            if (!_isDownloading && info.installerUrl != null)
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _silentInstall,
-                onChanged: (v) => setState(() => _silentInstall = v ?? true),
+                onChanged: (v) => setState(() => _silentInstall = v ?? false),
                 title: const Text('サイレント更新（完了後に自動で再起動してリリースノートを表示）'),
                 controlAffinity: ListTileControlAffinity.leading,
               ),
@@ -221,14 +243,28 @@ class _UpdateDialogState extends State<UpdateDialog> {
       actions: isPre
           ? [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: _isDownloading
+                    ? null
+                    : () => widget.controller.openUrl(info.htmlUrl),
+                child: const Text('GitHub で開く'),
+              ),
+              TextButton(
+                onPressed:
+                    _isDownloading ? null : () => Navigator.of(context).pop(),
                 child: const Text('閉じる'),
               ),
-              FilledButton.icon(
-                onPressed: () => widget.controller.openUrl(info.htmlUrl),
-                icon: const Icon(Icons.open_in_new, size: 17),
-                label: const Text('GitHub リリースページで確認'),
-              ),
+              if (info.installerUrl != null)
+                FilledButton.icon(
+                  onPressed: _isDownloading ? null : _startDownload,
+                  icon: const Icon(Icons.download, size: 17),
+                  label: const Text('手動でダウンロードして更新'),
+                )
+              else
+                FilledButton.icon(
+                  onPressed: () => widget.controller.openUrl(info.htmlUrl),
+                  icon: const Icon(Icons.open_in_new, size: 17),
+                  label: const Text('GitHub リリースページで確認'),
+                ),
             ]
           : [
               TextButton(
@@ -250,6 +286,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                 ),
               ),
             ],
+      ),
     );
   }
 }

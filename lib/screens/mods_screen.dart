@@ -116,7 +116,7 @@ class _ModsScreenState extends State<ModsScreen> {
       ),
     );
     final text = msgCtrl.text;
-    msgCtrl.dispose();
+    WidgetsBinding.instance.addPostFrameCallback((_) => msgCtrl.dispose());
     if (run == true && mounted) {
       await widget.controller.testModLogicScript(
         modId: mod.id,
@@ -233,12 +233,15 @@ class _ModsScreenState extends State<ModsScreen> {
       ),
     );
     if (ok == true && mounted) {
-      await widget.controller.uninstallMod(mod.id, modName: mod.name);
+      final target = (mod.loadError != null && mod.folderName.isNotEmpty)
+          ? mod.folderName
+          : mod.id;
+      await widget.controller.uninstallMod(target, modName: mod.name);
     }
   }
 
-  List<InstalledMod> _applyFilter(List<InstalledMod> list) {
-    switch (_filter) {
+  List<InstalledMod> _applyFilter(List<InstalledMod> list, _ModFilter filter) {
+    switch (filter) {
       case _ModFilter.all:
         return list;
       case _ModFilter.reaction:
@@ -259,7 +262,10 @@ class _ModsScreenState extends State<ModsScreen> {
     final p = context.palette;
     final ctrl = widget.controller;
     final allMods = ctrl.installedMods;
-    final filtered = _applyFilter(allMods);
+    final errorCount = allMods.where((m) => m.loadError != null).length;
+    final effectiveFilter =
+        (_filter == _ModFilter.error && errorCount == 0) ? _ModFilter.all : _filter;
+    final filtered = _applyFilter(allMods, effectiveFilter);
 
     final enabledCount =
         allMods.where((m) => m.enabled && m.loadError == null).length;
@@ -269,7 +275,6 @@ class _ModsScreenState extends State<ModsScreen> {
         .fold<int>(0, (sum, m) => sum + m.overlayThemes.length);
     final customOverlayCount = ctrl.enabledModCustomOverlays.length;
     final logicScriptCount = ctrl.enabledModLogicScripts.length;
-    final errorCount = allMods.where((m) => m.loadError != null).length;
     final obsEnabled = ctrl.featureFlags.obsOverlayEnabled;
 
     return SingleChildScrollView(
@@ -417,34 +422,34 @@ class _ModsScreenState extends State<ModsScreen> {
             children: [
               ChoiceChip(
                 label: Text('すべて (${allMods.length})'),
-                selected: _filter == _ModFilter.all,
+                selected: effectiveFilter == _ModFilter.all,
                 onSelected: (_) => setState(() => _filter = _ModFilter.all),
               ),
               ChoiceChip(
                 label: const Text('リアクション演出'),
-                selected: _filter == _ModFilter.reaction,
+                selected: effectiveFilter == _ModFilter.reaction,
                 onSelected: (_) =>
                     setState(() => _filter = _ModFilter.reaction),
               ),
               ChoiceChip(
                 label: const Text('オーバーレイテーマ'),
-                selected: _filter == _ModFilter.theme,
+                selected: effectiveFilter == _ModFilter.theme,
                 onSelected: (_) => setState(() => _filter = _ModFilter.theme),
               ),
               ChoiceChip(
                 label: const Text('独自オーバーレイ'),
-                selected: _filter == _ModFilter.overlay,
+                selected: effectiveFilter == _ModFilter.overlay,
                 onSelected: (_) => setState(() => _filter = _ModFilter.overlay),
               ),
               ChoiceChip(
                 label: const Text('ロジックスクリプト (.rhai)'),
-                selected: _filter == _ModFilter.script,
+                selected: effectiveFilter == _ModFilter.script,
                 onSelected: (_) => setState(() => _filter = _ModFilter.script),
               ),
               if (errorCount > 0)
                 ChoiceChip(
                   label: Text('エラー ($errorCount)'),
-                  selected: _filter == _ModFilter.error,
+                  selected: effectiveFilter == _ModFilter.error,
                   onSelected: (_) => setState(() => _filter = _ModFilter.error),
                 ),
             ],

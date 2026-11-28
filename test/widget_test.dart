@@ -1078,7 +1078,7 @@ void main() {
     expect(find.textContaining('1 名'), findsWidgets);
   });
 
-  testWidgets('pre バージョンは自動更新 UI を出さずアナウンス表示のみに留める',
+  testWidgets('pre バージョンは自動更新せず、詳細画面から手動でソフト内更新できる',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
@@ -1095,6 +1095,9 @@ void main() {
       releaseName: 'Stosup v0.5.1-pre',
       releaseNotes: '- 試験的機能の追加',
       publishedAt: '2026-11-28T00:00:00Z',
+      installerUrl:
+          'https://github.com/tako-kun1/stosup/releases/download/v0.5.1-pre/Stosup-v0.5.1-pre-x64.msi',
+      installerName: 'Stosup-v0.5.1-pre-x64.msi',
       htmlUrl: 'https://github.com/tako-kun1/stosup/releases/tag/v0.5.1-pre',
     );
     const stableInfo = UpdateInfo(
@@ -1131,28 +1134,71 @@ void main() {
     expect(find.text('詳細・更新'), findsNothing);
     expect(find.text('PRE'), findsOneWidget);
 
-    // ダイアログを開くと自動更新・サイレント更新 UI が存在しない
+    // ダイアログを開くと自動更新は行わない旨の注意表示と、ソフト内手動更新ボタン（サイレント既定 OFF）が表示される
     await tester.tap(find.text('詳細を見る'));
     await tester.pumpAndSettle();
     expect(find.textContaining('先行版（pre）のお知らせ'), findsOneWidget);
     expect(find.textContaining('自動更新を行いません'), findsOneWidget);
-    expect(find.text('ダウンロードして更新'), findsNothing);
-    expect(find.textContaining('サイレント更新'), findsNothing);
-    expect(find.text('GitHub リリースページで確認'), findsOneWidget);
+    expect(find.text('手動でダウンロードして更新'), findsOneWidget);
+    expect(find.text('GitHub で開く'), findsOneWidget);
+    final preSilentCheckbox = tester.widget<CheckboxListTile>(
+      find.widgetWithText(
+          CheckboxListTile, 'サイレント更新（完了後に自動で再起動してリリースノートを表示）'),
+    );
+    expect(preSilentCheckbox.value, isFalse);
 
-    // 正式版では従来どおり自動更新 UI が表示される
+    // 前のダイアログを閉じてから、インストーラー URL が無い pre 版の表示を検証
+    await tester.tap(find.text('閉じる'));
+    await tester.pumpAndSettle();
+
+    // インストーラー URL が無い pre 版の場合は GitHub リリースページ案内にフォールバックする
+    const preNoAssetInfo = UpdateInfo(
+      currentVersion: '0.5.1',
+      latestVersion: '0.6.0-pre01',
+      hasUpdate: true,
+      isPrerelease: true,
+      releaseName: 'Stosup v0.6.0-pre01',
+      releaseNotes: '- 試験的機能',
+      publishedAt: '2026-11-28T00:00:00Z',
+      htmlUrl: 'https://github.com/tako-kun1/stosup/releases/tag/v0.6.0-pre01',
+    );
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.darkTheme(),
         home: Scaffold(
-          body: UpdateDialog(controller: ctrl, info: stableInfo),
+          body: UpdateDialog(
+            key: const ValueKey('pre-no-asset'),
+            controller: ctrl,
+            info: preNoAssetInfo,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('手動でダウンロードして更新'), findsNothing);
+    expect(find.text('GitHub リリースページで確認'), findsOneWidget);
+
+    // 正式版では従来どおり自動更新 UI（サイレント既定 ON）が表示される
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(
+          body: UpdateDialog(
+            key: const ValueKey('stable'),
+            controller: ctrl,
+            info: stableInfo,
+          ),
         ),
       ),
     );
     await tester.pumpAndSettle();
     expect(find.textContaining('アップデート利用可能'), findsOneWidget);
     expect(find.text('ダウンロードして更新'), findsOneWidget);
-    expect(find.textContaining('サイレント更新'), findsOneWidget);
+    final stableSilentCheckbox = tester.widget<CheckboxListTile>(
+      find.widgetWithText(
+          CheckboxListTile, 'サイレント更新（完了後に自動で再起動してリリースノートを表示）'),
+    );
+    expect(stableSilentCheckbox.value, isTrue);
   });
 
   testWidgets('設定画面の先行版（pre）更新アナウンススイッチは既定 OFF で切替・連動が動作する',
@@ -1389,4 +1435,185 @@ void main() {
     expect(find.textContaining('流星の本数'), findsOneWidget);
     expect(find.textContaining('メイン発光色'), findsOneWidget);
   });
+
+  testWidgets(
+      'OverlayScreen でプリセット標準に戻す→保存→同一設定イベント再到着後も再編集が巻き戻らず保存でき、外部ポート変更も同期される',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final savedConfigs = <OverlayConfig>[];
+    final ctrl = _OverlaySaveCaptureController(savedConfigs);
+    addTearDown(ctrl.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(body: OverlayScreen(controller: ctrl)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // トークモニター / CSS タブを開く
+    await tester.tap(find.text('トークモニター / CSS'));
+    await tester.pumpAndSettle();
+
+    // 1. レシピ適用 → プリセット標準に戻す → 保存して即時反映
+    await tester.ensureVisible(find.text('バラエティ二重フチ'));
+    await tester.tap(find.text('バラエティ二重フチ'));
+    await tester.pumpAndSettle();
+    expect(find.text('カスタム有効'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('プリセット標準に戻す'));
+    await tester.tap(find.text('プリセット標準に戻す'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('保存して即時反映'));
+    await tester.pumpAndSettle();
+    expect(savedConfigs.length, 1);
+    expect(savedConfigs.last.visualStyles['comments']?.enabled, isFalse);
+
+    // 2. 直後に別レシピを適用し、そこへ Rust 側から直前保存と同一内容（Map 参照違い）のイベントが遅れて届いても巻き戻らないこと
+    await tester.ensureVisible(find.text('テレビ字幕（白＋黒フチ）'));
+    await tester.tap(find.text('テレビ字幕（白＋黒フチ）'));
+    await tester.pumpAndSettle();
+    expect(find.text('カスタム有効'), findsOneWidget);
+
+    final dupSameAsFirstSave = OverlayConfig(
+      port: savedConfigs.first.port,
+      commentFontSize: savedConfigs.first.commentFontSize,
+      commentMaxItems: savedConfigs.first.commentMaxItems,
+      showIcons: savedConfigs.first.showIcons,
+      showTimestamps: savedConfigs.first.showTimestamps,
+      defaultBubbleBg: savedConfigs.first.defaultBubbleBg,
+      defaultTextColor: savedConfigs.first.defaultTextColor,
+      commentsTheme: savedConfigs.first.commentsTheme,
+      lotteryTheme: savedConfigs.first.lotteryTheme,
+      counterTheme: savedConfigs.first.counterTheme,
+      firstTimeTheme: savedConfigs.first.firstTimeTheme,
+      superchatTheme: savedConfigs.first.superchatTheme,
+      pollTheme: savedConfigs.first.pollTheme,
+      pickupTheme: savedConfigs.first.pickupTheme,
+      queueTheme: savedConfigs.first.queueTheme,
+      mediaTheme: savedConfigs.first.mediaTheme,
+      commentsBgColor: savedConfigs.first.commentsBgColor,
+      lotteryBgColor: savedConfigs.first.lotteryBgColor,
+      counterBgColor: savedConfigs.first.counterBgColor,
+      firstTimeBgColor: savedConfigs.first.firstTimeBgColor,
+      superchatBgColor: savedConfigs.first.superchatBgColor,
+      pollBgColor: savedConfigs.first.pollBgColor,
+      pickupBgColor: savedConfigs.first.pickupBgColor,
+      queueBgColor: savedConfigs.first.queueBgColor,
+      mediaBgColor: savedConfigs.first.mediaBgColor,
+      commentsFontFamily: savedConfigs.first.commentsFontFamily,
+      lotteryFontFamily: savedConfigs.first.lotteryFontFamily,
+      counterFontFamily: savedConfigs.first.counterFontFamily,
+      firstTimeFontFamily: savedConfigs.first.firstTimeFontFamily,
+      superchatFontFamily: savedConfigs.first.superchatFontFamily,
+      pollFontFamily: savedConfigs.first.pollFontFamily,
+      pickupFontFamily: savedConfigs.first.pickupFontFamily,
+      queueFontFamily: savedConfigs.first.queueFontFamily,
+      mediaFontFamily: savedConfigs.first.mediaFontFamily,
+      commentsCustomCss: savedConfigs.first.commentsCustomCss,
+      lotteryCustomCss: savedConfigs.first.lotteryCustomCss,
+      counterCustomCss: savedConfigs.first.counterCustomCss,
+      firstTimeCustomCss: savedConfigs.first.firstTimeCustomCss,
+      superchatCustomCss: savedConfigs.first.superchatCustomCss,
+      pollCustomCss: savedConfigs.first.pollCustomCss,
+      pickupCustomCss: savedConfigs.first.pickupCustomCss,
+      queueCustomCss: savedConfigs.first.queueCustomCss,
+      mediaCustomCss: savedConfigs.first.mediaCustomCss,
+      visualStyles:
+          Map<String, OverlayVisualStyle>.from(savedConfigs.first.visualStyles),
+    );
+    ctrl.handleEventForTest(
+      AppEvent(
+        kind: AppEventKind.overlayConfigUpdated,
+        overlayConfig: dupSameAsFirstSave,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 巻き戻らず「カスタム有効」が維持されており、保存すると enabled == true が送信される
+    expect(find.text('カスタム有効'), findsOneWidget);
+    await tester.tap(find.text('保存して即時反映'));
+    await tester.pumpAndSettle();
+    expect(savedConfigs.length, 2);
+    expect(savedConfigs.last.visualStyles['comments']?.enabled, isTrue);
+
+    // 3. 外部イベントでポートが変わった場合は即座に同期され、次の保存で古いポートを送り返さない
+    final portChangedCfg = OverlayConfig(
+      port: 29876,
+      commentFontSize: savedConfigs.last.commentFontSize,
+      commentMaxItems: savedConfigs.last.commentMaxItems,
+      showIcons: savedConfigs.last.showIcons,
+      showTimestamps: savedConfigs.last.showTimestamps,
+      defaultBubbleBg: savedConfigs.last.defaultBubbleBg,
+      defaultTextColor: savedConfigs.last.defaultTextColor,
+      commentsTheme: savedConfigs.last.commentsTheme,
+      lotteryTheme: savedConfigs.last.lotteryTheme,
+      counterTheme: savedConfigs.last.counterTheme,
+      firstTimeTheme: savedConfigs.last.firstTimeTheme,
+      superchatTheme: savedConfigs.last.superchatTheme,
+      pollTheme: savedConfigs.last.pollTheme,
+      pickupTheme: savedConfigs.last.pickupTheme,
+      queueTheme: savedConfigs.last.queueTheme,
+      mediaTheme: savedConfigs.last.mediaTheme,
+      commentsBgColor: savedConfigs.last.commentsBgColor,
+      lotteryBgColor: savedConfigs.last.lotteryBgColor,
+      counterBgColor: savedConfigs.last.counterBgColor,
+      firstTimeBgColor: savedConfigs.last.firstTimeBgColor,
+      superchatBgColor: savedConfigs.last.superchatBgColor,
+      pollBgColor: savedConfigs.last.pollBgColor,
+      pickupBgColor: savedConfigs.last.pickupBgColor,
+      queueBgColor: savedConfigs.last.queueBgColor,
+      mediaBgColor: savedConfigs.last.mediaBgColor,
+      commentsFontFamily: savedConfigs.last.commentsFontFamily,
+      lotteryFontFamily: savedConfigs.last.lotteryFontFamily,
+      counterFontFamily: savedConfigs.last.counterFontFamily,
+      firstTimeFontFamily: savedConfigs.last.firstTimeFontFamily,
+      superchatFontFamily: savedConfigs.last.superchatFontFamily,
+      pollFontFamily: savedConfigs.last.pollFontFamily,
+      pickupFontFamily: savedConfigs.last.pickupFontFamily,
+      queueFontFamily: savedConfigs.last.queueFontFamily,
+      mediaFontFamily: savedConfigs.last.mediaFontFamily,
+      commentsCustomCss: savedConfigs.last.commentsCustomCss,
+      lotteryCustomCss: savedConfigs.last.lotteryCustomCss,
+      counterCustomCss: savedConfigs.last.counterCustomCss,
+      firstTimeCustomCss: savedConfigs.last.firstTimeCustomCss,
+      superchatCustomCss: savedConfigs.last.superchatCustomCss,
+      pollCustomCss: savedConfigs.last.pollCustomCss,
+      pickupCustomCss: savedConfigs.last.pickupCustomCss,
+      queueCustomCss: savedConfigs.last.queueCustomCss,
+      mediaCustomCss: savedConfigs.last.mediaCustomCss,
+      visualStyles:
+          Map<String, OverlayVisualStyle>.from(savedConfigs.last.visualStyles),
+    );
+    ctrl.handleEventForTest(
+      AppEvent(
+        kind: AppEventKind.overlayConfigUpdated,
+        overlayConfig: portChangedCfg,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('保存して即時反映'));
+    await tester.pumpAndSettle();
+    expect(savedConfigs.last.port, 29876);
+  });
+}
+
+class _OverlaySaveCaptureController extends StosupController {
+  _OverlaySaveCaptureController(this.savedConfigs);
+
+  final List<OverlayConfig> savedConfigs;
+
+  @override
+  Future<void> saveOverlayConfig(OverlayConfig config) async {
+    savedConfigs.add(config);
+    overlayConfig = config;
+    notifyListeners();
+  }
 }

@@ -29,6 +29,10 @@ const MAX_MAP_SIZE: usize = 512;
 const MAX_ACTIONS_PER_RUN: usize = 16;
 /// 1 MOD あたり保持できる状態キー上限
 const MAX_STATE_KEYS_PER_MOD: usize = 256;
+/// 状態ストア 1 エントリあたりの最大値サイズ（JSON 換算 16 KB）
+const MAX_STATE_VALUE_BYTES: usize = 16 * 1024;
+/// `contains_any` の最大キーワード走査件数
+const MAX_CONTAINS_ANY_KEYWORDS: usize = 128;
 /// 実行ログのリングバッファ最大保持件数
 const MAX_SCRIPT_LOGS: usize = 200;
 /// 1 スクリプトソースファイルの最大読み込みサイズ（512 KB）
@@ -263,6 +267,9 @@ fn map_to_json_string(params: Map) -> String {
 fn build_sandboxed_engine() -> Engine {
     let mut engine = Engine::new();
 
+    // 動的 eval() の実行を明示的に無効化（静的コンパイル済み AST のみ実行）
+    engine.disable_symbol("eval");
+
     // サンドボックス実行上限（無限ループ・メモリ枯渇を完全防御）
     engine.set_max_operations(MAX_OPERATIONS);
     engine.set_max_call_levels(MAX_CALL_LEVELS);
@@ -286,20 +293,23 @@ fn build_sandboxed_engine() -> Engine {
 
     // ==================== 状態ストア（MOD 単位のインメモリ KV） ====================
     engine.register_fn("state_get", |key: ImmutableString| -> Dynamic {
-        with_active_ctx(|ctx| ctx.state.get(key.as_str()).cloned().unwrap_or(Dynamic::UNIT))
+        let k = key.trim();
+        if k.is_empty() {
+            return Dynamic::UNIT;
+        }
+        with_active_ctx(|ctx| ctx.state.get(k).cloned().unwrap_or(Dynamic::UNIT))
             .unwrap_or(Dynamic::UNIT)
     });
 
     engine.register_fn(
         "state_get_or",
         |key: ImmutableString, default_val: Dynamic| -> Dynamic {
-            with_active_ctx(|ctx| {
-                ctx.state
-                    .get(key.as_str())
-                    .cloned()
-                    .unwrap_or(default_val.clone())
-            })
-            .unwrap_or(default_val)
+            let k = key.trim();
+            if k.is_empty() {
+                return default_val;
+            }
+            with_active_ctx(|ctx| ctx.state.get(k).cloned().unwrap_or(default_val.clone()))
+                .unwrap_or(default_val)
         },
     );
 
@@ -315,6 +325,22 @@ fn build_sandboxed_engine() -> Engine {
                     format!(
                         "状態ストアのキー数上限（{}件）に達したため '{}' を保存できませんでした",
                         MAX_STATE_KEYS_PER_MOD, k
+                    ),
+                );
+                return;
+            }
+            let est_size = rhai::serde::from_dynamic::<serde_json::Value>(&value)
+                .ok()
+                .and_then(|v| serde_json::to_vec(&v).ok())
+                .map(|b| b.len())
+                .unwrap_or_else(|| value.to_string().len());
+            if est_size > MAX_STATE_VALUE_BYTES {
+                ctx.push_log(
+                    "warn",
+                    format!(
+                        "状態ストアの値サイズが上限（{} KB）を超えたため '{}' を保存できませんでした",
+                        MAX_STATE_VALUE_BYTES / 1024,
+                        k
                     ),
                 );
                 return;
@@ -344,8 +370,12 @@ fn build_sandboxed_engine() -> Engine {
     });
 
     engine.register_fn("state_remove", |key: ImmutableString| {
+        let k = key.trim();
+        if k.is_empty() {
+            return;
+        }
         with_active_ctx(|ctx| {
-            ctx.state.remove(key.as_str());
+            ctx.state.remove(k);
         });
     });
 
@@ -361,11 +391,23 @@ fn build_sandboxed_engine() -> Engine {
     engine.register_fn(
         "contains_any",
         |text: ImmutableString, keywords: Array| -> bool {
-            let lower = text.to_lowercase();
-            for item in keywords {
+            let text_slice = if text.len() > 4096 {
+                let mut end = 4096;
+                while end > 0 && !text.is_char_boundary(end) {
+                    end -= 1;
+                }
+                &text[..end]
+            } else {
+                text.as_str()
+            };
+            let lower = text_slice.to_lowercase();
+            for item in keywords.into_iter().take(MAX_CONTAINS_ANY_KEYWORDS) {
                 if let Ok(kw) = item.into_immutable_string() {
                     let kw_trimmed = kw.trim();
-                    if !kw_trimmed.is_empty() && lower.contains(&kw_trimmed.to_lowercase()) {
+                    if !kw_trimmed.is_empty()
+                        && kw_trimmed.len() <= 256
+                        && lower.contains(&kw_trimmed.to_lowercase())
+                    {
                         return true;
                     }
                 }
@@ -479,7 +521,7 @@ fn build_sandboxed_engine() -> Engine {
         |effect_id: ImmutableString, params: Map, caption: ImmutableString, duration_ms: i64| {
             let params_json = map_to_json_string(params);
             let dur = if duration_ms > 0 {
-                Some((duration_ms as u32).clamp(500, 120_000))
+                Some(duration_ms.clamp(500, 120_000) as u32)
             } else {
                 None
             };
@@ -560,12 +602,12 @@ fn build_sandboxed_engine() -> Engine {
                     caption: caption.trim().to_string(),
                     particle_text: particle_text.trim().to_string(),
                     particle_count: if particle_count > 0 {
-                        Some((particle_count as u32).clamp(1, 200))
+                        Some(particle_count.clamp(1, 200) as u32)
                     } else {
                         None
                     },
                     duration_ms: if duration_ms > 0 {
-                        Some((duration_ms as u32).clamp(500, 60_000))
+                        Some(duration_ms.clamp(500, 60_000) as u32)
                     } else {
                         None
                     },
@@ -640,7 +682,12 @@ fn build_sandboxed_engine() -> Engine {
             if src.is_empty() {
                 return;
             }
-            let ms = ((duration_sec.clamp(0.2, 60.0)) * 1000.0).round() as u64;
+            let safe_sec = if duration_sec.is_finite() {
+                duration_sec.clamp(0.2, 60.0)
+            } else {
+                3.0
+            };
+            let ms = (safe_sec * 1000.0).round() as u64;
             with_active_ctx(|ctx| {
                 ctx.push_action(ModScriptAction::ObsPulseSource {
                     scene_name: scene_name.trim().to_string(),
@@ -713,6 +760,12 @@ pub struct ModScriptRuntime {
     logs: VecDeque<ModScriptLogEntry>,
 }
 
+impl Default for ModScriptRuntime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModScriptRuntime {
     pub fn new() -> Self {
         Self {
@@ -763,9 +816,26 @@ impl ModScriptRuntime {
             let Some(mod_dir) = find_mod_directory(mods_dir, &m.id) else {
                 continue;
             };
+            let Ok(canon_mod_dir) = mod_dir.canonicalize() else {
+                continue;
+            };
             for def in &m.logic_scripts {
                 let script_path = mod_dir.join(&def.entry);
-                let source = match fs::read_to_string(&script_path) {
+                let canon_script = match script_path.canonicalize() {
+                    Ok(p) if p.starts_with(&canon_mod_dir) => p,
+                    _ => {
+                        self.append_log(ModScriptLogEntry {
+                            timestamp_ms: Utc::now().timestamp_millis(),
+                            mod_id: m.id.clone(),
+                            script_id: def.script_id.clone(),
+                            level: "error".to_string(),
+                            message: "スクリプトパスが MOD フォルダ外を参照しているため読み込みを拒否しました"
+                                .to_string(),
+                        });
+                        continue;
+                    }
+                };
+                let source = match fs::read_to_string(&canon_script) {
                     Ok(s) => s,
                     Err(e) => {
                         self.append_log(ModScriptLogEntry {
@@ -994,25 +1064,26 @@ impl ModScriptRuntime {
             }
         };
 
+        // フォールバック先イベント種別に合わせてダミーコンテキスト（スパチャ / 初見）を補完する
+        let mut effective_comment = sample_comment.clone();
+        let mut effective_amount_micros = sample_amount_micros;
+        if fn_name == "on_superchat" && effective_comment.event_kind.is_none() {
+            effective_comment.event_kind = Some(MonetizationEventKind::SuperChat);
+            effective_comment.amount_display = Some("¥1,000".to_string());
+            effective_amount_micros = 1_000_000_000;
+        }
+        if fn_name == "on_first_time" {
+            effective_comment.is_first_time = true;
+        }
+
         let map = build_comment_ctx_map(
-            sample_comment,
-            sample_amount_micros,
-            sample_comment.is_first_time,
+            &effective_comment,
+            effective_amount_micros,
+            effective_comment.is_first_time,
             event_label,
             true,
         );
         Ok(self.invoke_script_fn(idx, fn_name, map))
-    }
-}
-
-fn event_kind_label(k: Option<MonetizationEventKind>) -> &'static str {
-    match k {
-        None => "",
-        Some(MonetizationEventKind::SuperChat) => "super_chat",
-        Some(MonetizationEventKind::SuperSticker) => "super_sticker",
-        Some(MonetizationEventKind::MembershipNew) => "membership_new",
-        Some(MonetizationEventKind::MembershipMilestone) => "membership_milestone",
-        Some(MonetizationEventKind::MembershipGift) => "membership_gift",
     }
 }
 
@@ -1054,7 +1125,12 @@ fn build_comment_ctx_map(
     map.insert("is_membership".into(), Dynamic::from_bool(is_membership));
     map.insert(
         "event_kind".into(),
-        Dynamic::from(event_kind_label(item.event_kind).to_string()),
+        Dynamic::from(
+            item.event_kind
+                .map(|k| k.as_str())
+                .unwrap_or("")
+                .to_string(),
+        ),
     );
     map.insert(
         "amount_jpy".into(),
@@ -1257,5 +1333,34 @@ mod tests {
     fn test_rhai_syntax_validation() {
         assert!(validate_rhai_syntax("fn on_comment(ctx) { log(ctx.message); }").is_ok());
         assert!(validate_rhai_syntax("fn on_comment(ctx { broken").is_err());
+        assert!(
+            validate_rhai_syntax("fn on_comment(ctx) { eval(\"1 + 1\"); }").is_err(),
+            "eval() はサンドボックスによりコンパイル時に拒否されること"
+        );
+    }
+
+    #[test]
+    fn test_rhai_safety_guards_and_test_fallbacks() {
+        // state_get / state_set の前後空白トリム統一 & NaN ガード & eval 無効化
+        let script = r#"
+            fn on_superchat(ctx) {
+                state_set("  key1  ", 42);
+                let v = state_get("key1");
+                if ctx.is_superchat && ctx.amount_jpy >= 1000 && v == 42 {
+                    obs_pulse_source("", "Cam", 0.0 / 0.0);
+                }
+            }
+        "#;
+        let (_tmp, mut rt) = setup_runtime_with_script(script);
+        let actions = rt
+            .test_script("combo-test", "main", &make_comment("テスト"), 0)
+            .unwrap();
+        assert_eq!(actions.len(), 1);
+        match &actions[0] {
+            ModScriptAction::ObsPulseSource { duration_ms, .. } => {
+                assert_eq!(*duration_ms, 3000);
+            }
+            other => panic!("期待しないアクション: {:?}", other),
+        }
     }
 }

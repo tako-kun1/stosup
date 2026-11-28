@@ -49,8 +49,19 @@ pub const VALID_SCRIPT_EVENTS: &[&str] = &["comment", "superchat", "first_time",
 
 /// ZIP 導入時に安全のため拒否する実行可能拡張子
 const FORBIDDEN_EXECUTABLE_EXTS: &[&str] = &[
-    "exe", "dll", "bat", "cmd", "ps1", "psm1", "psd1", "vbs", "vbe", "msi", "msp", "com", "scr",
-    "pif", "cpl", "hta", "jar", "sh", "bash", "zsh", "reg", "inf", "lnk", "sys", "drv",
+    "exe", "dll", "bat", "cmd", "ps1", "psm1", "psd1", "vbs", "vbe", "jse", "wsf", "wsh", "msi",
+    "msp", "msix", "appx", "com", "scr", "pif", "cpl", "hta", "jar", "sh", "bash", "zsh", "reg",
+    "inf", "lnk", "sys", "drv", "msc", "chm", "url", "scf", "iso", "vhd", "vhdx", "py", "pyw",
+    "rb", "pl", "xll",
+];
+
+/// MOD アイコンとして許可する安全なラスター画像拡張子（無効化 MOD からの HTML/SVG 配信を防止）
+const ALLOWED_ICON_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "ico", "avif", "bmp"];
+
+/// Windows 予約デバイス名（ファイル名として作成されると異常挙動や検証回避の原因になる）
+const WINDOWS_RESERVED_NAMES: &[&str] = &[
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -199,26 +210,40 @@ pub fn is_valid_mod_id(id: &str) -> bool {
         .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-' || *b == b'_')
 }
 
-/// MOD 内相対パスの安全性検証（パストラバーサル・絶対パス・バックスラッシュ・隠しパスを遮断）
+/// MOD 内相対パスの安全性検証（パストラバーサル・絶対パス・バックスラッシュ・隠しパス・Windows 末尾ドット/空白バイパスを遮断）
 pub fn is_safe_relative_asset_path(rel: &str) -> bool {
-    let trimmed = rel.trim();
-    if trimmed.is_empty() || trimmed.len() > 260 {
+    if rel.is_empty() || rel.len() > 260 {
         return false;
     }
-    if trimmed.starts_with('/')
-        || trimmed.starts_with('\\')
-        || trimmed.contains('\\')
-        || trimmed.contains('\0')
-        || trimmed.contains(':')
+    // 未トリム文字列に前後空白や制御文字があれば即拒否（Windows API による末尾空白除去での拡張子偽装を防止）
+    if rel.trim() != rel || rel.chars().any(|c| c.is_control()) {
+        return false;
+    }
+    if rel.starts_with('/')
+        || rel.starts_with('\\')
+        || rel.contains('\\')
+        || rel.contains('\0')
+        || rel.contains(':')
     {
         return false;
     }
     let mut has_normal = false;
-    for comp in Path::new(trimmed).components() {
+    for comp in Path::new(rel).components() {
         match comp {
             Component::Normal(seg) => {
                 let s = seg.to_string_lossy();
-                if s.is_empty() || s.starts_with('.') || s == ".." {
+                if s.is_empty()
+                    || s.starts_with('.')
+                    || s == ".."
+                    || s.ends_with('.')
+                    || s.ends_with(' ')
+                    || s.starts_with(' ')
+                {
+                    return false;
+                }
+                // Windows 予約デバイス名チェック（拡張子を除いたステム部）
+                let stem = s.split('.').next().unwrap_or("").to_ascii_uppercase();
+                if WINDOWS_RESERVED_NAMES.contains(&stem.as_str()) {
                     return false;
                 }
                 has_normal = true;
@@ -229,13 +254,23 @@ pub fn is_safe_relative_asset_path(rel: &str) -> bool {
     has_normal
 }
 
-fn is_forbidden_executable_path(rel_path: &str) -> bool {
-    let ext = Path::new(rel_path)
+pub fn is_forbidden_executable_path(rel_path: &str) -> bool {
+    let cleaned = rel_path.trim().trim_end_matches(['.', ' ']);
+    let ext = Path::new(cleaned)
         .extension()
         .and_then(|e| e.to_str())
         .map(|s| s.to_ascii_lowercase())
         .unwrap_or_default();
     FORBIDDEN_EXECUTABLE_EXTS.contains(&ext.as_str())
+}
+
+fn is_allowed_icon_path(rel_path: &str) -> bool {
+    let ext = Path::new(rel_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_default();
+    ALLOWED_ICON_EXTS.contains(&ext.as_str())
 }
 
 /// MOD 内静的アセットの HTTP Content-Type を拡張子から判定する
@@ -396,11 +431,14 @@ fn parse_mod_folder(
 
     let mut validation_errors: Vec<String> = Vec::new();
 
-    // アイコン
+    // アイコン（安全なラスター画像拡張子のみ許可）
     let icon_rel = manifest.icon.trim().to_string();
     let icon_url = if !icon_rel.is_empty() {
-        if !is_safe_relative_asset_path(&icon_rel) {
-            validation_errors.push(format!("icon のパスが不正です: {}", icon_rel));
+        if !is_safe_relative_asset_path(&icon_rel) || !is_allowed_icon_path(&icon_rel) {
+            validation_errors.push(format!(
+                "icon は安全な画像ファイル（png/jpg/webp/gif 等）の相対パスで指定してください: {}",
+                icon_rel
+            ));
             String::new()
         } else if !mod_dir.join(&icon_rel).is_file() {
             validation_errors.push(format!("icon ファイルが見つかりません: {}", icon_rel));
@@ -601,7 +639,18 @@ fn parse_mod_folder(
             continue;
         }
         let script_path = mod_dir.join(&entry);
-        match fs::read_to_string(&script_path) {
+        // シンボリックリンクによる MOD ディレクトリ外ファイルの読み込みを防止
+        let safe_script_path = match (fs::canonicalize(mod_dir), fs::canonicalize(&script_path)) {
+            (Ok(root), Ok(target)) if target.starts_with(&root) && target.is_file() => target,
+            _ => {
+                validation_errors.push(format!(
+                    "ロジックスクリプト '{}' ({}) は MOD ディレクトリ外の参照のため読み込めません",
+                    sc_id, entry
+                ));
+                continue;
+            }
+        };
+        match fs::read_to_string(&safe_script_path) {
             Ok(source) => {
                 if source.len() > crate::mod_script::MAX_SCRIPT_SOURCE_BYTES {
                     validation_errors.push(format!(
@@ -659,13 +708,12 @@ fn parse_mod_folder(
         && overlay_themes.is_empty()
         && custom_overlays.is_empty()
         && logic_scripts.is_empty()
+        && validation_errors.is_empty()
     {
-        if validation_errors.is_empty() {
-            validation_errors.push(
-                "reaction_effects / overlay_themes / custom_overlays / logic_scripts のいずれかを1つ以上定義してください。"
-                    .to_string(),
-            );
-        }
+        validation_errors.push(
+            "reaction_effects / overlay_themes / custom_overlays / logic_scripts のいずれかを1つ以上定義してください。"
+                .to_string(),
+        );
     }
 
     let load_error = if validation_errors.is_empty() {
@@ -839,7 +887,7 @@ pub fn import_mod_archive(
     let mut archive = ZipArchive::new(file)
         .context("有効な ZIP / .stosupmod アーカイブではありません")?;
 
-    if archive.len() == 0 {
+    if archive.is_empty() {
         return Err(anyhow!("アーカイブが空です"));
     }
     if archive.len() > MAX_ARCHIVE_FILES {
@@ -952,15 +1000,31 @@ pub fn import_mod_archive(
         let mod_id = validated.id.clone();
 
         fs::create_dir_all(mods_dir).context("mods フォルダの作成に失敗しました")?;
-        // 既存に同一 ID の別名フォルダがあれば先に削除して重複防止
-        if let Some(existing_dir) = find_mod_directory(mods_dir, &mod_id) {
-            let _ = fs::remove_dir_all(&existing_dir);
-        }
         let target_dir = mods_dir.join(&mod_id);
-        if target_dir.exists() {
-            fs::remove_dir_all(&target_dir)?;
+        let existing_dir = find_mod_directory(mods_dir, &mod_id);
+        // 先に既存 MOD を削除せず一時退避し、新フォルダ配置が成功してから削除（失敗時は自動ロールバック）
+        let backup_dir = mods_dir.join(format!(".__replace_bak_{}_{}", mod_id, uuid::Uuid::new_v4()));
+        let mut backed_up_origin: Option<PathBuf> = None;
+        if let Some(ref existing) = existing_dir {
+            if existing.exists() {
+                fs::rename(existing, &backup_dir)?;
+                backed_up_origin = Some(existing.clone());
+            }
+        } else if target_dir.exists() {
+            fs::rename(&target_dir, &backup_dir)?;
+            backed_up_origin = Some(target_dir.clone());
         }
-        copy_dir_recursive(&stage_dir, &target_dir)?;
+
+        if let Err(e) = copy_dir_recursive(&stage_dir, &target_dir) {
+            let _ = fs::remove_dir_all(&target_dir);
+            if let Some(orig) = backed_up_origin {
+                let _ = fs::rename(&backup_dir, orig);
+            }
+            return Err(e);
+        }
+        if backup_dir.exists() {
+            let _ = fs::remove_dir_all(&backup_dir);
+        }
 
         let now_ms = Utc::now().timestamp_millis();
         saved_states.insert(
@@ -979,23 +1043,28 @@ pub fn import_mod_archive(
 }
 
 /// 導入済み MOD をアンインストール（ディレクトリ削除）する
+/// `mod_id_or_folder` にフォルダ名（重複エラー側など）が渡された場合はそのフォルダを優先解決する
 pub fn uninstall_mod(
     mods_dir: &Path,
-    mod_id: &str,
+    mod_id_or_folder: &str,
     saved_states: &mut HashMap<String, ModSavedState>,
 ) -> Result<()> {
-    let target = find_mod_directory(mods_dir, mod_id)
-        .or_else(|| {
-            // 読み込みエラー状態の壊れたフォルダもフォルダ名一致で削除可能にする
-            if is_safe_relative_asset_path(mod_id) && !mod_id.contains('/') {
-                let p = mods_dir.join(mod_id);
-                if p.is_dir() {
-                    return Some(p);
-                }
-            }
+    let direct_folder = if is_safe_relative_asset_path(mod_id_or_folder)
+        && !mod_id_or_folder.contains('/')
+    {
+        let p = mods_dir.join(mod_id_or_folder);
+        if p.is_dir() {
+            Some(p)
+        } else {
             None
-        })
-        .ok_or_else(|| anyhow!("削除対象の MOD が見つかりません: {}", mod_id))?;
+        }
+    } else {
+        None
+    };
+
+    let target = direct_folder
+        .or_else(|| find_mod_directory(mods_dir, mod_id_or_folder))
+        .ok_or_else(|| anyhow!("削除対象の MOD が見つかりません: {}", mod_id_or_folder))?;
 
     let canon_root = fs::canonicalize(mods_dir)?;
     let canon_target = fs::canonicalize(&target)?;
@@ -1004,11 +1073,14 @@ pub fn uninstall_mod(
     }
 
     fs::remove_dir_all(&canon_target).context("MOD フォルダの削除に失敗しました")?;
-    saved_states.remove(mod_id);
+    // 同一 ID の正常側フォルダが他に残っていない場合のみ saved_states から除去
+    if find_mod_directory(mods_dir, mod_id_or_folder).is_none() {
+        saved_states.remove(mod_id_or_folder);
+    }
     Ok(())
 }
 
-fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
+pub(crate) fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
     fs::create_dir_all(dst)?;
     for entry in fs::read_dir(src)? {
         let entry = entry?;

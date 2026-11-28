@@ -126,15 +126,16 @@ class _CommentsScreenState extends State<CommentsScreen> {
         ],
       ),
     );
-    if (ok == true) {
+    final reason = reasonCtrl.text.trim();
+    WidgetsBinding.instance.addPostFrameCallback((_) => reasonCtrl.dispose());
+    if (ok == true && mounted) {
       await widget.controller.setUserBan(
         c.userId,
         c.platform,
         true,
-        reasonCtrl.text.trim(),
+        reason,
       );
     }
-    reasonCtrl.dispose();
   }
 
   Future<void> _editUserMemo(CommentItem c) async {
@@ -163,11 +164,11 @@ class _CommentsScreenState extends State<CommentsScreen> {
         ],
       ),
     );
-    if (ok == true) {
-      await widget.controller
-          .setUserMemo(c.userId, c.platform, memoCtrl.text.trim());
+    final memo = memoCtrl.text.trim();
+    WidgetsBinding.instance.addPostFrameCallback((_) => memoCtrl.dispose());
+    if (ok == true && mounted) {
+      await widget.controller.setUserMemo(c.userId, c.platform, memo);
     }
-    memoCtrl.dispose();
   }
 
   @override

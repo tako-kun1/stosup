@@ -271,6 +271,10 @@ pub async fn set_user_ban(
             if qr.state.entries.len() != before {
                 let q_state = qr.state.clone();
                 drop(qr);
+                {
+                    let db = runtime.db.lock().await;
+                    let _ = db.set_queue_state(&q_state);
+                }
                 let enabled = runtime.feature_flags.read().await.queue_enabled;
                 runtime.overlay_state.update_queue(q_state.clone(), enabled).await;
                 runtime.emit(AppEvent::queue_updated(q_state));

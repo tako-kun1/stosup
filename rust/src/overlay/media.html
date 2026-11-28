@@ -305,7 +305,7 @@
     sc.strokeText(key, w / 2, h / 2 + 2);
     sc.fillText(key, w / 2, h / 2 + 2);
 
-    const sprite = { canvas: c, aspect: w / h, baseH: fontPx };
+    const sprite = { canvas: c, aspect: w / h };
     textSpriteCache.set(key, sprite);
     return sprite;
   }
@@ -1194,6 +1194,7 @@
   let installedModsList = [];
   let installedModsRevision = 0;
   const loadedModEffectScripts = new Map();
+  let modEffectScriptChain = Promise.resolve();
 
   function syncInstalledMods(mods, revision) {
     if (Array.isArray(mods)) {
@@ -1202,7 +1203,9 @@
     if (typeof revision === 'number') {
       installedModsRevision = revision;
     }
-    window.StosupOverlay.syncMods(installedModsList, installedModsRevision);
+    if (window.StosupOverlay && typeof window.StosupOverlay.syncMods === 'function') {
+      window.StosupOverlay.syncMods(installedModsList, installedModsRevision);
+    }
   }
 
   function findModReactionEffect(modId, effectId) {
@@ -1268,27 +1271,40 @@
       }
     }
 
-    const scriptUrl = `${base}${effect.entry}?v=${rev}`;
+    const scriptBase = `${base}${effect.entry}`;
+    const scriptUrl = `${scriptBase}?v=${rev}`;
     if (loadedModEffectScripts.has(scriptUrl)) {
       return loadedModEffectScripts.get(scriptUrl);
     }
 
-    const promise = new Promise((resolve) => {
-      const s = document.createElement('script');
-      s.src = scriptUrl;
-      s.async = false;
-      window.StosupMod._setLoadingContext(mod.id, effect.effect_id);
-      s.onload = () => {
-        window.StosupMod._clearLoadingContext();
-        resolve(true);
-      };
-      s.onerror = () => {
-        window.StosupMod._clearLoadingContext();
-        console.error('[StosupMod] リアクション演出スクリプトの読み込みに失敗しました:', scriptUrl);
-        resolve(false);
-      };
-      document.head.appendChild(s);
-    });
+    // 順次ロードして activeLoadingModId の並列競合を防ぎ、再読み込み時は旧 <script> 要素を回収する
+    const promise = modEffectScriptChain.then(
+      () =>
+        new Promise((resolve) => {
+          const prevScripts = document.head.querySelectorAll('script[data-stosup-mod-fx-script]');
+          for (const el of prevScripts) {
+            if (el.getAttribute('data-stosup-mod-fx-script') === scriptBase && el.parentNode) {
+              el.parentNode.removeChild(el);
+            }
+          }
+          const s = document.createElement('script');
+          s.src = scriptUrl;
+          s.async = false;
+          s.setAttribute('data-stosup-mod-fx-script', scriptBase);
+          window.StosupMod._setLoadingContext(mod.id, effect.effect_id);
+          s.onload = () => {
+            window.StosupMod._clearLoadingContext();
+            resolve(true);
+          };
+          s.onerror = () => {
+            window.StosupMod._clearLoadingContext();
+            console.error('[StosupMod] リアクション演出スクリプトの読み込みに失敗しました:', scriptUrl);
+            resolve(false);
+          };
+          document.head.appendChild(s);
+        })
+    );
+    modEffectScriptChain = promise.then(() => {});
     loadedModEffectScripts.set(scriptUrl, promise);
     return promise;
   }
@@ -1485,7 +1501,6 @@
   }
 
   function connect() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(window.StosupOverlay.buildWsUrl('media'));
     ws.onmessage = (ev) => {
       try {

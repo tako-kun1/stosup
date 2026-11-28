@@ -44,6 +44,45 @@ impl PollRuntime {
         self.state.clone()
     }
 
+    pub fn update_config(&mut self, mut config: PollConfig) -> PollState {
+        let mut used_ids = std::collections::HashSet::new();
+        for (idx, opt) in config.options.iter_mut().enumerate() {
+            let trimmed = opt.id.trim().to_string();
+            if trimmed.is_empty() || !used_ids.insert(trimmed.clone()) {
+                let mut seq = idx + 1;
+                let mut candidate = format!("opt-{}", seq);
+                while !used_ids.insert(candidate.clone()) {
+                    seq += 1;
+                    candidate = format!("opt-{}", seq);
+                }
+                opt.id = candidate;
+            } else {
+                opt.id = trimmed;
+            }
+        }
+        // 既存の選択肢 ID に紐づく票数を引き継ぎ、削除された選択肢の投票履歴も整合させる
+        let prev_counts: HashMap<String, u64> = self
+            .state
+            .config
+            .options
+            .iter()
+            .map(|o| (o.id.clone(), o.vote_count))
+            .collect();
+        for opt in config.options.iter_mut() {
+            if let Some(&cnt) = prev_counts.get(&opt.id) {
+                opt.vote_count = cnt;
+            } else {
+                opt.vote_count = 0;
+            }
+        }
+        let valid_ids: std::collections::HashSet<&str> =
+            config.options.iter().map(|o| o.id.as_str()).collect();
+        self.voters.retain(|_, opt_id| valid_ids.contains(opt_id.as_str()));
+        self.state.config = config;
+        self.recalc_total();
+        self.state.clone()
+    }
+
     pub fn stop(&mut self) -> PollState {
         self.state.is_active = false;
         self.state.ended_at_ms = Some(Utc::now().timestamp_millis());

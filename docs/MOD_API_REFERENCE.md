@@ -110,7 +110,7 @@
 | `open` | WebSocket 接続確立時 | `{ channel, isPreview }` |
 | `close` | WebSocket 切断時 | `{}` |
 | `snapshot` | 接続直後の初期状態同期 | `{ config, comments, counters, last_lottery, first_time, monetization_items, poll_state, picked_comment, queue_state, media_config, mods, mods_revision, ... }` |
-| `comment` | 新規コメント受信時 | `CommentItem`（`id`, `user_id`, `user_name`, `user_icon_url`, `user_memo`, `message`, `message_runs`, `is_first_time`, `is_owner`, `is_moderator`, `is_member`, `event_kind`, `amount_display`, `event_accent_color`, `timestamp_ms` 等） |
+| `comment` | 新規コメント受信時 | `CommentItem`（`id`, `user_id`, `user_name`, `user_icon_url`, `message`, `message_runs`, `is_first_time`, `is_owner`, `is_moderator`, `is_member`, `event_kind`, `amount_display`, `event_accent_color`, `timestamp_ms` 等。※配信者メモ `user_memo` はプライバシー保護のためオーバーレイへは空文字で配信） |
 | `superchat` | スパチャ・メンバー一覧更新時 | `{ items: MonetizationItem[], enabled: boolean }` |
 | `pickup` | スポットテロップ切替・解除時 | `{ picked: { comment: CommentItem \| null, picked_at_ms }, enabled: boolean }` |
 | `poll` | ライブアンケート開始・票更新・締切時 | `{ poll: PollState, enabled: boolean }` |
@@ -149,13 +149,13 @@
 | 対象 (`targets` キー) | オーバーレイ名 | 主なセレクタ |
 |---|---|---|
 | `comments` | トークモニター | `#container`, `.comment-row`, `.avatar`, `.bubble`, `.bubble.monetization`, `.header`, `.author`, `.badge`, `.badge-owner`, `.badge-mod`, `.badge-member`, `.badge-first`, `.badge-monetization`, `.timestamp`, `.message`, `.stosup-emoji` |
-| `superchat` | エールボックス | `#list`, `.sc-card`, `.sc-header`, `.sc-avatar`, `.sc-author`, `.sc-amount`, `.sc-badge`, `.sc-message` |
-| `pickup` | スポットテロップ | `#stage`, `.pickup-card`, `.pickup-head`, `.pickup-avatar`, `.pickup-author`, `.pickup-badge`, `.pickup-message` |
-| `poll` | ライブアンケート | `#poll-box`, `.poll-header`, `.poll-title`, `.poll-status`, `.poll-options`, `.poll-option`, `.poll-bar-track`, `.poll-bar-fill`, `.poll-label`, `.poll-votes`, `.poll-footer` |
-| `queue` | エントリーレーン | `#queue-box`, `.queue-header`, `.queue-section-title`, `.queue-item`, `.queue-item.active`, `.queue-item.waiting`, `.queue-rank`, `.queue-avatar`, `.queue-name`, `.queue-meta` |
-| `media` | リアクションステージ | `#fx-canvas`, `#stage`, `.media-slot`, `.media-frame`, `.media-el`, `.media-caption` |
-| `lottery` | ドローボックス | `#stage`, `.lottery-card`, `.lottery-title`, `.winner-card`, `.winner-avatar`, `.winner-name`, `.winner-comment` |
-| `counter` | コールカウンター | `#counters`, `.counter-card`, `.counter-name`, `.counter-value`, `.counter-sub` |
-| `first_time` | ウェルカムカウンター | `#box`, `.ft-card`, `.ft-label`, `.ft-count`, `.ft-users`, `.ft-user-row`, `.ft-avatar`, `.ft-name` |
+| `superchat` | エールボックス | `#sc-list`, `.sc-card`, `.sc-card.checked`, `.sc-header`, `.sc-avatar`, `.sc-meta`, `.sc-name`, `.sc-kind`, `.sc-amount`, `.sc-body` |
+| `pickup` | スポットテロップ | `#stage`, `.pickup-shell`, `.pickup-plate`, `.pickup-avatar`, `.pickup-author`, `.pickup-badge`, `.pickup-card`, `.pickup-message` |
+| `poll` | ライブアンケート | `#wrap`, `.poll-card`, `.poll-header`, `.poll-status`, `.poll-question`, `.poll-total`, `.poll-options`, `.poll-opt`, `.poll-opt.leader`, `.poll-bar`, `.poll-opt-row`, `.poll-num`, `.poll-label`, `.poll-stats`, `.poll-footer`, `.poll-footer-badge` |
+| `queue` | エントリーレーン | `#wrap`, `.q-card`, `.q-section-title`, `.q-list`, `.q-item`, `.q-item.active`, `.q-rank`, `.q-avatar`, `.q-name`, `.q-tag`, `.q-empty` |
+| `media` | リアクションステージ | `#fx-canvas`, `#stage`, `.media-slot`, `.media-frame`, `.media-el`, `.media-caption`, `.stosup-mod-effect-root` |
+| `lottery` | ドローボックス | `#stage`, `.banner`, `.winners-grid`, `.winner-card`, `.winner-avatar`, `.winner-name`, `.winner-comment`, `.rolling` |
+| `counter` | コールカウンター | `#counters`, `.card`, `.label`, `.mode-tag`, `.value`, `.sub` |
+| `first_time` | ウェルカムカウンター | `#wrap`, `.ft-card`, `.ft-title`, `.ft-count`, `.ft-profiles`, `.ft-user`, `.ft-avatar`, `.ft-user-name`, `.ft-user-badge` |
 
 > **デザインのコツ**: GUI ビジュアルスタイルエディタ（文字サイズ・袋文字・エッジ発光・カード背景透明度など）は MOD テーマ CSS の **後から** 適用されるため、テーマ CSS 側では `!important` を多用せず通常の詳細度で指定しておくと、ユーザーが GUI から微調整した際に綺麗に反映されます。

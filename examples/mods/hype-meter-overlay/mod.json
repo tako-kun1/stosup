@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "Stosup Sample",
   "description": "コメントの勢いとスパチャに反応してゲージが上昇し、MAX 到達で FEVER 演出に切り替わる独立カスタムオーバーレイのサンプル。",
-  "min_stosup_version": "0.5.1",
+  "min_stosup_version": "0.6.0",
   "homepage": "https://github.com/tako-kun1/stosup",
   "license": "MIT",
   "custom_overlays": [

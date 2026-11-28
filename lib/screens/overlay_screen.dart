@@ -251,6 +251,145 @@ class _OverlayScreenState extends State<OverlayScreen>
     _queueFont = cfg.queueFontFamily;
     _mediaFont = cfg.mediaFontFamily;
     _visualStyles = Map<String, OverlayVisualStyle>.from(cfg.visualStyles);
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant OverlayScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onControllerChanged);
+      widget.controller.addListener(_onControllerChanged);
+      _onControllerChanged();
+    }
+  }
+
+  static bool _visualStylesEquals(
+    Map<String, OverlayVisualStyle> a,
+    Map<String, OverlayVisualStyle> b,
+  ) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      if (!b.containsKey(entry.key) || b[entry.key] != entry.value) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static bool _overlayConfigEquals(OverlayConfig a, OverlayConfig b) {
+    if (identical(a, b)) return true;
+    return a.port == b.port &&
+        a.commentFontSize == b.commentFontSize &&
+        a.commentMaxItems == b.commentMaxItems &&
+        a.showIcons == b.showIcons &&
+        a.showTimestamps == b.showTimestamps &&
+        a.defaultBubbleBg == b.defaultBubbleBg &&
+        a.defaultTextColor == b.defaultTextColor &&
+        a.commentsTheme == b.commentsTheme &&
+        a.lotteryTheme == b.lotteryTheme &&
+        a.counterTheme == b.counterTheme &&
+        a.firstTimeTheme == b.firstTimeTheme &&
+        a.superchatTheme == b.superchatTheme &&
+        a.pollTheme == b.pollTheme &&
+        a.pickupTheme == b.pickupTheme &&
+        a.queueTheme == b.queueTheme &&
+        a.mediaTheme == b.mediaTheme &&
+        a.commentsBgColor == b.commentsBgColor &&
+        a.lotteryBgColor == b.lotteryBgColor &&
+        a.counterBgColor == b.counterBgColor &&
+        a.firstTimeBgColor == b.firstTimeBgColor &&
+        a.superchatBgColor == b.superchatBgColor &&
+        a.pollBgColor == b.pollBgColor &&
+        a.pickupBgColor == b.pickupBgColor &&
+        a.queueBgColor == b.queueBgColor &&
+        a.mediaBgColor == b.mediaBgColor &&
+        a.commentsFontFamily == b.commentsFontFamily &&
+        a.lotteryFontFamily == b.lotteryFontFamily &&
+        a.counterFontFamily == b.counterFontFamily &&
+        a.firstTimeFontFamily == b.firstTimeFontFamily &&
+        a.superchatFontFamily == b.superchatFontFamily &&
+        a.pollFontFamily == b.pollFontFamily &&
+        a.pickupFontFamily == b.pickupFontFamily &&
+        a.queueFontFamily == b.queueFontFamily &&
+        a.mediaFontFamily == b.mediaFontFamily &&
+        a.commentsCustomCss == b.commentsCustomCss &&
+        a.lotteryCustomCss == b.lotteryCustomCss &&
+        a.counterCustomCss == b.counterCustomCss &&
+        a.firstTimeCustomCss == b.firstTimeCustomCss &&
+        a.superchatCustomCss == b.superchatCustomCss &&
+        a.pollCustomCss == b.pollCustomCss &&
+        a.pickupCustomCss == b.pickupCustomCss &&
+        a.queueCustomCss == b.queueCustomCss &&
+        a.mediaCustomCss == b.mediaCustomCss &&
+        _visualStylesEquals(a.visualStyles, b.visualStyles);
+  }
+
+  static void _setTextIfDifferent(TextEditingController ctrl, String next) {
+    if (ctrl.text != next) {
+      ctrl.text = next;
+    }
+  }
+
+  void _syncFromConfig(OverlayConfig latestCfg) {
+    _lastSyncedOverlayConfig = latestCfg;
+    _setTextIfDifferent(_portCtrl, latestCfg.port.toString());
+    _fontSize = latestCfg.commentFontSize;
+    _maxItems = latestCfg.commentMaxItems;
+    _showIcons = latestCfg.showIcons;
+    _showTimestamps = latestCfg.showTimestamps;
+    _defaultBg = latestCfg.defaultBubbleBg;
+    _defaultText = latestCfg.defaultTextColor;
+    _mediaBgColor = latestCfg.mediaBgColor;
+    _commentsBgColor = latestCfg.commentsBgColor;
+    _lotteryBgColor = latestCfg.lotteryBgColor;
+    _counterBgColor = latestCfg.counterBgColor;
+    _firstTimeBgColor = latestCfg.firstTimeBgColor;
+    _superchatBgColor = latestCfg.superchatBgColor;
+    _pollBgColor = latestCfg.pollBgColor;
+    _pickupBgColor = latestCfg.pickupBgColor;
+    _queueBgColor = latestCfg.queueBgColor;
+    _commentsTheme = _normalizeThemeId(latestCfg.commentsTheme);
+    _lotteryTheme = _normalizeThemeId(latestCfg.lotteryTheme);
+    _counterTheme = _normalizeThemeId(latestCfg.counterTheme);
+    _firstTimeTheme = _normalizeThemeId(latestCfg.firstTimeTheme);
+    _superchatTheme = _normalizeThemeId(latestCfg.superchatTheme);
+    _pollTheme = _normalizeThemeId(latestCfg.pollTheme);
+    _pickupTheme = _normalizeThemeId(latestCfg.pickupTheme);
+    _queueTheme = _normalizeThemeId(latestCfg.queueTheme);
+    _mediaTheme = _normalizeThemeId(latestCfg.mediaTheme);
+    _commentsFont = latestCfg.commentsFontFamily;
+    _lotteryFont = latestCfg.lotteryFontFamily;
+    _counterFont = latestCfg.counterFontFamily;
+    _firstTimeFont = latestCfg.firstTimeFontFamily;
+    _superchatFont = latestCfg.superchatFontFamily;
+    _pollFont = latestCfg.pollFontFamily;
+    _pickupFont = latestCfg.pickupFontFamily;
+    _queueFont = latestCfg.queueFontFamily;
+    _mediaFont = latestCfg.mediaFontFamily;
+    _setTextIfDifferent(_commentsCssCtrl, latestCfg.commentsCustomCss);
+    _setTextIfDifferent(_lotteryCssCtrl, latestCfg.lotteryCustomCss);
+    _setTextIfDifferent(_counterCssCtrl, latestCfg.counterCustomCss);
+    _setTextIfDifferent(_firstTimeCssCtrl, latestCfg.firstTimeCustomCss);
+    _setTextIfDifferent(_superchatCssCtrl, latestCfg.superchatCustomCss);
+    _setTextIfDifferent(_pollCssCtrl, latestCfg.pollCustomCss);
+    _setTextIfDifferent(_pickupCssCtrl, latestCfg.pickupCustomCss);
+    _setTextIfDifferent(_queueCssCtrl, latestCfg.queueCustomCss);
+    _setTextIfDifferent(_mediaCssCtrl, latestCfg.mediaCustomCss);
+    _visualStyles =
+        Map<String, OverlayVisualStyle>.from(latestCfg.visualStyles);
+  }
+
+  void _onControllerChanged() {
+    if (!mounted) return;
+    final latestCfg = widget.controller.overlayConfig;
+    // Map の値比較で真に設定が変化したときだけ同期し、保存直後の同一内容イベント再到着による編集中ステート上書きを防ぐ
+    if (!_overlayConfigEquals(latestCfg, _lastSyncedOverlayConfig)) {
+      setState(() {
+        _syncFromConfig(latestCfg);
+      });
+    }
   }
 
   void _onTabChanged() {
@@ -279,6 +418,7 @@ class _OverlayScreenState extends State<OverlayScreen>
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
     _tabCtrl.removeListener(_onTabChanged);
     _tabCtrl.dispose();
     _tabScrollCtrl.dispose();
@@ -372,30 +512,6 @@ class _OverlayScreenState extends State<OverlayScreen>
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final latestCfg = widget.controller.overlayConfig;
-    if (latestCfg != _lastSyncedOverlayConfig) {
-      _lastSyncedOverlayConfig = latestCfg;
-      _mediaBgColor = latestCfg.mediaBgColor;
-      _commentsBgColor = latestCfg.commentsBgColor;
-      _lotteryBgColor = latestCfg.lotteryBgColor;
-      _counterBgColor = latestCfg.counterBgColor;
-      _firstTimeBgColor = latestCfg.firstTimeBgColor;
-      _superchatBgColor = latestCfg.superchatBgColor;
-      _pollBgColor = latestCfg.pollBgColor;
-      _pickupBgColor = latestCfg.pickupBgColor;
-      _queueBgColor = latestCfg.queueBgColor;
-      _commentsTheme = _normalizeThemeId(latestCfg.commentsTheme);
-      _lotteryTheme = _normalizeThemeId(latestCfg.lotteryTheme);
-      _counterTheme = _normalizeThemeId(latestCfg.counterTheme);
-      _firstTimeTheme = _normalizeThemeId(latestCfg.firstTimeTheme);
-      _superchatTheme = _normalizeThemeId(latestCfg.superchatTheme);
-      _pollTheme = _normalizeThemeId(latestCfg.pollTheme);
-      _pickupTheme = _normalizeThemeId(latestCfg.pickupTheme);
-      _queueTheme = _normalizeThemeId(latestCfg.queueTheme);
-      _mediaTheme = _normalizeThemeId(latestCfg.mediaTheme);
-      _visualStyles =
-          Map<String, OverlayVisualStyle>.from(latestCfg.visualStyles);
-    }
     final obsEnabled = widget.controller.featureFlags.obsOverlayEnabled;
 
     return Column(
@@ -933,7 +1049,7 @@ class _OverlayScreenState extends State<OverlayScreen>
                             Text('コメント文字サイズ: ${_fontSize}px',
                                 style: TextStyle(color: p.textSecondary)),
                             Slider(
-                              value: _fontSize.toDouble(),
+                              value: _fontSize.toDouble().clamp(12, 36),
                               min: 12,
                               max: 36,
                               divisions: 24,
@@ -951,7 +1067,7 @@ class _OverlayScreenState extends State<OverlayScreen>
                             Text('最大保持コメント数: $_maxItems件',
                                 style: TextStyle(color: p.textSecondary)),
                             Slider(
-                              value: _maxItems.toDouble(),
+                              value: _maxItems.toDouble().clamp(5, 100),
                               min: 5,
                               max: 100,
                               divisions: 19,

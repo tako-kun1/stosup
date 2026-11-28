@@ -205,9 +205,22 @@ impl QueueRuntime {
         {
             let target_pos = (pos as i32 + delta).clamp(0, waiting_indices.len() as i32 - 1) as usize;
             if target_pos != pos {
-                self.state
-                    .entries
-                    .swap(waiting_indices[pos], waiting_indices[target_pos]);
+                let idx_a = waiting_indices[pos];
+                let idx_b = waiting_indices[target_pos];
+                // 先着順モードでは joined_at_ms も交換しておき、次回参加時の sort_entries() で手動順が戻らないようにする
+                if self.state.config.sort_mode == QueueSortMode::FirstCome {
+                    let ta = self.state.entries[idx_a].joined_at_ms;
+                    let tb = self.state.entries[idx_b].joined_at_ms;
+                    if ta != tb {
+                        self.state.entries[idx_a].joined_at_ms = tb;
+                        self.state.entries[idx_b].joined_at_ms = ta;
+                    } else if target_pos < pos {
+                        self.state.entries[idx_a].joined_at_ms = ta.saturating_sub(1);
+                    } else {
+                        self.state.entries[idx_a].joined_at_ms = ta.saturating_add(1);
+                    }
+                }
+                self.state.entries.swap(idx_a, idx_b);
             }
         }
         self.state.clone()
@@ -264,10 +277,12 @@ mod tests {
     #[test]
     fn test_queue_join_priority_rotate_and_leave() {
         let mut rt = QueueRuntime::default();
-        let mut cfg = QueueConfig::default();
-        cfg.is_accepting = true;
-        cfg.max_active_slots = 2;
-        cfg.sort_mode = QueueSortMode::FirstTimerFirst;
+        let cfg = QueueConfig {
+            is_accepting: true,
+            max_active_slots: 2,
+            sort_mode: QueueSortMode::FirstTimerFirst,
+            ..Default::default()
+        };
         rt.update_config(cfg);
 
         // 常連2人と初見1人が順番に参加希望

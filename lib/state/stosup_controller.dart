@@ -36,6 +36,7 @@ class StosupController extends ChangeNotifier {
   int topicRevision(StosupTopic topic) => _topicRevisions[topic.index];
 
   void _notifyTopics(List<StosupTopic> topics) {
+    if (_isDisposed) return;
     for (final t in topics) {
       _topicRevisions[t.index]++;
     }
@@ -45,6 +46,7 @@ class StosupController extends ChangeNotifier {
   /// 既存の notifyListeners() 呼び出しやテストサブクラスとの完全な後方互換性を維持
   @override
   void notifyListeners() {
+    if (_isDisposed) return;
     for (var i = 0; i < _topicRevisions.length; i++) {
       _topicRevisions[i]++;
     }
@@ -252,11 +254,9 @@ class StosupController extends ChangeNotifier {
     allowMultipleMatch: true,
   );
 
-  MediaTriggerEvent? lastMediaTrigger;
-
   RemoteAccessStatus remoteAccessStatus = const RemoteAccessStatus(
     config: RemoteAccessConfig(
-      allowLanAccess: true,
+      allowLanAccess: false,
       remoteControlEnabled: true,
       requirePin: true,
       pinCode: '123456',
@@ -264,7 +264,7 @@ class StosupController extends ChangeNotifier {
     ),
     serverRunning: false,
     port: 18765,
-    boundAddress: '0.0.0.0:18765',
+    boundAddress: '127.0.0.1:18765',
     localIps: [],
     localUrl: 'http://127.0.0.1:18765/remote',
     lanUrls: [],
@@ -383,7 +383,12 @@ class StosupController extends ChangeNotifier {
       ]);
 
       _eventSub?.cancel();
-      _eventSub = api.subscribeEvents().listen(_handleEvent);
+      _eventSub = api.subscribeEvents().listen(
+        _handleEvent,
+        onError: (Object e, StackTrace st) {
+          debugPrint('Stosup event stream error: $e');
+        },
+      );
 
       isInitialized = true;
       notifyListeners();
@@ -768,10 +773,8 @@ class StosupController extends ChangeNotifier {
           _notifyTopics(const [StosupTopic.shell, StosupTopic.queue]);
         }
       case AppEventKind.mediaTriggered:
-        if (ev.mediaTrigger != null) {
-          lastMediaTrigger = ev.mediaTrigger!;
-          _notifyTopics(const [StosupTopic.media]);
-        }
+        // OBS オーバーレイ側で再生されるため、アプリ UI 側の不要な再ビルドは発生させない
+        break;
       case AppEventKind.mediaRulesUpdated:
         if (ev.mediaRules != null) {
           mediaReactionRules = List<MediaReactionRule>.from(ev.mediaRules!);
@@ -944,11 +947,16 @@ class StosupController extends ChangeNotifier {
   }
 
   Future<void> clearComments() async {
-    _commentNotifyTimer?.cancel();
-    _commentNotifyTimer = null;
-    await api.clearRecentComments();
-    comments = [];
-    _notifyTopics(const [StosupTopic.comments]);
+    try {
+      await api.clearRecentComments();
+      if (_isDisposed) return;
+      _commentNotifyTimer?.cancel();
+      _commentNotifyTimer = null;
+      comments = [];
+      _notifyTopics(const [StosupTopic.comments]);
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
   }
 
   Future<void> sendDemoComment(
@@ -1903,9 +1911,9 @@ class StosupController extends ChangeNotifier {
   }
 
   Stream<UpdateDownloadProgress> downloadUpdate(UpdateInfo info) {
-    if (info.isPrerelease || info.installerUrl == null) {
+    if (info.installerUrl == null || info.installerUrl!.trim().isEmpty) {
       return Stream.error(
-        StateError('pre バージョンは自動更新の対象外です'),
+        StateError('このリリースにはダウンロード可能なインストーラーが見つかりませんでした'),
       );
     }
     return api.downloadUpdateInstaller(
@@ -1928,15 +1936,6 @@ class StosupController extends ChangeNotifier {
         _notifyTopics(const [StosupTopic.comments]);
       }
     } catch (_) {}
-  }
-
-  Future<ResolvedYouTubeLive?> resolveYouTubeLive(String input) async {
-    try {
-      return await api.resolveYoutubeLive(input: input);
-    } catch (e) {
-      onNotice?.call('error', e.toString());
-      return null;
-    }
   }
 
   Future<void> toggleConnectionHistoryFavorite(String id, bool favorite) async {

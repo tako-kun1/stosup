@@ -41,6 +41,7 @@
   let _activeModThemeHook = null;
   let _activeModThemeOverlayKey = '';
   const _loadedThemeScripts = new Map();
+  let _scriptLoadChain = Promise.resolve();
 
   function _findModTheme(fullThemeId) {
     if (!fullThemeId || !fullThemeId.startsWith('mod:')) return null;
@@ -81,28 +82,41 @@
     if (_loadedThemeScripts.has(url)) {
       return _loadedThemeScripts.get(url);
     }
-    const promise = new Promise((resolve) => {
-      const s = document.createElement('script');
-      s.src = url;
-      s.async = false;
-      if (global.StosupMod && typeof global.StosupMod._setLoadingContext === 'function') {
-        global.StosupMod._setLoadingContext(modId, componentId);
-      }
-      s.onload = () => {
-        if (global.StosupMod && typeof global.StosupMod._clearLoadingContext === 'function') {
-          global.StosupMod._clearLoadingContext();
-        }
-        resolve(true);
-      };
-      s.onerror = () => {
-        if (global.StosupMod && typeof global.StosupMod._clearLoadingContext === 'function') {
-          global.StosupMod._clearLoadingContext();
-        }
-        console.error('[StosupOverlay] MOD theme script load failed:', url);
-        resolve(false);
-      };
-      document.head.appendChild(s);
-    });
+    const baseKey = String(url).split('?')[0];
+    // 順次ロードしてグローバル loadingContext の競合を防ぎ、再読み込み時は旧 <script> 要素を回収する
+    const promise = _scriptLoadChain.then(
+      () =>
+        new Promise((resolve) => {
+          const prevNodes = document.head.querySelectorAll('script[data-stosup-script-base]');
+          for (const el of prevNodes) {
+            if (el.getAttribute('data-stosup-script-base') === baseKey && el.parentNode) {
+              el.parentNode.removeChild(el);
+            }
+          }
+          const s = document.createElement('script');
+          s.src = url;
+          s.async = false;
+          s.setAttribute('data-stosup-script-base', baseKey);
+          if (global.StosupMod && typeof global.StosupMod._setLoadingContext === 'function') {
+            global.StosupMod._setLoadingContext(modId, componentId);
+          }
+          s.onload = () => {
+            if (global.StosupMod && typeof global.StosupMod._clearLoadingContext === 'function') {
+              global.StosupMod._clearLoadingContext();
+            }
+            resolve(true);
+          };
+          s.onerror = () => {
+            if (global.StosupMod && typeof global.StosupMod._clearLoadingContext === 'function') {
+              global.StosupMod._clearLoadingContext();
+            }
+            console.error('[StosupOverlay] MOD theme script load failed:', url);
+            resolve(false);
+          };
+          document.head.appendChild(s);
+        })
+    );
+    _scriptLoadChain = promise.then(() => {});
     _loadedThemeScripts.set(url, promise);
     return promise;
   }
@@ -707,8 +721,16 @@
   }
 
   function fallbackAvatar(name) {
-    const ch = String(name || '?').slice(0, 1);
-    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='8' fill='%232b303a'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='%23f7f8fa' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(ch)}</text></svg>`;
+    // 絵文字（サロゲートペア）でも URIError を起こさないようコードポイント単位で先頭 1 文字を抽出し XML エスケープ
+    const raw = String(name || '').trim() || '?';
+    const ch = Array.from(raw)[0] || '?';
+    const xmlSafe = ch
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='8' fill='%232b303a'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='%23f7f8fa' font-family='sans-serif' font-weight='bold' font-size='28'>${encodeURIComponent(xmlSafe)}</text></svg>`;
   }
 
   function applyCustomCss(styleEl, rawCss) {

@@ -48,11 +48,24 @@ class _PollScreenState extends State<PollScreen> {
 
   late TextEditingController _questionCtrl;
   final List<_EditablePollOption> _options = [];
+  final List<_EditablePollOption> _pendingDisposeOptions = [];
   late bool _allowVoteChange;
   late bool _excludeBanned;
   late bool _showPercentage;
   late bool _showVoteCount;
   String _lastSyncedConfigSig = '';
+
+  void _scheduleDisposeOptions(List<_EditablePollOption> stale) {
+    if (stale.isEmpty) return;
+    _pendingDisposeOptions.addAll(stale);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final o in stale) {
+        if (_pendingDisposeOptions.remove(o)) {
+          o.dispose();
+        }
+      }
+    });
+  }
 
   String _configSignature(PollConfig cfg) {
     final opts = cfg.options
@@ -68,10 +81,9 @@ class _PollScreenState extends State<PollScreen> {
     _excludeBanned = cfg.excludeBanned;
     _showPercentage = cfg.showPercentage;
     _showVoteCount = cfg.showVoteCount;
-    for (final o in _options) {
-      o.dispose();
-    }
+    final stale = List<_EditablePollOption>.from(_options);
     _options.clear();
+    _scheduleDisposeOptions(stale);
     for (final opt in cfg.options) {
       _options.add(_EditablePollOption(
         id: opt.id,
@@ -106,6 +118,11 @@ class _PollScreenState extends State<PollScreen> {
     for (final o in _options) {
       o.dispose();
     }
+    _options.clear();
+    for (final o in _pendingDisposeOptions) {
+      o.dispose();
+    }
+    _pendingDisposeOptions.clear();
     super.dispose();
   }
 
@@ -126,7 +143,7 @@ class _PollScreenState extends State<PollScreen> {
     if (_options.length <= 2) return;
     setState(() {
       final removed = _options.removeAt(index);
-      removed.dispose();
+      _scheduleDisposeOptions([removed]);
     });
   }
 

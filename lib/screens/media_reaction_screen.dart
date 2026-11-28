@@ -569,7 +569,7 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                                 style: TextStyle(
                                     fontSize: 12, color: p.textSecondary)),
                             Slider(
-                              value: _masterVolume.toDouble(),
+                              value: _masterVolume.toDouble().clamp(0, 100),
                               min: 0,
                               max: 100,
                               divisions: 20,
@@ -583,7 +583,8 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                         SizedBox(
                           width: 130,
                           child: DropdownButtonFormField<int>(
-                            initialValue: _maxConcurrent,
+                            key: ValueKey(_maxConcurrent.clamp(1, 12)),
+                            initialValue: _maxConcurrent.clamp(1, 12),
                             isExpanded: true,
                             decoration:
                                 const InputDecoration(labelText: '固定同時上限'),
@@ -1111,7 +1112,10 @@ class _ReactionStageRuleEditorDialogState
       return;
     }
 
-    final durSec = double.tryParse(_durationSecCtrl.text.trim()) ?? 4.0;
+    final parsedDur = double.tryParse(_durationSecCtrl.text.trim());
+    final durSec = (parsedDur != null && parsedDur.isFinite)
+        ? parsedDur.clamp(0.0, 600.0)
+        : 4.0;
     final durMs = durSec <= 0 ? 0 : (durSec * 1000).round();
     final cd = (int.tryParse(_cooldownCtrl.text.trim()) ?? 3).clamp(0, 3600);
     final prio = int.tryParse(_priorityCtrl.text.trim()) ?? 10;
@@ -1167,6 +1171,7 @@ class _ReactionStageRuleEditorDialogState
     );
     final nav = Navigator.of(context);
     await widget.controller.saveMediaReactionRule(rule);
+    if (!mounted) return;
     nav.pop();
   }
 
@@ -1206,6 +1211,7 @@ class _ReactionStageRuleEditorDialogState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DropdownButtonFormField<String>(
+            key: ValueKey('mod_sel_$currentKey'),
             initialValue: selectedDef != null ? currentKey : null,
             isExpanded: true,
             decoration: const InputDecoration(
@@ -1286,6 +1292,7 @@ class _ReactionStageRuleEditorDialogState
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: DropdownButtonFormField<String>(
+            key: ValueKey('mod_param_${_modId}_${_modEffectId}_${param.key}_$effective'),
             initialValue: effective,
             isExpanded: true,
             decoration: InputDecoration(
@@ -1301,9 +1308,10 @@ class _ReactionStageRuleEditorDialogState
           ),
         );
       case ModParamKind.number:
-        final numVal = cur is num
+        final rawNum = cur is num
             ? cur.toDouble()
             : (double.tryParse(cur?.toString() ?? param.defaultValue) ?? 0);
+        final numVal = rawNum.isFinite ? rawNum : 0.0;
         if (param.min != null && param.max != null && param.max! > param.min!) {
           final minV = param.min!;
           final maxV = param.max!;
@@ -1338,6 +1346,7 @@ class _ReactionStageRuleEditorDialogState
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: TextFormField(
+            key: ValueKey('mod_param_${_modId}_${_modEffectId}_${param.key}'),
             initialValue: numVal.toString(),
             keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
@@ -1347,7 +1356,9 @@ class _ReactionStageRuleEditorDialogState
             ),
             onChanged: (v) {
               final parsed = double.tryParse(v.trim());
-              if (parsed != null) _modParams[param.key] = parsed;
+              if (parsed != null && parsed.isFinite) {
+                _modParams[param.key] = parsed;
+              }
             },
           ),
         );
@@ -1372,6 +1383,8 @@ class _ReactionStageRuleEditorDialogState
               const SizedBox(width: 10),
               Expanded(
                 child: TextFormField(
+                  key: ValueKey(
+                      'mod_param_${_modId}_${_modEffectId}_${param.key}'),
                   initialValue: cVal,
                   decoration: InputDecoration(
                     labelText: '${param.label}（HEX 色コード）',
@@ -1390,6 +1403,7 @@ class _ReactionStageRuleEditorDialogState
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: TextFormField(
+            key: ValueKey('mod_param_${_modId}_${_modEffectId}_${param.key}'),
             initialValue: strVal,
             decoration: InputDecoration(
               labelText: param.label,
@@ -1674,7 +1688,7 @@ class _ReactionStageRuleEditorDialogState
                     ),
                     if (_soundStoredFileName.isNotEmpty)
                       Slider(
-                        value: _soundVolume.toDouble(),
+                        value: _soundVolume.toDouble().clamp(0, 100),
                         min: 0,
                         max: 100,
                         divisions: 20,
@@ -1805,7 +1819,7 @@ class _ReactionStageRuleEditorDialogState
                               style: TextStyle(
                                   fontSize: 12, color: p.textSecondary)),
                           Slider(
-                            value: _widthPercent.toDouble(),
+                            value: _widthPercent.toDouble().clamp(15, 100),
                             min: 15,
                             max: 100,
                             divisions: 17,
@@ -1824,7 +1838,7 @@ class _ReactionStageRuleEditorDialogState
                               style: TextStyle(
                                   fontSize: 12, color: p.textSecondary)),
                           Slider(
-                            value: _volume.toDouble(),
+                            value: _volume.toDouble().clamp(0, 100),
                             min: 0,
                             max: 100,
                             divisions: 20,

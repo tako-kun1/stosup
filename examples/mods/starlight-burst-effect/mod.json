@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "Stosup Sample",
   "description": "コメントやスパチャに反応して流星群・花火バースト・オーロラ光の輪を描く Canvas 60fps リアクション演出サンプル。",
-  "min_stosup_version": "0.5.1",
+  "min_stosup_version": "0.6.0",
   "homepage": "https://github.com/tako-kun1/stosup",
   "license": "MIT",
   "reaction_effects": [

@@ -325,25 +325,13 @@ impl Default for PollConfig {
 }
 
 /// リアルタイム投票の現在状態
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PollState {
     pub is_active: bool,
     pub started_at_ms: Option<i64>,
     pub ended_at_ms: Option<i64>,
     pub config: PollConfig,
     pub total_votes: u64,
-}
-
-impl Default for PollState {
-    fn default() -> Self {
-        Self {
-            is_active: false,
-            started_at_ms: None,
-            ended_at_ms: None,
-            config: PollConfig::default(),
-            total_votes: 0,
-        }
-    }
 }
 
 /// コメントピックアップ（ピン留め表示）の現在状態
@@ -845,7 +833,7 @@ pub struct FirstTimeUser {
 }
 
 /// 初見カウンターの現在状態
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FirstTimeCounterState {
     /// 現在の配信での初見カウント（配信ごとに0へリセット可能）
     pub count: u64,
@@ -854,17 +842,6 @@ pub struct FirstTimeCounterState {
     /// 今回の配信で検知された初見ユーザー一覧（新しい順）
     pub recent_users: Vec<FirstTimeUser>,
     pub config: FirstTimeCounterConfig,
-}
-
-impl Default for FirstTimeCounterState {
-    fn default() -> Self {
-        Self {
-            count: 0,
-            total_detected_all_time: 0,
-            recent_users: Vec::new(),
-            config: FirstTimeCounterConfig::default(),
-        }
-    }
 }
 
 /// 特定ワードカウンターの設定と現在カウント
@@ -985,7 +962,7 @@ pub struct CommentLotteryEntry {
 }
 
 /// コメント抽選の現在状態
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CommentLotteryState {
     pub is_accepting: bool,
     pub started_at_ms: Option<i64>,
@@ -997,26 +974,11 @@ pub struct CommentLotteryState {
     pub last_post_status: Option<String>,
 }
 
-impl Default for CommentLotteryState {
-    fn default() -> Self {
-        Self {
-            is_accepting: false,
-            started_at_ms: None,
-            ended_at_ms: None,
-            config: CommentLotteryConfig::default(),
-            entries: Vec::new(),
-            already_won_user_ids: Vec::new(),
-            last_result: None,
-            last_post_status: None,
-        }
-    }
-}
-
 /// ローカルネットワーク（LAN）接続・Web リモコン設定
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoteAccessConfig {
-    /// ローカルネットワーク内の他端末からの接続を許可するか（デフォルト: ON / 外部IPは常時ブロック＋PIN保護）
-    #[serde(default = "default_true")]
+    /// ローカルネットワーク内の他端末からの接続を許可するか（デフォルト: OFF / 同一端末 127.0.0.1 のみ許可）
+    #[serde(default)]
     pub allow_lan_access: bool,
     /// Web リモコン操作画面 (/remote および操作 API) を有効にするか（デフォルト: ON）
     #[serde(default = "default_true")]
@@ -1033,13 +995,13 @@ pub struct RemoteAccessConfig {
 }
 
 fn default_remote_pin() -> String {
-    "123456".to_string()
+    crate::remote::generate_pin_code()
 }
 
 impl Default for RemoteAccessConfig {
     fn default() -> Self {
         Self {
-            allow_lan_access: true,
+            allow_lan_access: false,
             remote_control_enabled: true,
             require_pin: true,
             pin_code: default_remote_pin(),
@@ -1142,16 +1104,16 @@ pub struct OverlayConfig {
     pub default_bubble_bg: String,
     #[serde(default = "default_text_color")]
     pub default_text_color: String,
-    /// コメント表示オーバーレイのデザインプリセット ("default" | "minimal" | "pop" | "neon" | "japanese")
+    /// コメント表示オーバーレイのデザインプリセット ("broadcast" | "editorial" | "tactical" | "variety" | "cinema" | "edge_glow" | "mod:{mod_id}:{theme_id}")
     #[serde(default = "default_theme_name")]
     pub comments_theme: String,
-    /// 抽選結果オーバーレイのデザインプリセット ("default" | "festive" | "minimal" | "neon" | "cute")
+    /// 抽選結果オーバーレイのデザインプリセット ("broadcast" | "editorial" | "tactical" | "variety" | "cinema" | "edge_glow" | "mod:{mod_id}:{theme_id}")
     #[serde(default = "default_theme_name")]
     pub lottery_theme: String,
-    /// ワードカウンターオーバーレイのデザインプリセット ("default" | "compact" | "scoreboard" | "neon" | "pastel")
+    /// ワードカウンターオーバーレイのデザインプリセット ("broadcast" | "editorial" | "tactical" | "variety" | "cinema" | "edge_glow" | "mod:{mod_id}:{theme_id}")
     #[serde(default = "default_theme_name")]
     pub counter_theme: String,
-    /// 初見カウンターオーバーレイのデザインプリセット ("default" | "compact" | "scoreboard" | "neon" | "pastel")
+    /// 初見カウンターオーバーレイのデザインプリセット ("broadcast" | "editorial" | "tactical" | "variety" | "cinema" | "edge_glow" | "mod:{mod_id}:{theme_id}")
     #[serde(default = "default_theme_name")]
     pub first_time_theme: String,
     /// スパチャ・メンバーオーバーレイのデザインプリセット

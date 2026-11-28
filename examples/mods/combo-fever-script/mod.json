@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "Stosup Team",
   "description": ".rhai ロジックスクリプトと専用演出を組み合わせ、草/888 コメントの連続コンボ集計・スパチャ金額別ランク演出・初見歓迎を自動制御する実働サンプルです。",
-  "min_stosup_version": "0.6.0-pre01",
+  "min_stosup_version": "0.6.0",
   "license": "MIT",
   "logic_scripts": [
     {

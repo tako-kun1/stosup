@@ -342,28 +342,45 @@ pub async fn connect_youtube_data_api(
                         consecutive_errors = 0;
                         on_status(ConnectionStatus::Connected, 0, None);
                     }
-                    if let Ok(val) = resp.json::<Value>().await {
-                        let poll_ms = val["pollingIntervalMillis"].as_u64().unwrap_or(5000);
-                        page_token = val["nextPageToken"].as_str().map(|s| s.to_string());
+                    match resp.json::<Value>().await {
+                        Ok(val) => {
+                            let poll_ms = val["pollingIntervalMillis"].as_u64().unwrap_or(5000);
+                            page_token = val["nextPageToken"].as_str().map(|s| s.to_string());
 
-                        if let Some(items) = val["items"].as_array() {
-                            for item in items {
-                                if let Some(comment) = parse_data_api_message(item) {
-                                    // 初回ポーリングでは過去ログ重複を避けるため記録しつつ最新20件のみ流す
-                                    if seen_ids.insert(comment.id.clone())
-                                        && (!first_poll || items.len() <= 20)
-                                    {
-                                        let _ = comment_tx.send(comment);
+                            if let Some(items) = val["items"].as_array() {
+                                for item in items {
+                                    if let Some(comment) = parse_data_api_message(item) {
+                                        // 初回ポーリングでは過去ログ重複を避けるため記録しつつ最新20件のみ流す
+                                        if seen_ids.insert(comment.id.clone())
+                                            && (!first_poll || items.len() <= 20)
+                                        {
+                                            let _ = comment_tx.send(comment);
+                                        }
                                     }
                                 }
                             }
-                        }
-                        first_poll = false;
+                            first_poll = false;
 
-                        let wait = Duration::from_millis(poll_ms.clamp(2000, 15000));
-                        tokio::select! {
-                            _ = tokio::time::sleep(wait) => {}
-                            _ = cancel_rx.changed() => { break; }
+                            let wait = Duration::from_millis(poll_ms.clamp(2000, 15000));
+                            tokio::select! {
+                                _ = tokio::time::sleep(wait) => {}
+                                _ = cancel_rx.changed() => { break; }
+                            }
+                        }
+                        Err(e) => {
+                            // JSON 解析失敗時のノーウェイト無限ループを防止し指数バックオフで再試行
+                            consecutive_errors += 1;
+                            if consecutive_errors > MAX_RECONNECT_ATTEMPTS {
+                                let msg = format!("YouTube Data API 応答解析に失敗しました: {}", e);
+                                on_status(ConnectionStatus::Error, consecutive_errors, Some(msg.clone()));
+                                on_error(msg);
+                                break;
+                            }
+                            let wait = Duration::from_secs((3 * consecutive_errors as u64).min(25));
+                            tokio::select! {
+                                _ = tokio::time::sleep(wait) => {}
+                                _ = cancel_rx.changed() => { break; }
+                            }
                         }
                     }
                 }
@@ -696,9 +713,18 @@ fn estimate_amount_micros(display: &str) -> u64 {
     }
 }
 
-fn extract_common_innertube_author(
-    renderer: &Value,
-) -> Option<(String, String, String, String, i64, bool, bool, bool)> {
+struct InnerTubeAuthorMeta {
+    id: String,
+    user_id: String,
+    user_name: String,
+    user_icon_url: String,
+    timestamp_ms: i64,
+    is_owner: bool,
+    is_moderator: bool,
+    is_member: bool,
+}
+
+fn extract_common_innertube_author(renderer: &Value) -> Option<InnerTubeAuthorMeta> {
     let id = renderer["id"].as_str()?.to_string();
     let user_id = renderer["authorExternalChannelId"]
         .as_str()
@@ -739,7 +765,7 @@ fn extract_common_innertube_author(
         }
     }
 
-    Some((
+    Some(InnerTubeAuthorMeta {
         id,
         user_id,
         user_name,
@@ -748,29 +774,28 @@ fn extract_common_innertube_author(
         is_owner,
         is_moderator,
         is_member,
-    ))
+    })
 }
 
 fn parse_innertube_text_renderer(renderer: &Value) -> Option<RawIncomingComment> {
-    let (id, user_id, user_name, user_icon_url, timestamp_ms, is_owner, is_moderator, is_member) =
-        extract_common_innertube_author(renderer)?;
+    let meta = extract_common_innertube_author(renderer)?;
     let (message, message_runs) = extract_runs_with_emojis(&renderer["message"]["runs"]);
     if message.is_empty() && message_runs.is_empty() {
         return None;
     }
 
     Some(RawIncomingComment {
-        id,
+        id: meta.id,
         platform: PlatformKind::YouTube,
-        user_id,
-        user_name,
-        user_icon_url,
+        user_id: meta.user_id,
+        user_name: meta.user_name,
+        user_icon_url: meta.user_icon_url,
         message,
         message_runs,
-        timestamp_ms,
-        is_owner,
-        is_moderator,
-        is_member,
+        timestamp_ms: meta.timestamp_ms,
+        is_owner: meta.is_owner,
+        is_moderator: meta.is_moderator,
+        is_member: meta.is_member,
         event_kind: None,
         amount_display: None,
         amount_micros: 0,
@@ -780,8 +805,7 @@ fn parse_innertube_text_renderer(renderer: &Value) -> Option<RawIncomingComment>
 }
 
 fn parse_innertube_paid_message_renderer(renderer: &Value) -> Option<RawIncomingComment> {
-    let (id, user_id, user_name, user_icon_url, timestamp_ms, is_owner, is_moderator, is_member) =
-        extract_common_innertube_author(renderer)?;
+    let meta = extract_common_innertube_author(renderer)?;
     let amount_display = renderer["purchaseAmountText"]["simpleText"]
         .as_str()
         .unwrap_or("Super Chat")
@@ -799,17 +823,17 @@ fn parse_innertube_paid_message_renderer(renderer: &Value) -> Option<RawIncoming
     let amount_micros = estimate_amount_micros(&amount_display);
 
     Some(RawIncomingComment {
-        id,
+        id: meta.id,
         platform: PlatformKind::YouTube,
-        user_id,
-        user_name,
-        user_icon_url,
+        user_id: meta.user_id,
+        user_name: meta.user_name,
+        user_icon_url: meta.user_icon_url,
         message,
         message_runs,
-        timestamp_ms,
-        is_owner,
-        is_moderator,
-        is_member,
+        timestamp_ms: meta.timestamp_ms,
+        is_owner: meta.is_owner,
+        is_moderator: meta.is_moderator,
+        is_member: meta.is_member,
         event_kind: Some(MonetizationEventKind::SuperChat),
         amount_display: Some(amount_display),
         amount_micros,
@@ -819,8 +843,7 @@ fn parse_innertube_paid_message_renderer(renderer: &Value) -> Option<RawIncoming
 }
 
 fn parse_innertube_paid_sticker_renderer(renderer: &Value) -> Option<RawIncomingComment> {
-    let (id, user_id, user_name, user_icon_url, timestamp_ms, is_owner, is_moderator, is_member) =
-        extract_common_innertube_author(renderer)?;
+    let meta = extract_common_innertube_author(renderer)?;
     let amount_display = renderer["purchaseAmountText"]["simpleText"]
         .as_str()
         .unwrap_or("Super Sticker")
@@ -868,17 +891,17 @@ fn parse_innertube_paid_sticker_renderer(renderer: &Value) -> Option<RawIncoming
     let amount_micros = estimate_amount_micros(&amount_display);
 
     Some(RawIncomingComment {
-        id,
+        id: meta.id,
         platform: PlatformKind::YouTube,
-        user_id,
-        user_name,
-        user_icon_url,
+        user_id: meta.user_id,
+        user_name: meta.user_name,
+        user_icon_url: meta.user_icon_url,
         message,
         message_runs,
-        timestamp_ms,
-        is_owner,
-        is_moderator,
-        is_member,
+        timestamp_ms: meta.timestamp_ms,
+        is_owner: meta.is_owner,
+        is_moderator: meta.is_moderator,
+        is_member: meta.is_member,
         event_kind: Some(MonetizationEventKind::SuperSticker),
         amount_display: Some(amount_display),
         amount_micros,
@@ -888,8 +911,7 @@ fn parse_innertube_paid_sticker_renderer(renderer: &Value) -> Option<RawIncoming
 }
 
 fn parse_innertube_membership_renderer(renderer: &Value) -> Option<RawIncomingComment> {
-    let (id, user_id, user_name, user_icon_url, timestamp_ms, is_owner, is_moderator, _) =
-        extract_common_innertube_author(renderer)?;
+    let meta = extract_common_innertube_author(renderer)?;
     let (primary, _) = extract_runs_with_emojis(&renderer["headerPrimaryText"]["runs"]);
     let (subtext, _) = extract_runs_with_emojis(&renderer["headerSubtext"]["runs"]);
     let (body, body_runs) = extract_runs_with_emojis(&renderer["message"]["runs"]);
@@ -915,16 +937,16 @@ fn parse_innertube_membership_renderer(renderer: &Value) -> Option<RawIncomingCo
     };
 
     Some(RawIncomingComment {
-        id,
+        id: meta.id,
         platform: PlatformKind::YouTube,
-        user_id,
-        user_name,
-        user_icon_url,
+        user_id: meta.user_id,
+        user_name: meta.user_name,
+        user_icon_url: meta.user_icon_url,
         message,
         message_runs,
-        timestamp_ms,
-        is_owner,
-        is_moderator,
+        timestamp_ms: meta.timestamp_ms,
+        is_owner: meta.is_owner,
+        is_moderator: meta.is_moderator,
         is_member: true,
         event_kind: Some(kind),
         amount_display: Some(amount_display),

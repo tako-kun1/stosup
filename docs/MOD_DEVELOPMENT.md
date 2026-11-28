@@ -5,7 +5,7 @@ Stosup の演出まわり（リアクションステージ・全 9 種 OBS オ�
 > **特別なビルド環境やコンパイル作業は一切不要です！**  
 > 画面演出は **HTML / CSS / JavaScript**、コメント反応やコンボ・OBS 自動操作などの裏側ロジックは組み込みスクリプト言語 **Rhai (`.rhai`)** で記述できます。テキストエディタだけで作成し、「再読み込み」ボタン 1 つで即座に反映できます。
 
-> **対象バージョン**: Stosup v0.6.0-pre01 以降（`schema_version: 1` / `StosupMod SDK 1.0.0` / Rhai ロジックスクリプト対応）  
+> **対象バージョン**: Stosup v0.6.0 以降（`schema_version: 1` / `StosupMod SDK 1.0.0` / Rhai ロジックスクリプト対応）  
 > **ロジックスクリプト開発ガイド（`.rhai`）**: [MOD_SCRIPT_GUIDE.md](./MOD_SCRIPT_GUIDE.md)  
 > **フロントエンド API リファレンス**: JS SDK・WebSocket イベント・DOM セレクタの詳細は [MOD_API_REFERENCE.md](./MOD_API_REFERENCE.md) を参照してください。  
 > **実働サンプル集**: そのまま導入して動かせる 4 種類のサンプルが [`examples/mods/`](../examples/mods/README.md) に用意されています。
@@ -67,7 +67,7 @@ Stosup の演出まわり（リアクションステージ・全 9 種 OBS オ�
   "version": "1.0.0",
   "author": "あなたの名前",
   "description": "コメントやスパチャに反応して流星群と光の輪を画面に広げるリアクション演出です。",
-  "min_stosup_version": "0.5.1",
+  "min_stosup_version": "0.6.0",
   "homepage": "https://example.com/my-mod",
   "license": "MIT",
   "icon": "icon.png",

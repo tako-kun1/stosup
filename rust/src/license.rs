@@ -15,7 +15,6 @@ const KEY_ACCEPTED_HASH: &str = "license_accepted_hash";
 const KEY_ACCEPTED_REV: &str = "license_accepted_revision";
 const KEY_ACCEPTED_AT: &str = "license_accepted_at_ms";
 const KEY_CACHED_BODY: &str = "license_cached_body";
-const KEY_CACHED_HASH: &str = "license_cached_hash";
 const KEY_CACHED_APP_VER: &str = "license_cached_app_version";
 
 /// GitHub 上の最新 License.md の Raw URL
@@ -134,7 +133,6 @@ pub fn build_license_status_with_remote(
     let (active_body, active_hash, source) = if let Some(remote_body) = remote_normalized {
         let remote_hash = compute_license_hash(&remote_body);
         let _ = db.set_setting(KEY_CACHED_BODY, &remote_body);
-        let _ = db.set_setting(KEY_CACHED_HASH, &remote_hash);
         let _ = db.set_setting(KEY_CACHED_APP_VER, CURRENT_APP_VERSION);
         (remote_body, remote_hash, "online".to_string())
     } else {
@@ -213,7 +211,7 @@ mod tests {
     #[test]
     fn test_license_acceptance_and_update_redetection() {
         let dir = tempfile::tempdir().unwrap();
-        let db = Database::open(&dir.path().join("test.db")).unwrap();
+        let db = Database::open(dir.path().join("test.db")).unwrap();
 
         // 1. 初回起動は未同意のため同意必須
         let s1 = build_license_status_with_remote(&db, None).unwrap();

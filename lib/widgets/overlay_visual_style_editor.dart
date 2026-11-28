@@ -528,31 +528,45 @@ class _OverlayVisualStyleEditorState extends State<OverlayVisualStyleEditor> {
                     ),
                     SizedBox(
                       width: 195,
-                      child: DropdownButtonFormField<int>(
-                        isExpanded: true,
-                        initialValue: const [0, 300, 400, 500, 700, 800, 900]
-                                .contains(s.fontWeight)
+                      child: Builder(builder: (_) {
+                        final fwVal = const [
+                          0,
+                          300,
+                          400,
+                          500,
+                          600,
+                          700,
+                          800,
+                          900
+                        ].contains(s.fontWeight)
                             ? s.fontWeight
-                            : 0,
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          labelText: '文字の太さ (Weight)',
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 0, child: Text('プリセット標準')),
-                          DropdownMenuItem(value: 300, child: Text('300 (細字)')),
-                          DropdownMenuItem(value: 400, child: Text('400 (標準)')),
-                          DropdownMenuItem(value: 500, child: Text('500 (中太)')),
-                          DropdownMenuItem(value: 700, child: Text('700 (太字)')),
-                          DropdownMenuItem(value: 800, child: Text('800 (極太)')),
-                          DropdownMenuItem(value: 900, child: Text('900 (最太)')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            _update(copyVisualStyle(s, fontWeight: v));
-                          }
-                        },
-                      ),
+                            : 0;
+                        return DropdownButtonFormField<int>(
+                          key: ValueKey('fw_$fwVal'),
+                          isExpanded: true,
+                          initialValue: fwVal,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            labelText: '文字の太さ (Weight)',
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 0, child: Text('プリセット標準')),
+                            DropdownMenuItem(value: 300, child: Text('300 (細字)')),
+                            DropdownMenuItem(value: 400, child: Text('400 (標準)')),
+                            DropdownMenuItem(value: 500, child: Text('500 (中太)')),
+                            DropdownMenuItem(
+                                value: 600, child: Text('600 (セミボールド)')),
+                            DropdownMenuItem(value: 700, child: Text('700 (太字)')),
+                            DropdownMenuItem(value: 800, child: Text('800 (極太)')),
+                            DropdownMenuItem(value: 900, child: Text('900 (最太)')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) {
+                              _update(copyVisualStyle(s, fontWeight: v));
+                            }
+                          },
+                        );
+                      }),
                     ),
                     _sliderBox(
                       label: '字間',
@@ -926,9 +940,8 @@ class _OverlayVisualStyleEditorState extends State<OverlayVisualStyleEditor> {
                     ),
                     SizedBox(
                       width: 175,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: const [
+                      child: Builder(builder: (_) {
+                        final shadowVal = const [
                           'inherit',
                           'none',
                           'soft',
@@ -936,59 +949,67 @@ class _OverlayVisualStyleEditorState extends State<OverlayVisualStyleEditor> {
                           'hard'
                         ].contains(s.cardShadow)
                             ? s.cardShadow
-                            : 'inherit',
-                        decoration: const InputDecoration(
-                            isDense: true, labelText: 'カードの影'),
-                        items: const [
-                          DropdownMenuItem(value: 'inherit', child: Text('標準')),
-                          DropdownMenuItem(value: 'none', child: Text('影なし')),
-                          DropdownMenuItem(value: 'soft', child: Text('控えめ')),
-                          DropdownMenuItem(
-                              value: 'medium', child: Text('しっかり')),
-                          DropdownMenuItem(value: 'hard', child: Text('ハード影')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            _update(copyVisualStyle(s, cardShadow: v));
-                          }
-                        },
-                      ),
+                            : 'inherit';
+                        return DropdownButtonFormField<String>(
+                          key: ValueKey('shadow_$shadowVal'),
+                          isExpanded: true,
+                          initialValue: shadowVal,
+                          decoration: const InputDecoration(
+                              isDense: true, labelText: 'カードの影'),
+                          items: const [
+                            DropdownMenuItem(value: 'inherit', child: Text('標準')),
+                            DropdownMenuItem(value: 'none', child: Text('影なし')),
+                            DropdownMenuItem(value: 'soft', child: Text('控えめ')),
+                            DropdownMenuItem(
+                                value: 'medium', child: Text('しっかり')),
+                            DropdownMenuItem(value: 'hard', child: Text('ハード影')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) {
+                              _update(copyVisualStyle(s, cardShadow: v));
+                            }
+                          },
+                        );
+                      }),
                     ),
                     SizedBox(
                       width: 175,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: const [
+                      child: Builder(builder: (_) {
+                        final padVal = const [
                           'inherit',
                           'compact',
                           'normal',
                           'relaxed'
                         ].contains(s.paddingScale)
                             ? s.paddingScale
-                            : 'inherit',
-                        decoration: const InputDecoration(
-                            isDense: true, labelText: '内側余白'),
-                        items: const [
-                          DropdownMenuItem(value: 'inherit', child: Text('標準')),
-                          DropdownMenuItem(
-                              value: 'compact', child: Text('コンパクト')),
-                          DropdownMenuItem(
-                              value: 'normal', child: Text('標準サイズ')),
-                          DropdownMenuItem(
-                              value: 'relaxed', child: Text('ゆったり')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            _update(copyVisualStyle(s, paddingScale: v));
-                          }
-                        },
-                      ),
+                            : 'inherit';
+                        return DropdownButtonFormField<String>(
+                          key: ValueKey('pad_$padVal'),
+                          isExpanded: true,
+                          initialValue: padVal,
+                          decoration: const InputDecoration(
+                              isDense: true, labelText: '内側余白'),
+                          items: const [
+                            DropdownMenuItem(value: 'inherit', child: Text('標準')),
+                            DropdownMenuItem(
+                                value: 'compact', child: Text('コンパクト')),
+                            DropdownMenuItem(
+                                value: 'normal', child: Text('標準サイズ')),
+                            DropdownMenuItem(
+                                value: 'relaxed', child: Text('ゆったり')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) {
+                              _update(copyVisualStyle(s, paddingScale: v));
+                            }
+                          },
+                        );
+                      }),
                     ),
                     SizedBox(
                       width: 185,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: const [
+                      child: Builder(builder: (_) {
+                        final animVal = const [
                           'inherit',
                           'wipe',
                           'slide',
@@ -997,23 +1018,28 @@ class _OverlayVisualStyleEditorState extends State<OverlayVisualStyleEditor> {
                           'none'
                         ].contains(s.entranceAnimation)
                             ? s.entranceAnimation
-                            : 'inherit',
-                        decoration: const InputDecoration(
-                            isDense: true, labelText: '出現モーション'),
-                        items: const [
-                          DropdownMenuItem(value: 'inherit', child: Text('標準')),
-                          DropdownMenuItem(value: 'wipe', child: Text('水平ワイプ')),
-                          DropdownMenuItem(value: 'slide', child: Text('スライド')),
-                          DropdownMenuItem(value: 'fade', child: Text('フェード')),
-                          DropdownMenuItem(value: 'pop', child: Text('ポップ')),
-                          DropdownMenuItem(value: 'none', child: Text('なし')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            _update(copyVisualStyle(s, entranceAnimation: v));
-                          }
-                        },
-                      ),
+                            : 'inherit';
+                        return DropdownButtonFormField<String>(
+                          key: ValueKey('anim_$animVal'),
+                          isExpanded: true,
+                          initialValue: animVal,
+                          decoration: const InputDecoration(
+                              isDense: true, labelText: '出現モーション'),
+                          items: const [
+                            DropdownMenuItem(value: 'inherit', child: Text('標準')),
+                            DropdownMenuItem(value: 'wipe', child: Text('水平ワイプ')),
+                            DropdownMenuItem(value: 'slide', child: Text('スライド')),
+                            DropdownMenuItem(value: 'fade', child: Text('フェード')),
+                            DropdownMenuItem(value: 'pop', child: Text('ポップ')),
+                            DropdownMenuItem(value: 'none', child: Text('なし')),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) {
+                              _update(copyVisualStyle(s, entranceAnimation: v));
+                            }
+                          },
+                        );
+                      }),
                     ),
                   ],
                 ),

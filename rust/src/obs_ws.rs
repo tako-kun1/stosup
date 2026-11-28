@@ -37,6 +37,8 @@ pub struct ObsWsManager {
     connected_flag: Arc<AtomicBool>,
     /// 再接続時に旧タスクの遅延終了処理が新接続のステータスや接続フラグを上書きする競合を防ぐ世代カウンタ
     conn_gen: Arc<AtomicU64>,
+    /// connect / disconnect / 接続確立・失敗の状態遷移を直列化し、割り込み競合による接続リークや状態固着を防ぐロック
+    lifecycle_lock: Mutex<()>,
     cmd_tx: Mutex<Option<mpsc::UnboundedSender<ObsCommand>>>,
     cancel_tx: Mutex<Option<watch::Sender<bool>>>,
 }
@@ -53,6 +55,7 @@ impl ObsWsManager {
             status: Arc::new(RwLock::new(ObsWsStatus::default())),
             connected_flag: Arc::new(AtomicBool::new(false)),
             conn_gen: Arc::new(AtomicU64::new(0)),
+            lifecycle_lock: Mutex::new(()),
             cmd_tx: Mutex::new(None),
             cancel_tx: Mutex::new(None),
         }
@@ -68,7 +71,7 @@ impl ObsWsManager {
         self.status.read().await.clone()
     }
 
-    pub async fn disconnect(&self) {
+    async fn disconnect_locked(&self) {
         self.conn_gen.fetch_add(1, Ordering::AcqRel);
         self.connected_flag.store(false, Ordering::Release);
         if let Some(tx) = self.cancel_tx.lock().await.take() {
@@ -81,12 +84,18 @@ impl ObsWsManager {
         st.last_error = None;
     }
 
+    pub async fn disconnect(&self) {
+        let _guard = self.lifecycle_lock.lock().await;
+        self.disconnect_locked().await;
+    }
+
     async fn mark_connect_failed(
         &self,
         my_gen: u64,
         err_msg: &str,
         event_tx: &mpsc::UnboundedSender<ObsIncomingEvent>,
     ) {
+        let _guard = self.lifecycle_lock.lock().await;
         if self.conn_gen.load(Ordering::Acquire) != my_gen {
             return;
         }
@@ -103,8 +112,17 @@ impl ObsWsManager {
         cfg: ObsWsConfig,
         event_tx: mpsc::UnboundedSender<ObsIncomingEvent>,
     ) -> Result<()> {
-        self.disconnect().await;
-        let my_gen = self.conn_gen.fetch_add(1, Ordering::AcqRel) + 1;
+        let my_gen = {
+            let _guard = self.lifecycle_lock.lock().await;
+            self.disconnect_locked().await;
+            let gen = self.conn_gen.fetch_add(1, Ordering::AcqRel) + 1;
+            let mut st = self.status.write().await;
+            st.connected = false;
+            st.connecting = true;
+            st.last_error = None;
+            let _ = event_tx.send(ObsIncomingEvent::StatusChanged(st.clone()));
+            gen
+        };
 
         let host = if cfg.host.trim().is_empty() {
             "127.0.0.1".to_string()
@@ -113,14 +131,6 @@ impl ObsWsManager {
         };
         let port = if cfg.port == 0 { 4455 } else { cfg.port };
         let url = format!("ws://{}:{}", host, port);
-
-        {
-            let mut st = self.status.write().await;
-            st.connected = false;
-            st.connecting = true;
-            st.last_error = None;
-            let _ = event_tx.send(ObsIncomingEvent::StatusChanged(st.clone()));
-        }
 
         let ws_res = tokio::time::timeout(
             Duration::from_secs(6),
@@ -221,32 +231,33 @@ impl ObsWsManager {
             return Err(e);
         }
 
-        // ハンドシェイク中に別接続・切断が割り込んでいた場合は静かに中止
-        if self.conn_gen.load(Ordering::Acquire) != my_gen {
-            let _ = write.close().await;
-            return Err(anyhow!("OBS WebSocket 接続がキャンセルされました"));
-        }
-
+        // 世代チェック〜チャンネル登録〜タスク起動までを直列化し、disconnect 割り込みによる状態固着とリークを根絶
         let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<ObsCommand>();
         let (cancel_tx, mut cancel_rx) = watch::channel(false);
-        *self.cmd_tx.lock().await = Some(cmd_tx.clone());
-        *self.cancel_tx.lock().await = Some(cancel_tx);
-
         let status_arc = Arc::clone(&self.status);
         let connected_arc = Arc::clone(&self.connected_flag);
         let gen_arc = Arc::clone(&self.conn_gen);
-        connected_arc.store(true, Ordering::Release);
         {
-            let mut st = status_arc.write().await;
-            st.connected = true;
-            st.connecting = false;
-            st.obs_version = format!("OBS WS v{}", obs_ws_ver);
-            st.last_error = None;
-            let _ = event_tx.send(ObsIncomingEvent::StatusChanged(st.clone()));
+            let _guard = self.lifecycle_lock.lock().await;
+            if self.conn_gen.load(Ordering::Acquire) != my_gen {
+                drop(_guard);
+                let _ = write.close().await;
+                return Err(anyhow!("OBS WebSocket 接続がキャンセルされました"));
+            }
+            *self.cmd_tx.lock().await = Some(cmd_tx.clone());
+            *self.cancel_tx.lock().await = Some(cancel_tx);
+            connected_arc.store(true, Ordering::Release);
+            {
+                let mut st = status_arc.write().await;
+                st.connected = true;
+                st.connecting = false;
+                st.obs_version = format!("OBS WS v{}", obs_ws_ver);
+                st.last_error = None;
+                let _ = event_tx.send(ObsIncomingEvent::StatusChanged(st.clone()));
+            }
+            // 接続直後にシーン一覧を取得
+            let _ = cmd_tx.send(ObsCommand::RefreshScenes);
         }
-
-        // 接続直後にシーン一覧を取得
-        let _ = cmd_tx.send(ObsCommand::RefreshScenes);
 
         let cmd_tx_bg = cmd_tx.clone();
         tokio::spawn(async move {

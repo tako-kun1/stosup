@@ -1,11 +1,11 @@
 use std::collections::HashMap;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use axum::body::{Body, Bytes};
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{ConnectInfo, Path, Query, Request, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{header, HeaderMap, StatusCode};
 use axum::middleware::Next;
 use axum::response::{Html, IntoResponse, Response};
 use axum::Json;
@@ -65,17 +65,150 @@ pub async fn remote_page_handler(
     (StatusCode::OK, Html(REMOTE_HTML))
 }
 
+/// タイミング攻撃を防ぐための定数時間文字列比較
+pub(crate) fn constant_time_eq(a: &str, b: &str) -> bool {
+    let ab = a.as_bytes();
+    let bb = b.as_bytes();
+    let max_len = ab.len().max(bb.len());
+    let mut diff: u8 = if ab.len() == bb.len() { 0 } else { 1 };
+    for i in 0..max_len {
+        let x = ab.get(i).copied().unwrap_or(0);
+        let y = bb.get(i).copied().unwrap_or(0);
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
+fn parse_host_header(raw: &str) -> Option<(String, u16)> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let parsed = url::Url::parse(&format!("http://{}", trimmed)).ok()?;
+    let host = parsed.host_str()?.to_ascii_lowercase();
+    let port = parsed.port_or_known_default().unwrap_or(80);
+    Some((host, port))
+}
+
+fn parse_url_origin(raw: &str) -> Option<(String, u16)> {
+    let parsed = url::Url::parse(raw.trim()).ok()?;
+    match parsed.scheme() {
+        "http" | "https" => {}
+        _ => return None,
+    }
+    let host = parsed.host_str()?.to_ascii_lowercase();
+    let port = parsed.port_or_known_default()?;
+    Some((host, port))
+}
+
+/// 外部 Web サイト由来（クロスサイト）のブラウザ要求かどうかを判定する。
+/// Stream Deck / Loupedeck / curl 等のネイティブ HTTP クライアントは `Sec-Fetch-Site` / `Origin` / `Referer`
+/// を送らないため透過許可され、既存のトリガー URL 互換性を維持したまま Drive-by CSRF / CSWSH を遮断できる。
+pub(crate) fn is_cross_site_browser_request(headers: &HeaderMap, check_referer: bool) -> bool {
+    // 1. Fetch Metadata (`Sec-Fetch-Site`) による判定
+    if let Some(sfs) = headers
+        .get("sec-fetch-site")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim().to_ascii_lowercase())
+    {
+        if !sfs.is_empty() && sfs != "same-origin" && sfs != "none" {
+            return true;
+        }
+    }
+
+    let expected_host = headers
+        .get(header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .and_then(parse_host_header);
+
+    // 2. `Origin` ヘッダが存在する場合は自サーバーと完全一致（ホスト＋ポート）のみ許可
+    if let Some(origin_raw) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) {
+        let origin_trim = origin_raw.trim();
+        if !origin_trim.is_empty() {
+            if origin_trim.eq_ignore_ascii_case("null") {
+                return true;
+            }
+            let Some(origin_hp) = parse_url_origin(origin_trim) else {
+                return true;
+            };
+            let Some(ref host_hp) = expected_host else {
+                return true;
+            };
+            if &origin_hp != host_hp {
+                return true;
+            }
+        }
+    }
+
+    // 3. GET トリガー等では `Referer` が存在する場合も外部オリジンを拒否（`<img src=...>` CSRF 対策）
+    if check_referer {
+        if let Some(ref_raw) = headers.get(header::REFERER).and_then(|v| v.to_str().ok()) {
+            let ref_trim = ref_raw.trim();
+            if !ref_trim.is_empty() {
+                let Some(ref_hp) = parse_url_origin(ref_trim) else {
+                    return true;
+                };
+                let Some(ref host_hp) = expected_host else {
+                    return true;
+                };
+                if &ref_hp != host_hp {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+/// オーバーレイ／MOD ページからの `/api/trigger/*` 呼び出しを拒否するための Referer 判定
+fn is_overlay_or_mod_referer(headers: &HeaderMap) -> bool {
+    let Some(ref_raw) = headers.get(header::REFERER).and_then(|v| v.to_str().ok()) else {
+        return false;
+    };
+    let Ok(parsed) = url::Url::parse(ref_raw.trim()) else {
+        return false;
+    };
+    let path = parsed.path();
+    path.starts_with("/overlay/") || path.starts_with("/mods/")
+}
+
+/// CSS インジェクションを防ぐため、色指定を `#RGB` / `#RRGGBB` / `#RRGGBBAA` のみに正規化する
+fn sanitize_hex_color(raw: Option<&str>, fallback: &str) -> String {
+    let Some(s) = raw.map(|v| v.trim()).filter(|v| !v.is_empty()) else {
+        return fallback.to_string();
+    };
+    let hex = s.trim_start_matches('#');
+    if (hex.len() == 3 || hex.len() == 6 || hex.len() == 8)
+        && hex.chars().all(|c| c.is_ascii_hexdigit())
+    {
+        format!("#{}", hex.to_ascii_uppercase())
+    } else {
+        fallback.to_string()
+    }
+}
+
 /// 認証要否・バージョン情報 (/api/remote/auth_info)
 pub async fn auth_info_handler(
     State(state): State<Arc<OverlaySharedState>>,
+    headers: HeaderMap,
 ) -> impl IntoResponse {
+    if is_cross_site_browser_request(&headers, false) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "error": "外部サイトからのクロスオリジン要求は許可されていません" })),
+        );
+    }
     let cfg = state.remote_config.read().await.clone();
-    Json(json!({
-        "version": updater::CURRENT_APP_VERSION,
-        "remote_control_enabled": cfg.remote_control_enabled,
-        "require_pin": cfg.require_pin,
-        "allow_lan_access": cfg.allow_lan_access,
-    }))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "version": updater::CURRENT_APP_VERSION,
+            "remote_control_enabled": cfg.remote_control_enabled,
+            "require_pin": cfg.require_pin,
+            "allow_lan_access": cfg.allow_lan_access,
+        })),
+    )
 }
 
 #[derive(Deserialize)]
@@ -86,8 +219,16 @@ pub struct PinVerifyRequest {
 /// PIN 検証エンドポイント (/api/remote/verify)
 pub async fn verify_pin_handler(
     State(state): State<Arc<OverlaySharedState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Json(body): Json<PinVerifyRequest>,
 ) -> impl IntoResponse {
+    if is_cross_site_browser_request(&headers, false) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "error": "外部サイトからのクロスオリジン要求は許可されていません" })),
+        );
+    }
     let cfg = state.remote_config.read().await.clone();
     if !cfg.remote_control_enabled {
         return (
@@ -95,8 +236,31 @@ pub async fn verify_pin_handler(
             Json(json!({ "ok": false, "error": "ポケットスイッチャー操作が無効です" })),
         );
     }
-    if !cfg.require_pin || body.pin.trim() == cfg.pin_code.trim() {
+    if !cfg.require_pin {
         return (StatusCode::OK, Json(json!({ "ok": true })));
+    }
+    let ip = addr.ip();
+    if let Some(wait_secs) = state.check_pin_rate_limit(ip) {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({
+                "ok": false,
+                "error": format!("PIN の試行回数が上限を超えました。{} 秒後に再試行してください。", wait_secs)
+            })),
+        );
+    }
+    if constant_time_eq(body.pin.trim(), cfg.pin_code.trim()) {
+        state.clear_pin_failures(ip);
+        return (StatusCode::OK, Json(json!({ "ok": true })));
+    }
+    if let Some(lock_secs) = state.record_pin_failure(ip) {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({
+                "ok": false,
+                "error": format!("PIN を複数回間違えたため一時ロックされました。{} 秒後に再試行してください。", lock_secs)
+            })),
+        );
     }
     (
         StatusCode::UNAUTHORIZED,
@@ -106,9 +270,16 @@ pub async fn verify_pin_handler(
 
 async fn check_remote_auth(
     state: &OverlaySharedState,
+    ip: IpAddr,
     headers: &HeaderMap,
     query: &HashMap<String, String>,
 ) -> Result<(), (StatusCode, Json<Value>)> {
+    if is_cross_site_browser_request(headers, false) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "error": "外部サイトからのクロスオリジン要求は許可されていません" })),
+        ));
+    }
     let cfg = state.remote_config.read().await.clone();
     if !cfg.remote_control_enabled {
         return Err((
@@ -119,15 +290,34 @@ async fn check_remote_auth(
     if !cfg.require_pin {
         return Ok(());
     }
+    if let Some(wait_secs) = state.check_pin_rate_limit(ip) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({
+                "ok": false,
+                "error": format!("PIN の試行回数が上限を超えました。{} 秒後に再試行してください。", wait_secs)
+            })),
+        ));
+    }
     let provided = headers
         .get("x-stosup-pin")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.trim().to_string())
         .or_else(|| query.get("pin").map(|s| s.trim().to_string()))
         .unwrap_or_default();
-    if provided == cfg.pin_code.trim() {
+    if constant_time_eq(&provided, cfg.pin_code.trim()) {
+        state.clear_pin_failures(ip);
         Ok(())
     } else {
+        if let Some(lock_secs) = state.record_pin_failure(ip) {
+            return Err((
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(json!({
+                    "ok": false,
+                    "error": format!("PIN を複数回間違えたため一時ロックされました。{} 秒後に再試行してください。", lock_secs)
+                })),
+            ));
+        }
         Err((
             StatusCode::UNAUTHORIZED,
             Json(json!({ "ok": false, "error": "PIN 認証が必要です" })),
@@ -138,10 +328,11 @@ async fn check_remote_auth(
 /// 現在の Stosup 全体状態スナップショットを返す (/api/remote/state)
 pub async fn remote_state_handler(
     State(state): State<Arc<OverlaySharedState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Query(query): Query<HashMap<String, String>>,
 ) -> impl IntoResponse {
-    if let Err(resp) = check_remote_auth(&state, &headers, &query).await {
+    if let Err(resp) = check_remote_auth(&state, addr.ip(), &headers, &query).await {
         return resp;
     }
     let runtime = match get_runtime() {
@@ -226,11 +417,12 @@ fn percent_decode_utf8(input: &str) -> String {
 /// Web リモコンから画像・動画・効果音素材をアップロードする (/api/remote/upload_media)
 pub async fn upload_media_handler(
     State(state): State<Arc<OverlaySharedState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Query(query): Query<HashMap<String, String>>,
     body: Bytes,
 ) -> impl IntoResponse {
-    if let Err(resp) = check_remote_auth(&state, &headers, &query).await {
+    if let Err(resp) = check_remote_auth(&state, addr.ip(), &headers, &query).await {
         return resp;
     }
     let runtime = match get_runtime() {
@@ -444,11 +636,12 @@ fn build_quick_media_preset(key: &str) -> MediaReactionRule {
 /// Web リモコンからの各種操作コマンドを実行する (/api/remote/action)
 pub async fn remote_action_handler(
     State(state): State<Arc<OverlaySharedState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Query(query): Query<HashMap<String, String>>,
     Json(body): Json<Value>,
 ) -> impl IntoResponse {
-    if let Err(resp) = check_remote_auth(&state, &headers, &query).await {
+    if let Err(resp) = check_remote_auth(&state, addr.ip(), &headers, &query).await {
         return resp;
     }
     let runtime = match get_runtime() {
@@ -635,9 +828,24 @@ pub async fn remote_action_handler(
         }
         "save_media_rule" => {
             let r = &body["rule"];
+            let rule_id = r["id"].as_str().unwrap_or("").trim().to_string();
             let effect_type = parse_effect_type(r["effect_type"].as_str().unwrap_or("Cracker"));
             let stored_file_name = r["stored_file_name"].as_str().unwrap_or("").trim().to_string();
             let sound_stored_file_name = r["sound_stored_file_name"].as_str().unwrap_or("").trim().to_string();
+            if !stored_file_name.is_empty() && !media::is_safe_stored_file_name(&stored_file_name) {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "ok": false, "error": "メディアファイル名が不正です" })),
+                );
+            }
+            if !sound_stored_file_name.is_empty()
+                && !media::is_safe_stored_file_name(&sound_stored_file_name)
+            {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "ok": false, "error": "効果音ファイル名が不正です" })),
+                );
+            }
             let caption_template = r["caption_template"].as_str().unwrap_or("").trim().to_string();
             if effect_type == MediaEffectType::Fixed
                 && stored_file_name.is_empty()
@@ -652,6 +860,41 @@ pub async fn remote_action_handler(
                     })),
                 );
             }
+            // 既存ルールの部分更新時に MOD 演出設定が欠落送信されても破壊されないよう既存値を保持する
+            let existing_rule = if !rule_id.is_empty() {
+                runtime
+                    .list_media_reaction_rules()
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .find(|x| x.id == rule_id)
+            } else {
+                None
+            };
+            let mod_id = match r.get("mod_id").and_then(|v| v.as_str()) {
+                Some(s) => s.trim().to_string(),
+                None => existing_rule
+                    .as_ref()
+                    .map(|x| x.mod_id.clone())
+                    .unwrap_or_default(),
+            };
+            let mod_effect_id = match r.get("mod_effect_id").and_then(|v| v.as_str()) {
+                Some(s) => s.trim().to_string(),
+                None => existing_rule
+                    .as_ref()
+                    .map(|x| x.mod_effect_id.clone())
+                    .unwrap_or_default(),
+            };
+            let mod_params_json = match r.get("mod_params_json").and_then(|v| v.as_str()) {
+                Some(s) => {
+                    let t = s.trim();
+                    if t.is_empty() { "{}".to_string() } else { t.to_string() }
+                }
+                None => existing_rule
+                    .as_ref()
+                    .map(|x| x.mod_params_json.clone())
+                    .unwrap_or_else(|| "{}".to_string()),
+            };
             let pattern = r["pattern"].as_str().unwrap_or("").trim().to_string();
             let raw_name = r["name"].as_str().unwrap_or("").trim().to_string();
             let name = if !raw_name.is_empty() {
@@ -665,7 +908,7 @@ pub async fn remote_action_handler(
                     .to_string()
             };
             let rule = MediaReactionRule {
-                id: r["id"].as_str().unwrap_or("").trim().to_string(),
+                id: rule_id,
                 name,
                 pattern,
                 match_mode: parse_match_mode(r["match_mode"].as_str().unwrap_or("Contains")),
@@ -695,13 +938,9 @@ pub async fn remote_action_handler(
                 exclude_banned: r["exclude_banned"].as_bool().unwrap_or(true),
                 caption_template,
                 enabled: r["enabled"].as_bool().unwrap_or(true),
-                mod_id: r["mod_id"].as_str().unwrap_or("").trim().to_string(),
-                mod_effect_id: r["mod_effect_id"].as_str().unwrap_or("").trim().to_string(),
-                mod_params_json: r["mod_params_json"]
-                    .as_str()
-                    .unwrap_or("{}")
-                    .trim()
-                    .to_string(),
+                mod_id,
+                mod_effect_id,
+                mod_params_json,
             };
             let is_new = rule.id.is_empty();
             runtime
@@ -857,11 +1096,10 @@ pub async fn remote_action_handler(
                             .unwrap_or_else(|| format!("opt-{}", i + 1)),
                         label,
                         keywords,
-                        color: o["color"]
-                            .as_str()
-                            .filter(|s| !s.trim().is_empty())
-                            .unwrap_or(default_colors[i % default_colors.len()])
-                            .to_string(),
+                        color: sanitize_hex_color(
+                            o["color"].as_str(),
+                            default_colors[i % default_colors.len()],
+                        ),
                         vote_count: o["vote_count"].as_u64().unwrap_or(0),
                     })
                 })
@@ -919,7 +1157,7 @@ pub async fn remote_action_handler(
                 case_sensitive: c["case_sensitive"].as_bool().unwrap_or(false),
                 max_per_account: c["max_per_account"].as_u64().map(|v| v.max(1) as u32),
                 exclude_banned: c["exclude_banned"].as_bool().unwrap_or(true),
-                accent_color: c["accent_color"].as_str().unwrap_or("#3B82F6").to_string(),
+                accent_color: sanitize_hex_color(c["accent_color"].as_str(), "#3B82F6"),
                 enabled: c["enabled"].as_bool().unwrap_or(true),
                 total_count: c["total_count"].as_u64().unwrap_or(0),
                 unique_user_count: c["unique_user_count"].as_u64().unwrap_or(0),
@@ -957,9 +1195,9 @@ pub async fn remote_action_handler(
                 pattern,
                 match_mode: parse_match_mode(r["match_mode"].as_str().unwrap_or("Contains")),
                 case_sensitive: r["case_sensitive"].as_bool().unwrap_or(false),
-                bg_color: r["bg_color"].as_str().unwrap_or("#FEF08A").to_string(),
-                text_color: r["text_color"].as_str().unwrap_or("#18181B").to_string(),
-                border_color: r["border_color"].as_str().unwrap_or("#EAB308").to_string(),
+                bg_color: sanitize_hex_color(r["bg_color"].as_str(), "#FEF08A"),
+                text_color: sanitize_hex_color(r["text_color"].as_str(), "#18181B"),
+                border_color: sanitize_hex_color(r["border_color"].as_str(), "#EAB308"),
                 priority: r["priority"].as_i64().unwrap_or(10) as i32,
                 enabled: r["enabled"].as_bool().unwrap_or(true),
             };
@@ -1129,23 +1367,27 @@ pub async fn remote_action_handler(
 /// Web リモコン用リアルタイム通知 WebSocket (/ws/remote)
 pub async fn remote_ws_handler(
     ws: WebSocketUpgrade,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     State(state): State<Arc<OverlaySharedState>>,
     headers: HeaderMap,
     Query(query): Query<HashMap<String, String>>,
 ) -> Response {
-    if let Err((status, body)) = check_remote_auth(&state, &headers, &query).await {
+    if let Err((status, body)) = check_remote_auth(&state, addr.ip(), &headers, &query).await {
         return (status, body).into_response();
     }
-    ws.on_upgrade(handle_remote_socket)
+    ws.on_upgrade(move |socket| handle_remote_socket(socket, state))
 }
 
-async fn handle_remote_socket(socket: WebSocket) {
+async fn handle_remote_socket(socket: WebSocket, state: Arc<OverlaySharedState>) {
     let runtime = match get_runtime() {
         Ok(r) => r,
         Err(_) => return,
     };
     let (mut sender, mut receiver) = socket.split();
     let mut rx = runtime.event_tx.subscribe();
+    let mut auth_rx = state.remote_auth_gen.subscribe();
+    // 接続直後の現在世代を記録し、以降の PIN 変更・無効化・LAN 設定変更を検知したら即時切断する
+    let _ = auth_rx.borrow_and_update();
 
     // 単一タスクの select! ループで残留タスクを防止しつつ、バースト時の Lagged でも切断しない
     loop {
@@ -1170,6 +1412,11 @@ async fn handle_remote_socket(socket: WebSocket) {
                     Some(Ok(_)) => {}
                 }
             }
+            auth_changed = auth_rx.changed() => {
+                let _ = auth_changed;
+                let _ = sender.send(Message::Close(None)).await;
+                break;
+            }
         }
     }
 }
@@ -1187,9 +1434,16 @@ pub async fn stream_deck_trigger_handler(
     headers: HeaderMap,
     Query(query): Query<HashMap<String, String>>,
 ) -> impl IntoResponse {
+    // 外部サイト経由の CSRF やオーバーレイ／MOD ページからの自動発火を遮断（Stream Deck ネイティブクライアントは透過許可）
+    if is_cross_site_browser_request(&headers, true) || is_overlay_or_mod_referer(&headers) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "ok": false, "error": "ブラウザの外部サイトやオーバーレイページからのトリガー実行は許可されていません" })),
+        );
+    }
     // 同一 PC（127.0.0.1 / ::1）からの Stream Deck 呼び出しは直接許可。LAN 端末からは PIN 認証を要求
     if !addr.ip().is_loopback() {
-        if let Err(err) = check_remote_auth(&state, &headers, &query).await {
+        if let Err(err) = check_remote_auth(&state, addr.ip(), &headers, &query).await {
             return err;
         }
     }
@@ -1286,5 +1540,70 @@ pub async fn stream_deck_trigger_handler(
             StatusCode::BAD_REQUEST,
             Json(json!({ "ok": false, "error": e.to_string() })),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderValue;
+
+    #[test]
+    fn test_constant_time_eq_and_hex_color_sanitize() {
+        assert!(constant_time_eq("123456", "123456"));
+        assert!(!constant_time_eq("123456", "123457"));
+        assert!(!constant_time_eq("123456", "12345"));
+
+        assert_eq!(sanitize_hex_color(Some("#abc"), "#000000"), "#ABC");
+        assert_eq!(sanitize_hex_color(Some("3b82f6"), "#000000"), "#3B82F6");
+        assert_eq!(
+            sanitize_hex_color(Some("red;background:url(evil)"), "#3B82F6"),
+            "#3B82F6"
+        );
+    }
+
+    #[test]
+    fn test_cross_site_browser_detection_preserves_stream_deck() {
+        // Stream Deck などネイティブクライアント（Host のみ）は許可
+        let mut native = HeaderMap::new();
+        native.insert(header::HOST, HeaderValue::from_static("127.0.0.1:18765"));
+        assert!(!is_cross_site_browser_request(&native, true));
+
+        // 同一オリジンブラウザ要求は許可
+        let mut same = HeaderMap::new();
+        same.insert(header::HOST, HeaderValue::from_static("127.0.0.1:18765"));
+        same.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("http://127.0.0.1:18765"),
+        );
+        same.insert("sec-fetch-site", HeaderValue::from_static("same-origin"));
+        assert!(!is_cross_site_browser_request(&same, true));
+
+        // 外部サイトからのクロスオリジン要求は拒否
+        let mut cross = HeaderMap::new();
+        cross.insert(header::HOST, HeaderValue::from_static("127.0.0.1:18765"));
+        cross.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("https://evil.example"),
+        );
+        cross.insert("sec-fetch-site", HeaderValue::from_static("cross-site"));
+        assert!(is_cross_site_browser_request(&cross, true));
+
+        // 外部 Referer（<img src=...> CSRF）も拒否
+        let mut img_csrf = HeaderMap::new();
+        img_csrf.insert(header::HOST, HeaderValue::from_static("127.0.0.1:18765"));
+        img_csrf.insert(
+            header::REFERER,
+            HeaderValue::from_static("https://evil.example/page"),
+        );
+        assert!(is_cross_site_browser_request(&img_csrf, true));
+
+        // オーバーレイ／MOD ページからのトリガー呼び出しも拒否
+        let mut mod_ref = HeaderMap::new();
+        mod_ref.insert(
+            header::REFERER,
+            HeaderValue::from_static("http://127.0.0.1:18765/overlay/mod/foo/bar"),
+        );
+        assert!(is_overlay_or_mod_referer(&mod_ref));
     }
 }

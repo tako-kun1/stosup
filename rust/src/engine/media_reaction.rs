@@ -128,16 +128,53 @@ fn matches_trigger(rule: &MediaReactionRule, ctx: &MediaEvalContext<'_>) -> bool
     }
 }
 
+/// テロップテンプレート内の `{user}` / `{message}` を単一パスで置換する（ユーザー名に `{message}` が含まれる場合の二重置換を防止）
+fn expand_caption_template(template: &str, user_name: &str, message: &str) -> String {
+    if !template.contains('{') {
+        return template.to_string();
+    }
+    let mut out = String::with_capacity(template.len() + user_name.len());
+    let mut rest = template;
+    while !rest.is_empty() {
+        let next_user = rest.find("{user}");
+        let next_msg = rest.find("{message}");
+        match (next_user, next_msg) {
+            (Some(u), Some(m)) if u <= m => {
+                out.push_str(&rest[..u]);
+                out.push_str(user_name);
+                rest = &rest[u + "{user}".len()..];
+            }
+            (Some(_), Some(m)) => {
+                out.push_str(&rest[..m]);
+                out.push_str(message);
+                rest = &rest[m + "{message}".len()..];
+            }
+            (Some(u), None) => {
+                out.push_str(&rest[..u]);
+                out.push_str(user_name);
+                rest = &rest[u + "{user}".len()..];
+            }
+            (None, Some(m)) => {
+                out.push_str(&rest[..m]);
+                out.push_str(message);
+                rest = &rest[m + "{message}".len()..];
+            }
+            (None, None) => {
+                out.push_str(rest);
+                break;
+            }
+        }
+    }
+    out
+}
+
 pub fn build_trigger_event(
     rule: &MediaReactionRule,
     user_name: &str,
     message: &str,
     now_ms: i64,
 ) -> MediaTriggerEvent {
-    let caption = rule
-        .caption_template
-        .replace("{user}", user_name)
-        .replace("{message}", message);
+    let caption = expand_caption_template(&rule.caption_template, user_name, message);
     let media_url = if rule.stored_file_name.trim().is_empty() {
         String::new()
     } else {
@@ -233,7 +270,7 @@ mod tests {
         // BAN ユーザーは発動しない
         assert!(tracker
             .evaluate_rules(
-                &[rule.clone()],
+                std::slice::from_ref(&rule),
                 &MediaEvalContext {
                     user_name: "荒らし",
                     is_banned: true,
@@ -249,7 +286,7 @@ mod tests {
 
         // 複数行パターンの2行目「888」で発動・SE URL 付き
         let t1 = tracker.evaluate_rules(
-            &[rule.clone()],
+            std::slice::from_ref(&rule),
             &MediaEvalContext {
                 user_name: "太郎",
                 is_banned: false,
@@ -269,7 +306,7 @@ mod tests {
         // クールダウン中（2秒後）は発動しない
         assert!(tracker
             .evaluate_rules(
-                &[rule.clone()],
+                std::slice::from_ref(&rule),
                 &MediaEvalContext {
                     user_name: "花子",
                     is_banned: false,
@@ -285,7 +322,7 @@ mod tests {
 
         // クールダウン経過後（5秒後）は再発動
         let t2 = tracker.evaluate_rules(
-            &[rule],
+            std::slice::from_ref(&rule),
             &MediaEvalContext {
                 user_name: "花子",
                 is_banned: false,
@@ -298,6 +335,12 @@ mod tests {
             },
         );
         assert_eq!(t2.len(), 1);
+
+        // ユーザー名に {message} が含まれても二重置換されないこと
+        let mut tpl_rule = base_rule("mr-tpl", "テスト");
+        tpl_rule.caption_template = "{user}: {message}".to_string();
+        let ev = build_trigger_event(&tpl_rule, "偽{message}さん", "本文", 1_000);
+        assert_eq!(ev.caption, "偽{message}さん: 本文");
     }
 
     #[test]

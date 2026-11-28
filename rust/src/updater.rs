@@ -75,7 +75,7 @@ pub fn parse_version(raw: &str) -> Option<Version> {
 
     if let Some(idx) = split_idx {
         let (core, rest) = trimmed.split_at(idx);
-        let rest_clean = rest.trim_start_matches(|c| c == '-' || c == '_' || c == '.');
+        let rest_clean = rest.trim_start_matches(['-', '_', '.']);
         if !core.is_empty() && !rest_clean.is_empty() {
             let normalized_pre = rest_clean.replace('_', "-");
             let candidate = format!("{}-{}", core, normalized_pre);
@@ -140,38 +140,35 @@ fn build_update_info_from_release(
         .trim_start_matches('V')
         .to_string();
 
-    // pre が付くプレリリース版は自動更新させないためインストーラー URL を渡さずアナウンス専用にする
-    let (installer_url, installer_name, checksum_url) = if is_prerelease {
-        (None, None, None)
-    } else {
-        let installer_asset = release
-            .assets
-            .iter()
-            .find(|a| a.name.to_lowercase().ends_with(".msi"))
-            .or_else(|| {
-                release
-                    .assets
-                    .iter()
-                    .find(|a| a.name.to_lowercase().ends_with(".exe") && a.name.contains("Setup"))
-            })
-            .or_else(|| {
-                release
-                    .assets
-                    .iter()
-                    .find(|a| a.name.to_lowercase().ends_with(".exe"))
-            });
+    // pre 版も含め、ソフト内からの手動ダウンロード＆SHA-256 検証付き更新に利用するアセット情報を解決する
+    // （pre 版の自動更新抑止および事前注意表示は is_prerelease フラグで制御する）
+    let installer_asset = release
+        .assets
+        .iter()
+        .find(|a| a.name.to_lowercase().ends_with(".msi"))
+        .or_else(|| {
+            release
+                .assets
+                .iter()
+                .find(|a| a.name.to_lowercase().ends_with(".exe") && a.name.contains("Setup"))
+        })
+        .or_else(|| {
+            release
+                .assets
+                .iter()
+                .find(|a| a.name.to_lowercase().ends_with(".exe"))
+        });
 
-        let checksum_asset = release
-            .assets
-            .iter()
-            .find(|a| a.name.to_uppercase().contains("SHA256"));
+    let checksum_asset = release
+        .assets
+        .iter()
+        .find(|a| a.name.to_uppercase().contains("SHA256"));
 
-        (
-            installer_asset.map(|a| a.browser_download_url.clone()),
-            installer_asset.map(|a| a.name.clone()),
-            checksum_asset.map(|a| a.browser_download_url.clone()),
-        )
-    };
+    let (installer_url, installer_name, checksum_url) = (
+        installer_asset.map(|a| a.browser_download_url.clone()),
+        installer_asset.map(|a| a.name.clone()),
+        checksum_asset.map(|a| a.browser_download_url.clone()),
+    );
 
     UpdateInfo {
         current_version: current_version.to_string(),
@@ -311,13 +308,43 @@ pub async fn check_for_updates(include_prerelease: bool) -> Result<UpdateInfo> {
     ))
 }
 
-/// インストーラーをダウンロードし、チェックサムがある場合は SHA-256 を検証する
+/// アップデート配布元 URL が GitHub 公式の安全な HTTPS ホストかを検証する
+fn validate_trusted_release_url(raw: &str) -> Result<url::Url> {
+    let parsed = url::Url::parse(raw.trim()).context("アップデート URL の形式が不正です")?;
+    if parsed.scheme() != "https" {
+        return Err(anyhow!("アップデート取得は HTTPS 通信のみ許可されています"));
+    }
+    let host = parsed
+        .host_str()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let trusted = host == "github.com"
+        || host == "api.github.com"
+        || host == "objects.githubusercontent.com"
+        || host == "release-assets.githubusercontent.com"
+        || host.ends_with(".githubusercontent.com");
+    if !trusted {
+        return Err(anyhow!(
+            "信頼された配布元（GitHub）以外のアップデート URL は許可されていません: {}",
+            host
+        ));
+    }
+    Ok(parsed)
+}
+
+/// インストーラーをダウンロードし、チェックサムがある場合は厳格（Fail-Closed）に SHA-256 を検証する
 pub async fn download_installer(
     installer_url: &str,
     installer_name: &str,
     checksum_url: Option<&str>,
     mut on_progress: impl FnMut(UpdateDownloadProgress),
 ) -> Result<String> {
+    let validated_installer_url = validate_trusted_release_url(installer_url)?;
+    let validated_checksum_url = match checksum_url {
+        Some(cs) if !cs.trim().is_empty() => Some(validate_trusted_release_url(cs)?),
+        _ => None,
+    };
+
     let temp_dir = std::env::temp_dir().join("StosupUpdate");
     tokio::fs::create_dir_all(&temp_dir).await?;
     let safe_name = PathBuf::from(installer_name)
@@ -327,9 +354,22 @@ pub async fn download_installer(
         .to_string();
     let dest_path = temp_dir.join(&safe_name);
 
-    let client = github_client(300)?;
+    let client = reqwest::Client::builder()
+        .user_agent(format!("Stosup/{}", CURRENT_APP_VERSION))
+        .timeout(Duration::from_secs(300))
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() >= 10 {
+                return attempt.error("リダイレクト回数が上限を超えました");
+            }
+            if validate_trusted_release_url(attempt.url().as_str()).is_err() {
+                return attempt.error("信頼された配布元以外へのリダイレクトを拒否しました");
+            }
+            attempt.follow()
+        }))
+        .build()
+        .context("HTTPクライアントの作成に失敗しました")?;
     let resp = client
-        .get(installer_url)
+        .get(validated_installer_url)
         .send()
         .await
         .context("インストーラーのダウンロード開始に失敗しました")?;
@@ -370,8 +410,8 @@ pub async fn download_installer(
     file.flush().await?;
     drop(file);
 
-    // SHA-256 チェックサム検証
-    if let Some(cs_url) = checksum_url {
+    // SHA-256 チェックサム検証（Fail-Closed: チェックサム URL があるのに検証完了できない場合は破損/改ざん防止のため中断）
+    if let Some(cs_url) = validated_checksum_url {
         on_progress(UpdateDownloadProgress {
             downloaded_bytes: downloaded,
             total_bytes,
@@ -381,19 +421,45 @@ pub async fn download_installer(
         });
 
         let actual_hash = format!("{:x}", hasher.finalize());
-        if let Ok(cs_resp) = client.get(cs_url).send().await {
-            if cs_resp.status().is_success() {
-                if let Ok(cs_text) = cs_resp.text().await {
-                    if let Some(expected_hash) = parse_sha256_for_file(&cs_text, &safe_name) {
-                        if !actual_hash.eq_ignore_ascii_case(&expected_hash) {
-                            let _ = tokio::fs::remove_file(&dest_path).await;
-                            return Err(anyhow!(
-                                "インストーラーの SHA-256 検証に失敗しました（ファイルが破損している可能性があります）"
-                            ));
-                        }
-                    }
-                }
+        let cs_resp = match client.get(cs_url).send().await {
+            Ok(r) if r.status().is_success() => r,
+            Ok(r) => {
+                let _ = tokio::fs::remove_file(&dest_path).await;
+                return Err(anyhow!(
+                    "SHA-256 チェックサムファイルの取得に失敗しました (HTTP {})",
+                    r.status()
+                ));
             }
+            Err(e) => {
+                let _ = tokio::fs::remove_file(&dest_path).await;
+                return Err(anyhow!(
+                    "SHA-256 チェックサムファイルの取得に失敗しました: {}",
+                    e
+                ));
+            }
+        };
+        let cs_text = match cs_resp.text().await {
+            Ok(t) => t,
+            Err(e) => {
+                let _ = tokio::fs::remove_file(&dest_path).await;
+                return Err(anyhow!(
+                    "SHA-256 チェックサムファイルの読み取りに失敗しました: {}",
+                    e
+                ));
+            }
+        };
+        let Some(expected_hash) = parse_sha256_for_file(&cs_text, &safe_name) else {
+            let _ = tokio::fs::remove_file(&dest_path).await;
+            return Err(anyhow!(
+                "SHA-256 チェックサム一覧に対象ファイル ({}) が見つかりませんでした",
+                safe_name
+            ));
+        };
+        if !actual_hash.eq_ignore_ascii_case(&expected_hash) {
+            let _ = tokio::fs::remove_file(&dest_path).await;
+            return Err(anyhow!(
+                "インストーラーの SHA-256 検証に失敗しました（ファイルが破損している可能性があります）"
+            ));
         }
     }
 
@@ -427,36 +493,47 @@ pub fn launch_installer(installer_path: &str, silent: bool) -> Result<()> {
 
     if is_msi {
         if silent {
-            // サイレント MSI 更新の完了後に Stosup を --after-update 付きで自動再起動するラッパーを生成
-            let script_dir = path
-                .parent()
-                .map(|p| p.to_path_buf())
-                .unwrap_or_else(std::env::temp_dir);
-            let script_path = script_dir.join("apply_msi_update.cmd");
-            let msi_str = path.to_string_lossy().replace('"', "");
-            let exe_after = std::env::current_exe()
+            // 日本語ユーザー名パスでも文字化けせず、かつ cmd.exe の %VAR% 展開・一時バッチ生成を回避するため
+            // UTF-16LE Base64 の PowerShell -EncodedCommand で安全にサイレント MSI 更新＋自動再起動を実行する
+            use base64::Engine as _;
+            let msi_ps = path.to_string_lossy().replace('\'', "''");
+            let current_exe_ps = std::env::current_exe()
                 .ok()
-                .and_then(|p| p.to_str().map(|s| s.to_string()))
-                .unwrap_or_else(|| r"%LOCALAPPDATA%\Stosup\stosup.exe".to_string());
+                .and_then(|p| p.to_str().map(|s| s.replace('\'', "''")))
+                .unwrap_or_default();
 
-            let script = format!(
-                "@echo off\r\n\
-                 timeout /t 2 /nobreak >nul\r\n\
-                 msiexec /i \"{msi}\" /qn /norestart\r\n\
-                 if exist \"{current}\" (\r\n\
-                   start \"\" \"{current}\" --after-update\r\n\
-                 ) else if exist \"%LOCALAPPDATA%\\Stosup\\stosup.exe\" (\r\n\
-                   start \"\" \"%LOCALAPPDATA%\\Stosup\\stosup.exe\" --after-update\r\n\
-                 )\r\n\
-                 del \"%~f0\" >nul 2>&1\r\n",
-                msi = msi_str,
-                current = exe_after.replace('"', ""),
+            let ps_script = format!(
+                "$ErrorActionPreference = 'SilentlyContinue'\n\
+                 Start-Sleep -Seconds 2\n\
+                 $msi = '{msi}'\n\
+                 $p = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', $msi, '/qn', '/norestart') -Wait -PassThru\n\
+                 $cur = '{cur}'\n\
+                 $fallback = Join-Path $env:LOCALAPPDATA 'Stosup\\stosup.exe'\n\
+                 if ($cur -and (Test-Path -LiteralPath $cur)) {{\n\
+                   Start-Process -FilePath $cur -ArgumentList @('--after-update')\n\
+                 }} elseif (Test-Path -LiteralPath $fallback) {{\n\
+                   Start-Process -FilePath $fallback -ArgumentList @('--after-update')\n\
+                 }}\n",
+                msi = msi_ps,
+                cur = current_exe_ps,
             );
-            std::fs::write(&script_path, script)
-                .context("自動アップデートスクリプトの作成に失敗しました")?;
+            let utf16_bytes: Vec<u8> = ps_script
+                .encode_utf16()
+                .flat_map(|u| u.to_le_bytes())
+                .collect();
+            let encoded = base64::engine::general_purpose::STANDARD.encode(utf16_bytes);
 
-            let mut cmd = std::process::Command::new("cmd");
-            cmd.args(["/C", &script_path.to_string_lossy()]);
+            let mut cmd = std::process::Command::new("powershell.exe");
+            cmd.args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-WindowStyle",
+                "Hidden",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-EncodedCommand",
+                &encoded,
+            ]);
             #[cfg(target_os = "windows")]
             {
                 use std::os::windows::process::CommandExt;
@@ -655,14 +732,13 @@ mod tests {
         assert!(!info_disabled.is_prerelease);
         assert_eq!(info_disabled.latest_version, "0.5.0");
 
-        // ON にした場合のみアナウンス専用として返す
+        // ON にした場合のみ先行版として通知し、ソフト内から手動ダウンロード更新できるアセット情報も渡す
         let info_enabled = select_update_from_releases("0.5.0", &releases, true);
         assert!(info_enabled.has_update);
         assert!(info_enabled.is_prerelease);
         assert_eq!(info_enabled.latest_version, "0.5.1-pre");
-        // 自動更新をさせないためインストーラー URL は渡さない
-        assert!(info_enabled.installer_url.is_none());
-        assert!(info_enabled.installer_name.is_none());
+        assert!(info_enabled.installer_url.is_some());
+        assert!(info_enabled.installer_name.is_some());
 
         // pre 版しかリリースされていない状態で OFF の場合は現在版で更新なしを返す
         let only_pre = vec![mock_release("v0.5.1-pre", true, false)];
@@ -718,12 +794,12 @@ mod tests {
         assert!(!from_051_off.is_prerelease);
         assert_eq!(from_051_off.latest_version, "0.5.1");
 
-        // 0.5.1 へ上げた後、pre 通知 ON なら 0.5.2-pre がアナウンス専用で通知される
+        // 0.5.1 へ上げた後、pre 通知 ON なら 0.5.2-pre が先行版として通知され手動更新用 URL も取得できる
         let from_051 = select_update_from_releases("0.5.1", &releases, true);
         assert!(from_051.has_update);
         assert!(from_051.is_prerelease);
         assert_eq!(from_051.latest_version, "0.5.2-pre");
-        assert!(from_051.installer_url.is_none());
+        assert!(from_051.installer_url.is_some());
     }
 
     #[test]

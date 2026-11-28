@@ -172,7 +172,7 @@ pub fn connect_demo(
                 };
 
                 let (event_kind, amount_display, amount_micros, currency, tier_color, final_msg) =
-                    if idx > 0 && idx % 6 == 0 {
+                    if idx > 0 && idx.is_multiple_of(6) {
                         (
                             Some(MonetizationEventKind::SuperChat),
                             Some("¥1,000".to_string()),
@@ -181,7 +181,7 @@ pub fn connect_demo(
                             Some("#FFCA28".to_string()),
                             "いつも配信ありがとう！応援してます！".to_string(),
                         )
-                    } else if idx > 0 && idx % 9 == 0 {
+                    } else if idx > 0 && idx.is_multiple_of(9) {
                         (
                             Some(MonetizationEventKind::MembershipNew),
                             Some("新規メンバー加入".to_string()),

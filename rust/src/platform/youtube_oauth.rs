@@ -196,7 +196,9 @@ pub async fn run_oauth_login(db: Arc<Mutex<Database>>) -> Result<YouTubeOAuthSta
     let code = code?;
 
     // 認可コードをトークンへ交換
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(20))
+        .build()?;
     let mut form = vec![
         ("code", code.as_str()),
         ("client_id", client_id.as_str()),
@@ -268,7 +270,9 @@ pub async fn get_valid_access_token(db: Arc<Mutex<Database>>) -> Result<String> 
         anyhow!("リフレッシュトークンがありません。設定画面から再度 Google 認証を行ってください。")
     })?;
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(20))
+        .build()?;
     let mut form = vec![
         ("client_id", client_id.as_str()),
         ("refresh_token", refresh_token.as_str()),
@@ -320,21 +324,36 @@ async fn fetch_authenticated_channel_name(
     Ok(title)
 }
 
-/// 既定ブラウザでURLを開く（Windows ネイティブコマンド使用）
+/// 既定ブラウザでURLを開く（http / https スキームのみ安全に許可）
 pub fn open_url_in_browser(url: &str) -> Result<()> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() || trimmed.chars().any(|c| c.is_control()) {
+        return Err(anyhow!("不正な URL が指定されました"));
+    }
+    let parsed = url::Url::parse(trimmed).context("有効な URL 形式ではありません")?;
+    match parsed.scheme() {
+        "http" | "https" => {}
+        other => {
+            return Err(anyhow!(
+                "安全のため http / https 以外の URL スキーム ({}) は開けません",
+                other
+            ));
+        }
+    }
+    let safe_url = parsed.as_str();
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         std::process::Command::new("rundll32")
-            .args(["url.dll,FileProtocolHandler", url])
+            .args(["url.dll,FileProtocolHandler", safe_url])
             .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .context("ブラウザの起動に失敗しました")?;
     }
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+        let _ = std::process::Command::new("xdg-open").arg(safe_url).spawn();
     }
     Ok(())
 }

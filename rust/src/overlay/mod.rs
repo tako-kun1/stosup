@@ -1,10 +1,11 @@
 mod remote_api;
 
 use std::collections::{HashMap, VecDeque};
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use axum::body::Body;
@@ -20,7 +21,6 @@ use serde::Serialize;
 use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
 use tokio::sync::{broadcast, oneshot, watch, RwLock};
-use tower_http::cors::CorsLayer;
 
 use crate::media::{content_type_for_file_name, is_safe_stored_file_name};
 use crate::models::{
@@ -326,8 +326,10 @@ impl PreviewOverlayStore {
             drawn_at_ms: now_ms,
         };
 
-        let mut ft_cfg = FirstTimeCounterConfig::default();
-        ft_cfg.show_first_timer_profile = true;
+        let ft_cfg = FirstTimeCounterConfig {
+            show_first_timer_profile: true,
+            ..Default::default()
+        };
         let sample_first_time = FirstTimeCounterState {
             count: 12,
             total_detected_all_time: 128,
@@ -389,9 +391,11 @@ impl PreviewOverlayStore {
             },
         ];
 
-        let mut sample_poll = PollState::default();
-        sample_poll.is_active = true;
-        sample_poll.started_at_ms = Some(now_ms - 60_000);
+        let mut sample_poll = PollState {
+            is_active: true,
+            started_at_ms: Some(now_ms - 60_000),
+            ..Default::default()
+        };
         if sample_poll.config.options.len() >= 3 {
             sample_poll.config.options[0].vote_count = 42;
             sample_poll.config.options[1].vote_count = 29;
@@ -542,6 +546,30 @@ fn has_subscriber_for_channel(
         || counters[channel.index()].load(Ordering::Acquire) > 0
 }
 
+const PIN_MAX_FAILURES: u32 = 5;
+const PIN_LOCKOUT_DURATION: Duration = Duration::from_secs(30);
+const PIN_RATE_LIMITER_MAX_ENTRIES: usize = 1024;
+
+#[derive(Debug, Clone)]
+struct PinAttemptState {
+    failed_count: u32,
+    locked_until: Option<Instant>,
+    last_attempt: Instant,
+}
+
+/// オーバーレイ配信時に配信者専用プライベートメモ（`user_memo`）を除去する
+fn sanitize_comment_for_overlay(mut comment: CommentItem) -> CommentItem {
+    comment.user_memo.clear();
+    comment
+}
+
+fn sanitize_picked_for_overlay(mut picked: PickedCommentState) -> PickedCommentState {
+    if let Some(ref mut c) = picked.comment {
+        c.user_memo.clear();
+    }
+    picked
+}
+
 pub struct OverlaySharedState {
     pub media_dir: PathBuf,
     pub mods_dir: PathBuf,
@@ -549,6 +577,8 @@ pub struct OverlaySharedState {
     pub mods_revision: AtomicU64,
     pub remote_config: RwLock<RemoteAccessConfig>,
     allow_lan_access: AtomicBool,
+    pub remote_auth_gen: watch::Sender<u64>,
+    pin_rate_limiter: std::sync::Mutex<HashMap<IpAddr, PinAttemptState>>,
     pub config: RwLock<OverlayConfig>,
     pub recent_comments: RwLock<VecDeque<CommentItem>>,
     pub counters: RwLock<Vec<WordCounterConfig>>,
@@ -599,6 +629,7 @@ impl OverlaySharedState {
         let (tx, _) = broadcast::channel(512);
         let (preview_tx, _) = broadcast::channel(256);
         let (obs_enabled_tx, _) = watch::channel(true);
+        let (remote_auth_gen, _) = watch::channel(0u64);
         let initial_allow_lan = remote_config.allow_lan_access;
         Self {
             media_dir,
@@ -607,6 +638,8 @@ impl OverlaySharedState {
             mods_revision: AtomicU64::new(1),
             remote_config: RwLock::new(remote_config),
             allow_lan_access: AtomicBool::new(initial_allow_lan),
+            remote_auth_gen,
+            pin_rate_limiter: std::sync::Mutex::new(HashMap::new()),
             config: RwLock::new(config),
             recent_comments: RwLock::new(VecDeque::new()),
             counters: RwLock::new(counters),
@@ -633,11 +666,73 @@ impl OverlaySharedState {
         }
     }
 
-    /// LAN アクセス許可設定を更新（ip_access_guard 用のロックフリー AtomicBool も即時同期）
+    /// LAN アクセス許可設定を更新（ip_access_guard 用 AtomicBool 同期＆認証変更時の既存 `/ws/remote` 即時切断）
     pub async fn update_remote_config(&self, cfg: RemoteAccessConfig) {
         self.allow_lan_access
             .store(cfg.allow_lan_access, Ordering::Relaxed);
-        *self.remote_config.write().await = cfg;
+        let mut guard = self.remote_config.write().await;
+        let auth_changed = guard.pin_code != cfg.pin_code
+            || guard.require_pin != cfg.require_pin
+            || guard.remote_control_enabled != cfg.remote_control_enabled
+            || guard.allow_lan_access != cfg.allow_lan_access;
+        *guard = cfg;
+        drop(guard);
+        if auth_changed {
+            let next_gen = self.remote_auth_gen.borrow().wrapping_add(1);
+            let _ = self.remote_auth_gen.send(next_gen);
+        }
+    }
+
+    /// 指定 IP が PIN 失敗回数超過によるロック中であれば残り秒数を返す
+    pub fn check_pin_rate_limit(&self, ip: IpAddr) -> Option<u64> {
+        let mut map = self.pin_rate_limiter.lock().ok()?;
+        let now = Instant::now();
+        if let Some(entry) = map.get_mut(&ip) {
+            if let Some(until) = entry.locked_until {
+                if now < until {
+                    return Some(until.duration_since(now).as_secs().max(1));
+                }
+                // ロック期限経過後は再試行できるようリセット
+                entry.locked_until = None;
+                entry.failed_count = 0;
+            }
+        }
+        None
+    }
+
+    /// PIN 認証失敗を記録し、ロック状態に入った場合はロック秒数を返す
+    pub fn record_pin_failure(&self, ip: IpAddr) -> Option<u64> {
+        let mut map = self.pin_rate_limiter.lock().ok()?;
+        let now = Instant::now();
+        if map.len() >= PIN_RATE_LIMITER_MAX_ENTRIES && !map.contains_key(&ip) {
+            // 古いエントリを掃除してメモリ枯渇を防止
+            map.retain(|_, v| {
+                now.duration_since(v.last_attempt) < Duration::from_secs(300)
+                    || v.locked_until.map(|u| now < u).unwrap_or(false)
+            });
+            if map.len() >= PIN_RATE_LIMITER_MAX_ENTRIES {
+                map.clear();
+            }
+        }
+        let entry = map.entry(ip).or_insert(PinAttemptState {
+            failed_count: 0,
+            locked_until: None,
+            last_attempt: now,
+        });
+        entry.last_attempt = now;
+        entry.failed_count = entry.failed_count.saturating_add(1);
+        if entry.failed_count >= PIN_MAX_FAILURES {
+            entry.locked_until = Some(now + PIN_LOCKOUT_DURATION);
+            return Some(PIN_LOCKOUT_DURATION.as_secs());
+        }
+        None
+    }
+
+    /// PIN 認証成功時に該当 IP の失敗カウントをクリアする
+    pub fn clear_pin_failures(&self, ip: IpAddr) {
+        if let Ok(mut map) = self.pin_rate_limiter.lock() {
+            map.remove(&ip);
+        }
     }
 
     #[inline]
@@ -761,7 +856,13 @@ impl OverlaySharedState {
         OverlayMessage::Snapshot(Box::new(OverlaySnapshotPayload {
             config: self.config.read().await.clone(),
             comments: if include(OverlayChannel::Comments) {
-                self.recent_comments.read().await.iter().cloned().collect()
+                self.recent_comments
+                    .read()
+                    .await
+                    .iter()
+                    .cloned()
+                    .map(sanitize_comment_for_overlay)
+                    .collect()
             } else {
                 Vec::new()
             },
@@ -806,7 +907,7 @@ impl OverlaySharedState {
                 false
             },
             picked_comment: if include(OverlayChannel::Pickup) {
-                self.picked_comment.read().await.clone()
+                sanitize_picked_for_overlay(self.picked_comment.read().await.clone())
             } else {
                 PickedCommentState::default()
             },
@@ -873,6 +974,7 @@ impl OverlaySharedState {
     }
 
     pub async fn push_comment(&self, comment: CommentItem) {
+        let comment = sanitize_comment_for_overlay(comment);
         let max_items = self.config.read().await.comment_max_items.max(10) as usize;
         let need_send = self.should_broadcast(OverlayChannel::Comments);
         if need_send {
@@ -954,6 +1056,7 @@ impl OverlaySharedState {
     }
 
     pub async fn update_picked_comment(&self, picked: PickedCommentState, enabled: bool) {
+        let picked = sanitize_picked_for_overlay(picked);
         *self.pickup_enabled.write().await = enabled;
         if self.should_broadcast(OverlayChannel::Pickup) {
             *self.picked_comment.write().await = picked.clone();
@@ -1268,7 +1371,6 @@ pub fn start_overlay_server(
                 Arc::clone(&shared),
                 remote_api::ip_access_guard,
             ))
-            .layer(CorsLayer::permissive())
             .with_state(shared);
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
@@ -1291,21 +1393,67 @@ pub fn start_overlay_server(
     })
 }
 
+/// 既存サーバー停止直後のソケット解放待ちを考慮し、短時間リトライ付きでサーバーを起動する
+pub async fn start_overlay_server_with_retry(
+    port: u16,
+    allow_lan: bool,
+    shared: Arc<OverlaySharedState>,
+) -> Result<OverlayServerHandle> {
+    if port == 0 {
+        return start_overlay_server(0, allow_lan, shared).await;
+    }
+    const BACKOFF_MS: [u64; 5] = [30, 50, 80, 120, 160];
+    let mut last_err = match start_overlay_server(port, allow_lan, Arc::clone(&shared)).await {
+        Ok(handle) => return Ok(handle),
+        Err(e) => e,
+    };
+    for wait_ms in BACKOFF_MS {
+        tokio::time::sleep(Duration::from_millis(wait_ms)).await;
+        match start_overlay_server(port, allow_lan, Arc::clone(&shared)).await {
+            Ok(handle) => return Ok(handle),
+            Err(e) => last_err = e,
+        }
+    }
+    Err(last_err)
+}
+
+const NO_STORE_CACHE_CONTROL: &str = "no-store, no-cache, must-revalidate";
+
+/// バージョン更新時に OBS Browser Source (CEF) が旧 JS をキャッシュ再利用するのを防ぐため
+/// 共通スクリプト URL にバージョン付きクエリを付与する
+fn with_versioned_overlay_scripts(html: &str) -> String {
+    let ver = crate::updater::CURRENT_APP_VERSION;
+    html.replace(
+        "src=\"/overlay/stosup-overlay.js\"",
+        &format!("src=\"/overlay/stosup-overlay.js?v={}\"", ver),
+    )
+    .replace(
+        "src=\"/overlay/stosup-mod-sdk.js\"",
+        &format!("src=\"/overlay/stosup-mod-sdk.js?v={}\"", ver),
+    )
+}
+
 fn serve_overlay_html(
     State(state): State<Arc<OverlaySharedState>>,
     html: &'static str,
-) -> (StatusCode, Html<&'static str>) {
+) -> impl IntoResponse {
     if !state.is_obs_overlay_enabled() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
+            [(header::CACHE_CONTROL, NO_STORE_CACHE_CONTROL)],
             Html(
                 "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'><title>オーバーレイスタジオ停止中</title></head>\
                  <body style='margin:0;background:transparent;color:#a1a1aa;font-family:sans-serif;padding:12px;font-size:13px'>\
-                 Stosup のオーバーレイスタジオ機能は現在オフになっています。</body></html>",
+                 Stosup のオーバーレイスタジオ機能は現在オフになっています。</body></html>"
+                    .to_string(),
             ),
         );
     }
-    (StatusCode::OK, Html(html))
+    (
+        StatusCode::OK,
+        [(header::CACHE_CONTROL, NO_STORE_CACHE_CONTROL)],
+        Html(with_versioned_overlay_scripts(html)),
+    )
 }
 
 async fn favicon_handler() -> impl IntoResponse {
@@ -1317,14 +1465,20 @@ async fn favicon_handler() -> impl IntoResponse {
 
 async fn overlay_common_js_handler() -> impl IntoResponse {
     (
-        [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        [
+            (header::CONTENT_TYPE, "application/javascript; charset=utf-8"),
+            (header::CACHE_CONTROL, NO_STORE_CACHE_CONTROL),
+        ],
         OVERLAY_COMMON_JS,
     )
 }
 
 async fn overlay_mod_sdk_js_handler() -> impl IntoResponse {
     (
-        [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        [
+            (header::CONTENT_TYPE, "application/javascript; charset=utf-8"),
+            (header::CACHE_CONTROL, NO_STORE_CACHE_CONTROL),
+        ],
         OVERLAY_MOD_SDK_JS,
     )
 }
@@ -1343,6 +1497,25 @@ async fn mods_runtime_api_handler(
     )
 }
 
+/// HTML 内で `<head>` 開始タグの閉じ `>` 位置（直後）を探す（`<header>` 等の別タグ誤一致を防止）
+fn find_head_tag_insert_pos(lower_html: &str) -> Option<usize> {
+    let bytes = lower_html.as_bytes();
+    let mut offset = 0;
+    while let Some(rel) = lower_html[offset..].find("<head") {
+        let start = offset + rel;
+        let after = start + 5;
+        let next_byte = bytes.get(after).copied();
+        if matches!(next_byte, Some(b'>' | b' ' | b'\t' | b'\r' | b'\n' | b'/')) {
+            if let Some(gt_rel) = lower_html[start..].find('>') {
+                return Some(start + gt_rel + 1);
+            }
+            return None;
+        }
+        offset = after;
+    }
+    None
+}
+
 /// 独立カスタムオーバーレイ HTML の `<head>` へ `<base>` および Stosup SDK を自動注入する
 fn inject_mod_overlay_head(raw_html: &str, mod_id: &str) -> String {
     let lower = raw_html.to_ascii_lowercase();
@@ -1350,24 +1523,28 @@ fn inject_mod_overlay_head(raw_html: &str, mod_id: &str) -> String {
     if !lower.contains("<base ") {
         injection.push_str(&format!("\n<base href=\"/mods/{}/\" />", mod_id));
     }
+    let ver = crate::updater::CURRENT_APP_VERSION;
     if !lower.contains("stosup-overlay.js") {
-        injection.push_str("\n<script src=\"/overlay/stosup-overlay.js\"></script>");
+        injection.push_str(&format!(
+            "\n<script src=\"/overlay/stosup-overlay.js?v={}\"></script>",
+            ver
+        ));
     }
     if !lower.contains("stosup-mod-sdk.js") {
-        injection.push_str("\n<script src=\"/overlay/stosup-mod-sdk.js\"></script>");
+        injection.push_str(&format!(
+            "\n<script src=\"/overlay/stosup-mod-sdk.js?v={}\"></script>",
+            ver
+        ));
     }
     if injection.is_empty() {
         return raw_html.to_string();
     }
-    if let Some(head_pos) = lower.find("<head") {
-        if let Some(gt_rel) = lower[head_pos..].find('>') {
-            let insert_at = head_pos + gt_rel + 1;
-            let mut out = String::with_capacity(raw_html.len() + injection.len() + 2);
-            out.push_str(&raw_html[..insert_at]);
-            out.push_str(&injection);
-            out.push_str(&raw_html[insert_at..]);
-            return out;
-        }
+    if let Some(insert_at) = find_head_tag_insert_pos(&lower) {
+        let mut out = String::with_capacity(raw_html.len() + injection.len() + 2);
+        out.push_str(&raw_html[..insert_at]);
+        out.push_str(&injection);
+        out.push_str(&raw_html[insert_at..]);
+        return out;
     }
     format!("{}\n{}", injection, raw_html)
 }
@@ -1430,7 +1607,7 @@ async fn mod_custom_overlay_handler(
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-        .header(header::CACHE_CONTROL, "no-cache")
+        .header(header::CACHE_CONTROL, NO_STORE_CACHE_CONTROL)
         .body(Body::from(final_html))
         .unwrap()
 }
@@ -1447,14 +1624,19 @@ async fn mod_asset_handler(
             .unwrap();
     }
 
-    // 有効な MOD のみ配信（ただし MOD 管理画面用アイコン表示も考慮し、ロード済み存在チェック）
+    let content_type = content_type_for_mod_asset(&asset_path);
+    let is_safe_raster_icon =
+        content_type.starts_with("image/") && content_type != "image/svg+xml";
+
+    // 有効な MOD のみ全アセットを配信。無効化 MOD は管理画面表示用の安全なラスター画像アイコンのみ許可
     let is_enabled_or_icon = {
         let mods = state.installed_mods.read().await;
         mods.iter().any(|m| {
             m.id == mod_id
                 && m.load_error.is_none()
                 && (m.enabled
-                    || (!m.icon_url.is_empty()
+                    || (is_safe_raster_icon
+                        && !m.icon_url.is_empty()
                         && m.icon_url == format!("/mods/{}/{}", mod_id, asset_path)))
         })
     };
@@ -1479,14 +1661,19 @@ async fn mod_asset_handler(
             .unwrap();
     };
 
-    let content_type = content_type_for_mod_asset(&asset_path);
-    Response::builder()
+    let mut builder = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, content_type)
+        .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
         .header(header::CACHE_CONTROL, "no-cache")
-        .header(header::CONTENT_LENGTH, data.len())
-        .body(Body::from(data))
-        .unwrap()
+        .header(header::CONTENT_LENGTH, data.len());
+    if content_type == "image/svg+xml" {
+        builder = builder.header(
+            header::CONTENT_SECURITY_POLICY,
+            "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
+        );
+    }
+    builder.body(Body::from(data)).unwrap()
 }
 
 /// ローカル保存済みメディアファイルを配信する（Range シーク読み出し対応で大容量動画も高速・省メモリ）
@@ -1556,18 +1743,24 @@ async fn media_file_handler(
                 if file.seek(SeekFrom::Start(start)).await.is_ok()
                     && file.read_exact(&mut buf).await.is_ok()
                 {
-                    return Response::builder()
+                    let mut builder = Response::builder()
                         .status(StatusCode::PARTIAL_CONTENT)
                         .header(header::CONTENT_TYPE, content_type)
+                        .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
                         .header(header::ACCEPT_RANGES, "bytes")
                         .header(
                             header::CONTENT_RANGE,
                             format!("bytes {}-{}/{}", start, end, total_len),
                         )
                         .header(header::CONTENT_LENGTH, buf.len())
-                        .header(header::CACHE_CONTROL, cache_control)
-                        .body(Body::from(buf))
-                        .unwrap();
+                        .header(header::CACHE_CONTROL, cache_control);
+                    if content_type == "image/svg+xml" {
+                        builder = builder.header(
+                            header::CONTENT_SECURITY_POLICY,
+                            "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
+                        );
+                    }
+                    return builder.body(Body::from(buf)).unwrap();
                 }
             }
         }
@@ -1581,14 +1774,20 @@ async fn media_file_handler(
             .unwrap();
     }
 
-    Response::builder()
+    let mut builder = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, content_type)
+        .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
         .header(header::ACCEPT_RANGES, "bytes")
         .header(header::CONTENT_LENGTH, data.len())
-        .header(header::CACHE_CONTROL, cache_control)
-        .body(Body::from(data))
-        .unwrap()
+        .header(header::CACHE_CONTROL, cache_control);
+    if content_type == "image/svg+xml" {
+        builder = builder.header(
+            header::CONTENT_SECURITY_POLICY,
+            "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
+        );
+    }
+    builder.body(Body::from(data)).unwrap()
 }
 
 async fn index_handler() -> Html<&'static str> {
@@ -1626,9 +1825,17 @@ async fn index_handler() -> Html<&'static str> {
 
 async fn ws_handler(
     ws: WebSocketUpgrade,
+    headers: HeaderMap,
     Query(query): Query<HashMap<String, String>>,
     State(state): State<Arc<OverlaySharedState>>,
 ) -> axum::response::Response {
+    if remote_api::is_cross_site_browser_request(&headers, false) {
+        return (
+            StatusCode::FORBIDDEN,
+            "Cross-site WebSocket connection is not allowed",
+        )
+            .into_response();
+    }
     if !state.is_obs_overlay_enabled() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
@@ -1951,5 +2158,78 @@ mod tests {
             state.channel_subs[OverlayChannel::Counter.index()].load(Ordering::Relaxed),
             0
         );
+    }
+
+    #[test]
+    fn test_inject_mod_overlay_head_ignores_header_tag() {
+        let html = "<!DOCTYPE html><html><header>top</header><head><title>x</title></head><body></body></html>";
+        let injected = inject_mod_overlay_head(html, "my-mod");
+        // <header> 直後ではなく <head> 直後に注入されること
+        let header_end = injected.find("</header>").unwrap();
+        let base_pos = injected.find("<base href=\"/mods/my-mod/\"").unwrap();
+        assert!(base_pos > header_end);
+    }
+
+    #[test]
+    fn test_pin_rate_limiter_locks_after_five_failures() {
+        let state = make_test_state();
+        let ip: IpAddr = "192.168.1.99".parse().unwrap();
+        assert!(state.check_pin_rate_limit(ip).is_none());
+        for _ in 0..4 {
+            assert!(state.record_pin_failure(ip).is_none());
+        }
+        assert!(state.record_pin_failure(ip).is_some());
+        assert!(state.check_pin_rate_limit(ip).is_some());
+        state.clear_pin_failures(ip);
+        assert!(state.check_pin_rate_limit(ip).is_none());
+    }
+
+    #[test]
+    fn test_overlay_html_cache_busting_and_sync_mods_guards() {
+        let ver = crate::updater::CURRENT_APP_VERSION;
+        let expected_script = format!("src=\"/overlay/stosup-overlay.js?v={}\"", ver);
+        for (name, html) in [
+            ("comments", COMMENTS_HTML),
+            ("superchat", SUPERCHAT_HTML),
+            ("pickup", PICKUP_HTML),
+            ("poll", POLL_HTML),
+            ("queue", QUEUE_HTML),
+            ("lottery", LOTTERY_HTML),
+            ("counter", COUNTER_HTML),
+            ("first_time", FIRST_TIME_HTML),
+            ("media", MEDIA_HTML),
+        ] {
+            let rendered = with_versioned_overlay_scripts(html);
+            assert!(
+                rendered.contains(&expected_script),
+                "{name}.html にバージョン付き stosup-overlay.js が埋め込まれていません"
+            );
+            // 旧キャッシュ JS でもクラッシュしないよう、すべての syncMods 呼び出しに typeof ガードがあること
+            for line in html.lines() {
+                if line.contains("StosupOverlay.syncMods(") {
+                    assert!(
+                        line.contains("typeof window.StosupOverlay.syncMods === 'function'")
+                            || html.contains("typeof window.StosupOverlay.syncMods === 'function'"),
+                        "{name}.html に無ガードの syncMods 呼び出しが残っています: {line}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_start_overlay_server_with_retry_rebinds_same_port_after_stop() {
+        let state = Arc::new(make_test_state());
+        let mut h1 = start_overlay_server(0, false, Arc::clone(&state))
+            .await
+            .unwrap();
+        let port = h1.port;
+        h1.stop();
+
+        let mut h2 = start_overlay_server_with_retry(port, false, Arc::clone(&state))
+            .await
+            .expect("停止直後の同一ポート再バインドがリトライ付きで成功すること");
+        assert_eq!(h2.port, port);
+        h2.stop();
     }
 }
