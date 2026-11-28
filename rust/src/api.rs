@@ -1227,3 +1227,104 @@ pub async fn send_overlay_test_event(target: String) -> Result<String, String> {
         .await
         .map_err(|e| e.to_string())
 }
+
+// ==================== 演出 MOD 管理 ====================
+
+pub async fn list_installed_mods() -> Result<Vec<crate::models::InstalledMod>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.list_installed_mods().await)
+}
+
+pub async fn reload_mods() -> Result<Vec<crate::models::InstalledMod>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime.reload_mods().await.map_err(|e| e.to_string())
+}
+
+pub async fn pick_mod_archive_dialog() -> Option<String> {
+    tokio::task::spawn_blocking(crate::mods::pick_mod_archive_dialog)
+        .await
+        .ok()
+        .flatten()
+}
+
+pub async fn import_mod_archive(
+    archive_path: String,
+) -> Result<crate::models::InstalledMod, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .import_mod_archive(&archive_path)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn set_mod_enabled(
+    mod_id: String,
+    enabled: bool,
+) -> Result<Vec<crate::models::InstalledMod>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .set_mod_enabled(&mod_id, enabled)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn uninstall_mod(mod_id: String) -> Result<Vec<crate::models::InstalledMod>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .uninstall_mod(&mod_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn open_mods_folder() -> Result<(), String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    let dir = runtime.mods_dir.clone();
+    tokio::task::spawn_blocking(move || crate::mods::open_mods_folder(&dir))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+pub async fn get_mods_folder_path() -> Result<String, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.mods_folder_path_string())
+}
+
+pub async fn test_mod_reaction_effect(
+    mod_id: String,
+    effect_id: String,
+    params_json: String,
+    preview_only: bool,
+) -> Result<(), String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .test_mod_reaction_effect(&mod_id, &effect_id, &params_json, preview_only)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn test_mod_logic_script(
+    mod_id: String,
+    script_id: String,
+    sample_message: String,
+    preview_only: bool,
+) -> Result<Vec<String>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime
+        .test_mod_logic_script(&mod_id, &script_id, &sample_message, preview_only)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn list_mod_script_logs(
+    limit: u32,
+) -> Result<Vec<crate::models::ModScriptLogEntry>, String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    Ok(runtime.list_mod_script_logs(limit as usize).await)
+}
+
+pub async fn clear_mod_script_logs() -> Result<(), String> {
+    let runtime = get_runtime().map_err(|e| e.to_string())?;
+    runtime.clear_mod_script_logs().await;
+    Ok(())
+}

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stosup ハイプメーター MOD</title>
+  <link rel="stylesheet" href="overlay.css" />
+</head>
+<body>
+  <div class="meter-wrap">
+    <section id="card" class="meter-card">
+      <div class="meter-head">
+        <div class="meter-title-group">
+          <span id="badge" class="meter-badge">READY</span>
+          <span class="meter-label">HYPE METER</span>
+        </div>
+        <span id="percent" class="meter-percent">0%</span>
+      </div>
+      <div class="meter-track">
+        <div id="fill" class="meter-fill"></div>
+      </div>
+      <div class="meter-foot">
+        <span id="recent-text">コメントやスパチャでゲージが上昇します</span>
+        <span id="cpm">0 msg/30s</span>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const cardEl = document.getElementById('card');
+      const badgeEl = document.getElementById('badge');
+      const percentEl = document.getElementById('percent');
+      const fillEl = document.getElementById('fill');
+      const recentEl = document.getElementById('recent-text');
+      const cpmEl = document.getElementById('cpm');
+
+      let hype = 0; // 0..100
+      let recentTimestamps = [];
+      let knownMonetizationCount = 0;
+
+      function addBoost(points, summaryText) {
+        hype = Math.min(100, hype + points);
+        if (summaryText) {
+          recentEl.textContent = summaryText;
+        }
+        render();
+      }
+
+      function render() {
+        const now = Date.now();
+        recentTimestamps = recentTimestamps.filter((ts) => now - ts <= 30000);
+        const pct = Math.round(hype);
+
+        percentEl.textContent = pct + '%';
+        fillEl.style.transform = 'scaleX(' + (pct / 100).toFixed(3) + ')';
+        cpmEl.textContent = recentTimestamps.length + ' msg/30s';
+
+        cardEl.classList.toggle('is-fever', pct >= 85);
+        cardEl.classList.toggle('is-heat', pct >= 45 && pct < 85);
+
+        if (pct >= 85) {
+          badgeEl.textContent = 'FEVER!!';
+        } else if (pct >= 45) {
+          badgeEl.textContent = 'HEAT UP';
+        } else if (pct > 0) {
+          badgeEl.textContent = 'LIVE';
+        } else {
+          badgeEl.textContent = 'READY';
+        }
+      }
+
+      // 自然減衰ループ（1 秒ごとに少しずつ落ち着く）
+      setInterval(function () {
+        if (hype > 0) {
+          hype = Math.max(0, hype - (hype >= 85 ? 2.5 : 1.5));
+        }
+        render();
+      }, 1000);
+
+      // StosupMod SDK で WebSocket 接続（/overlay/preview/mod/... では自動プレビュー接続）
+      const client = window.StosupMod.connect({
+        channels: ['comments', 'superchat', 'media'],
+      });
+
+      client.on('snapshot', function (snap) {
+        knownMonetizationCount = (snap.monetization_items || []).length;
+        if (client.isPreview) {
+          addBoost(32, 'プレビュー待機中（オーバーレイスタジオのテスト送信で反応します）');
+        }
+      });
+
+      client.on('comment', function (comment) {
+        recentTimestamps.push(Date.now());
+        const boost = comment.event_kind ? 28 : comment.is_first_time ? 14 : 8;
+        addBoost(boost, `${comment.user_name}: ${comment.message}`);
+      });
+
+      client.on('superchat', function (payload) {
+        const items = payload.items || [];
+        if (items.length > knownMonetizationCount && items[0]) {
+          addBoost(35, `エール感謝！ ${items[0].user_name} (${items[0].amount_display})`);
+        }
+        knownMonetizationCount = items.length;
+      });
+
+      client.on('media_trigger', function (trigger) {
+        addBoost(12, `演出発動: ${trigger.rule_name}`);
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

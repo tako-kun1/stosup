@@ -1,0 +1,85 @@
+/* Stosup オーバーレイ追加テーマ MOD サンプル: レトロ・アーケード */
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] {
+  --arcade-bg: rgba(15, 18, 36, 0.94);
+  --arcade-fg: #f8fafc;
+  --arcade-cyan: #22d3ee;
+  --arcade-pink: #f43f5e;
+  --arcade-gold: #facc15;
+}
+
+/* トークモニター (comments) */
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .avatar {
+  border-radius: 0;
+  border: 2px solid var(--arcade-cyan);
+  box-shadow: 3px 3px 0 #090b16;
+}
+
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .bubble {
+  border-radius: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(22, 27, 54, 0.96) 0%,
+    rgba(13, 16, 32, 0.96) 100%
+  );
+  color: var(--arcade-fg);
+  border: 2px solid var(--arcade-cyan);
+  border-left: 6px solid var(--arcade-pink);
+  box-shadow: 4px 4px 0 rgba(9, 11, 22, 0.95);
+}
+
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .bubble.monetization {
+  border-color: var(--arcade-gold);
+  border-left: 6px solid var(--arcade-gold);
+}
+
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .author {
+  color: var(--arcade-cyan);
+  letter-spacing: 0.05em;
+}
+
+/* エールボックス / スポットテロップ / カウンター / 初見 / 投票 / キュー / 抽選 / リアクション共通カード */
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .sc-card,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .pickup-card,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .counter-card,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .ft-card,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .poll-option,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .queue-item,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .lottery-card,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .winner-card,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .media-caption {
+  border-radius: 0;
+  background: var(--arcade-bg);
+  color: var(--arcade-fg);
+  border: 2px solid var(--arcade-cyan);
+  border-left: 6px solid var(--arcade-pink);
+  box-shadow: 4px 4px 0 rgba(9, 11, 22, 0.95);
+}
+
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .poll-bar-fill {
+  background: linear-gradient(90deg, var(--arcade-pink), var(--arcade-cyan));
+}
+
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .counter-value,
+body[data-theme="mod:retro-arcade-theme:retro_arcade"] .ft-count {
+  color: var(--arcade-gold);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 2px 2px 0 #090b16;
+}
+
+/* theme.js が挿入する控えめなコーナー装飾バッジ */
+#retro-arcade-hud-tag {
+  position: fixed;
+  bottom: 8px;
+  right: 10px;
+  z-index: 5;
+  pointer-events: none;
+  padding: 2px 8px;
+  font-family: "Consolas", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #22d3ee;
+  background: rgba(15, 18, 36, 0.86);
+  border: 1px solid #f43f5e;
+  box-shadow: 2px 2px 0 #090b16;
+}

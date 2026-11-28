@@ -24,8 +24,210 @@
   };
 
   function normalizeTheme(raw) {
-    const k = String(raw || 'broadcast').trim().toLowerCase();
+    const rawTrimmed = String(raw || 'broadcast').trim();
+    if (rawTrimmed.toLowerCase().startsWith('mod:')) {
+      return rawTrimmed;
+    }
+    const k = rawTrimmed.toLowerCase();
     return THEME_ALIAS_MAP[k] || 'broadcast';
+  }
+
+  // ==================== MOD 追加テーマ ランタイム管理 ====================
+  let _modsList = [];
+  let _modsRevision = 0;
+  let _modsFetching = false;
+  let _activeModThemeKey = '';
+  let _activeModThemeRev = -1;
+  let _activeModThemeHook = null;
+  let _activeModThemeOverlayKey = '';
+  const _loadedThemeScripts = new Map();
+
+  function _findModTheme(fullThemeId) {
+    if (!fullThemeId || !fullThemeId.startsWith('mod:')) return null;
+    for (const mod of _modsList) {
+      if (!mod || !mod.enabled || mod.load_error) continue;
+      const themes = Array.isArray(mod.overlay_themes) ? mod.overlay_themes : [];
+      for (const th of themes) {
+        if (th && th.full_theme_id === fullThemeId) {
+          return { mod, theme: th };
+        }
+      }
+    }
+    return null;
+  }
+
+  function _unmountCurrentModTheme() {
+    if (_activeModThemeHook && typeof _activeModThemeHook.unmount === 'function') {
+      try {
+        _activeModThemeHook.unmount({ overlayKey: _activeModThemeOverlayKey });
+      } catch (e) {
+        console.error('[StosupOverlay] MOD theme unmount error:', e);
+      }
+    }
+    _activeModThemeHook = null;
+    _activeModThemeKey = '';
+    _activeModThemeRev = -1;
+    const link = document.getElementById('stosup-mod-theme-css');
+    if (link && link.parentNode) {
+      link.parentNode.removeChild(link);
+    }
+    if (document.body) {
+      document.body.removeAttribute('data-mod-id');
+      document.body.removeAttribute('data-mod-theme');
+    }
+  }
+
+  function _loadScriptOnce(url, modId, componentId) {
+    if (_loadedThemeScripts.has(url)) {
+      return _loadedThemeScripts.get(url);
+    }
+    const promise = new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.async = false;
+      if (global.StosupMod && typeof global.StosupMod._setLoadingContext === 'function') {
+        global.StosupMod._setLoadingContext(modId, componentId);
+      }
+      s.onload = () => {
+        if (global.StosupMod && typeof global.StosupMod._clearLoadingContext === 'function') {
+          global.StosupMod._clearLoadingContext();
+        }
+        resolve(true);
+      };
+      s.onerror = () => {
+        if (global.StosupMod && typeof global.StosupMod._clearLoadingContext === 'function') {
+          global.StosupMod._clearLoadingContext();
+        }
+        console.error('[StosupOverlay] MOD theme script load failed:', url);
+        resolve(false);
+      };
+      document.head.appendChild(s);
+    });
+    _loadedThemeScripts.set(url, promise);
+    return promise;
+  }
+
+  function _ensureModSdkLoaded() {
+    if (global.StosupMod) return Promise.resolve(true);
+    return _loadScriptOnce('/overlay/stosup-mod-sdk.js', '', '');
+  }
+
+  function syncMods(mods, revision) {
+    if (Array.isArray(mods)) {
+      _modsList = mods;
+    }
+    if (typeof revision === 'number') {
+      _modsRevision = revision;
+    }
+  }
+
+  function _fetchRuntimeModsAndReapply(overlayKey, themeId) {
+    if (_modsFetching) return;
+    _modsFetching = true;
+    fetch('/api/mods/runtime', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        _modsFetching = false;
+        if (data && Array.isArray(data.mods)) {
+          syncMods(data.mods, data.revision || _modsRevision);
+          applyModTheme(overlayKey, themeId);
+        }
+      })
+      .catch(() => {
+        _modsFetching = false;
+      });
+  }
+
+  function applyModTheme(overlayKey, themeId) {
+    const id = String(themeId || '').trim();
+    if (!id.startsWith('mod:')) {
+      if (_activeModThemeKey) {
+        _unmountCurrentModTheme();
+      }
+      return;
+    }
+
+    const found = _findModTheme(id);
+    if (!found) {
+      if (_modsList.length === 0) {
+        _fetchRuntimeModsAndReapply(overlayKey, id);
+      } else if (_activeModThemeKey) {
+        _unmountCurrentModTheme();
+      }
+      return;
+    }
+
+    const { mod, theme } = found;
+    if (document.body) {
+      document.body.dataset.modId = mod.id;
+      document.body.dataset.modTheme = theme.theme_id;
+    }
+
+    if (_activeModThemeKey === id && _activeModThemeRev === _modsRevision) {
+      if (_activeModThemeHook && typeof _activeModThemeHook.update === 'function') {
+        try {
+          _activeModThemeHook.update({
+            overlayKey,
+            modId: mod.id,
+            themeId: theme.theme_id,
+            baseUrl: `/mods/${encodeURIComponent(mod.id)}/`,
+          });
+        } catch (e) {
+          console.error('[StosupOverlay] MOD theme update error:', e);
+        }
+      }
+      return;
+    }
+
+    _unmountCurrentModTheme();
+    _activeModThemeKey = id;
+    _activeModThemeRev = _modsRevision;
+    _activeModThemeOverlayKey = overlayKey;
+
+    if (document.body) {
+      document.body.dataset.modId = mod.id;
+      document.body.dataset.modTheme = theme.theme_id;
+    }
+
+    // CSS を <style id="stosup-visual-css"> の直前に差し込むことで、
+    // MOD テーマの上から Stosup の GUI ビジュアルスタイル＆カスタム CSS で微調整できる
+    const cssHref = `/mods/${encodeURIComponent(mod.id)}/${theme.css}?v=${_modsRevision}`;
+    const link = document.createElement('link');
+    link.id = 'stosup-mod-theme-css';
+    link.rel = 'stylesheet';
+    link.href = cssHref;
+    const visualEl = ensureVisualStyleTag();
+    if (visualEl && visualEl.parentNode) {
+      visualEl.parentNode.insertBefore(link, visualEl);
+    } else {
+      document.head.appendChild(link);
+    }
+
+    if (theme.script) {
+      const scriptUrl = `/mods/${encodeURIComponent(mod.id)}/${theme.script}?v=${_modsRevision}`;
+      _ensureModSdkLoaded().then(() => {
+        if (_activeModThemeKey !== id) return;
+        return _loadScriptOnce(scriptUrl, mod.id, theme.theme_id).then(() => {
+          if (_activeModThemeKey !== id || !global.StosupMod) return;
+          const hook = global.StosupMod._getThemeHook(mod.id, theme.theme_id);
+          if (hook) {
+            _activeModThemeHook = hook;
+            if (typeof hook.mount === 'function') {
+              try {
+                hook.mount({
+                  overlayKey,
+                  modId: mod.id,
+                  themeId: theme.theme_id,
+                  baseUrl: `/mods/${encodeURIComponent(mod.id)}/`,
+                });
+              } catch (e) {
+                console.error('[StosupOverlay] MOD theme mount error:', e);
+              }
+            }
+          }
+        });
+      });
+    }
   }
 
   function resolveBg(raw) {
@@ -181,6 +383,8 @@
    * @param {object} selectors - { card, text, author, accent, animate }
    */
   function applyOverlayVisualStyle(overlayKey, config, selectors) {
+    // 現在適用中のテーマが mod:* の場合は MOD 追加テーマ CSS / Hook を適用（通常テーマ時は自動解除）
+    applyModTheme(overlayKey, document.body ? document.body.dataset.theme : '');
     const styleEl = ensureVisualStyleTag();
     const stylesMap = (config && config.visual_styles) || {};
     const vs = stylesMap[overlayKey];
@@ -522,6 +726,8 @@
     applyFont,
     applyOverlayVisualStyle,
     applyCustomCss,
+    applyModTheme,
+    syncMods,
     renderMessageRuns,
     fallbackAvatar,
     isPreviewMode,

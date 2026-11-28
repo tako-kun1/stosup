@@ -9,6 +9,7 @@ import 'package:stosup/screens/first_time_screen.dart';
 import 'package:stosup/screens/highlight_rules_screen.dart';
 import 'package:stosup/screens/lottery_screen.dart';
 import 'package:stosup/screens/media_reaction_screen.dart';
+import 'package:stosup/screens/mods_screen.dart';
 import 'package:stosup/screens/overlay_screen.dart';
 import 'package:stosup/screens/poll_screen.dart';
 import 'package:stosup/screens/queue_screen.dart';
@@ -557,6 +558,9 @@ void main() {
         excludeBanned: true,
         captionTemplate: '',
         enabled: true,
+        modId: '',
+        modEffectId: '',
+        modParamsJson: '{}',
       ),
     ];
     ctrl.comments = [
@@ -1218,5 +1222,171 @@ void main() {
     await ctrl.setAllFeaturesEnabled(true);
     await tester.pumpAndSettle();
     expect(ctrl.featureFlags.includePrereleaseUpdates, isFalse);
+  });
+
+  testWidgets('MOD管理画面とリアクション・オーバーレイスタジオのMOD連動UIが正常動作する',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final ctrl = _TestNoFfiController()
+      ..isInitialized = true
+      ..modsFolderPath = r'C:\Users\demo\AppData\Roaming\Stosup\mods'
+      ..installedMods = const [
+        InstalledMod(
+          id: 'starlight-pack',
+          name: 'スターライト演出パック',
+          version: '1.0.0',
+          author: 'ModAuthor',
+          description: '流星演出・レトロテーマ・盛り上がりゲージの統合サンプル',
+          minStosupVersion: '0.5.1',
+          homepage: '',
+          license: 'MIT',
+          iconUrl: '',
+          folderName: 'starlight-pack',
+          enabled: true,
+          installedAtMs: 1700000000000,
+          loadError: null,
+          reactionEffects: [
+            ModReactionEffectDef(
+              modId: 'starlight-pack',
+              modName: 'スターライト演出パック',
+              effectId: 'starlight_burst',
+              name: 'スターライト・バースト',
+              description: '流星群と光の輪',
+              entry: 'effect.js',
+              css: '',
+              defaultDurationMs: 4200,
+              params: [
+                ModParamSchema(
+                  key: 'starCount',
+                  label: '流星の本数',
+                  kind: ModParamKind.number,
+                  defaultValue: '24',
+                  min: 6,
+                  max: 80,
+                  step: 2,
+                  options: [],
+                  description: '星の数',
+                ),
+                ModParamSchema(
+                  key: 'primaryColor',
+                  label: 'メイン発光色',
+                  kind: ModParamKind.color,
+                  defaultValue: '#38BDF8',
+                  options: [],
+                  description: '',
+                ),
+              ],
+            ),
+          ],
+          overlayThemes: [
+            ModOverlayThemeDef(
+              modId: 'starlight-pack',
+              modName: 'スターライト演出パック',
+              themeId: 'retro_arcade',
+              fullThemeId: 'mod:starlight-pack:retro_arcade',
+              name: 'レトロ・アーケード',
+              description: 'アーケード筐体風デザイン',
+              targets: ['comments', 'superchat'],
+              css: 'theme.css',
+              script: '',
+              previewBg: '#111322',
+              previewFg: '#F8FAFC',
+              previewBorder: '#F43F5E',
+            ),
+          ],
+          customOverlays: [
+            ModCustomOverlayDef(
+              modId: 'starlight-pack',
+              modName: 'スターライト演出パック',
+              overlayId: 'hype_meter',
+              name: 'ハイプメーター',
+              description: '盛り上がりゲージ',
+              entry: 'overlay.html',
+              channels: ['comments', 'superchat'],
+              recommendedWidth: 640,
+              recommendedHeight: 220,
+              overlayPath: '/overlay/mod/starlight-pack/hype_meter',
+              previewPath: '/overlay/preview/mod/starlight-pack/hype_meter',
+            ),
+          ],
+          logicScripts: [
+            ModLogicScriptDef(
+              modId: 'starlight-pack',
+              modName: 'スターライト演出パック',
+              scriptId: 'combo_fever',
+              name: 'コンボ・フィーバー制御',
+              description: '草コメント3連打でスターライト演出を自動発火',
+              entry: 'logic.rhai',
+              events: ['comment', 'superchat'],
+            ),
+          ],
+        ),
+      ]
+      ..modScriptLogs = const [
+        ModScriptLogEntry(
+          timestampMs: 1700000000000,
+          modId: 'starlight-pack',
+          scriptId: 'combo_fever',
+          level: 'action',
+          message: 'MOD演出発火 (starlight-pack:starlight_burst / 「3コンボ達成！」)',
+        ),
+      ];
+    addTearDown(ctrl.dispose);
+
+    // 1. MOD 管理画面で 4 種類すべてのコンポーネントとスクリプト実行ログが表示される
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(body: ModsScreen(controller: ctrl)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('MOD 管理（演出・テーマ・独自オーバーレイ・ロジックスクリプト）'), findsOneWidget);
+    expect(find.text('スターライト演出パック'), findsOneWidget);
+    expect(find.textContaining('スターライト・バースト'), findsOneWidget);
+    expect(find.textContaining('レトロ・アーケード'), findsOneWidget);
+    expect(find.textContaining('ハイプメーター'), findsOneWidget);
+    expect(find.textContaining('コンボ・フィーバー制御'), findsOneWidget);
+    expect(find.text('テスト実行'), findsOneWidget);
+    expect(find.textContaining('スクリプト実行ログ（デバッグコンソール）'), findsOneWidget);
+    expect(find.textContaining('3コンボ達成！'), findsOneWidget);
+    expect(find.text('OBS URL コピー'), findsOneWidget);
+
+    // 2. オーバーレイスタジオの「トークモニター」タブに MOD 追加テーマが表示され、URL タブに独自オーバーレイも表示される
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(body: OverlayScreen(controller: ctrl)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('MOD 独自オーバーレイ'), findsOneWidget);
+    expect(find.textContaining('ハイプメーター'), findsOneWidget);
+    await tester.tap(find.text('トークモニター / CSS'));
+    await tester.pumpAndSettle();
+    expect(find.text('レトロ・アーケード'), findsOneWidget);
+    expect(find.text('MOD: スターライト演出パック'), findsOneWidget);
+
+    // 3. リアクションステージのルール追加ダイアログで「カスタム MOD」を選ぶと MOD パラメータ入力欄が生成される
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(body: MediaReactionScreen(controller: ctrl)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('演出を追加'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('カスタム MOD'));
+    await tester.pumpAndSettle();
+    expect(find.text('MOD カスタムパラメータ'), findsOneWidget);
+    expect(find.textContaining('流星の本数'), findsOneWidget);
+    expect(find.textContaining('メイン発光色'), findsOneWidget);
   });
 }

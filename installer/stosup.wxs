@@ -14,6 +14,7 @@
       Manufacturer="tako-kun1" />
 
     <MajorUpgrade
+      AllowSameVersionUpgrades="yes"
       DowngradeErrorMessage="新しいバージョンの Stosup がすでにインストールされています。"
       Schedule="afterInstallInitialize" />
 

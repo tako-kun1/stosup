@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "hype-meter-overlay",
+  "name": "ハイプメーター（盛り上がりゲージ）",
+  "version": "1.0.0",
+  "author": "Stosup Sample",
+  "description": "コメントの勢いとスパチャに反応してゲージが上昇し、MAX 到達で FEVER 演出に切り替わる独立カスタムオーバーレイのサンプル。",
+  "min_stosup_version": "0.5.1",
+  "homepage": "https://github.com/tako-kun1/stosup",
+  "license": "MIT",
+  "custom_overlays": [
+    {
+      "id": "hype_meter",
+      "name": "ハイプメーター",
+      "description": "コメント速度とスパチャ連動の盛り上がりゲージ（OBS にそのまま貼って利用可能）",
+      "entry": "overlay.html",
+      "channels": ["comments", "superchat", "media"],
+      "recommended_width": 640,
+      "recommended_height": 200
+    }
+  ]
+}

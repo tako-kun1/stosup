@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1861464431;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -972247511;
 
 // Section: executor
 
@@ -260,6 +260,41 @@ fn wire__crate__api__check_license_status_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::check_license_status(api_check_online).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__clear_mod_script_logs_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "clear_mod_script_logs",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::clear_mod_script_logs().await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -1606,6 +1641,41 @@ fn wire__crate__api__get_media_reaction_config_impl(
         },
     )
 }
+fn wire__crate__api__get_mods_folder_path_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_mods_folder_path",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::get_mods_folder_path().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__get_obs_ws_config_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2134,6 +2204,42 @@ fn wire__crate__api__import_media_file_impl(
         },
     )
 }
+fn wire__crate__api__import_mod_archive_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "import_mod_archive",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_archive_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::import_mod_archive(api_archive_path).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__init_app_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2310,6 +2416,41 @@ fn wire__crate__api__list_hotkey_bindings_impl(
         },
     )
 }
+fn wire__crate__api__list_installed_mods_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_installed_mods",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::list_installed_mods().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__list_lottery_history_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2373,6 +2514,42 @@ fn wire__crate__api__list_media_reaction_rules_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::list_media_reaction_rules().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__list_mod_script_logs_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_mod_script_logs",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_limit = <u32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::list_mod_script_logs(api_limit).await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -2763,6 +2940,41 @@ fn wire__crate__api__open_external_url_impl(
         },
     )
 }
+fn wire__crate__api__open_mods_folder_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "open_mods_folder",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::open_mods_folder().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__pick_backup_open_path_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2896,6 +3108,41 @@ fn wire__crate__api__pick_media_file_dialog_impl(
                 transform_result_sse::<_, ()>(
                     (move || async move {
                         let output_ok = Ok::<_, ()>(crate::api::pick_media_file_dialog().await)?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__pick_mod_archive_dialog_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "pick_mod_archive_dialog",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, ()>(
+                    (move || async move {
+                        let output_ok = Ok::<_, ()>(crate::api::pick_mod_archive_dialog().await)?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -3293,6 +3540,41 @@ fn wire__crate__api__regenerate_remote_pin_impl(
                 transform_result_sse::<_, String>(
                     (move || async move {
                         let output_ok = crate::api::regenerate_remote_pin().await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__reload_mods_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "reload_mods",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::reload_mods().await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -4326,6 +4608,44 @@ fn wire__crate__api__send_overlay_test_event_impl(
         },
     )
 }
+fn wire__crate__api__set_mod_enabled_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_mod_enabled",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_mod_id = <String>::sse_decode(&mut deserializer);
+            let api_enabled = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::set_mod_enabled(api_mod_id, api_enabled).await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__set_monetization_checked_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -4731,6 +5051,96 @@ fn wire__crate__api__test_media_reaction_rule_impl(
         },
     )
 }
+fn wire__crate__api__test_mod_logic_script_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "test_mod_logic_script",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_mod_id = <String>::sse_decode(&mut deserializer);
+            let api_script_id = <String>::sse_decode(&mut deserializer);
+            let api_sample_message = <String>::sse_decode(&mut deserializer);
+            let api_preview_only = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::test_mod_logic_script(
+                            api_mod_id,
+                            api_script_id,
+                            api_sample_message,
+                            api_preview_only,
+                        )
+                        .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__test_mod_reaction_effect_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "test_mod_reaction_effect",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_mod_id = <String>::sse_decode(&mut deserializer);
+            let api_effect_id = <String>::sse_decode(&mut deserializer);
+            let api_params_json = <String>::sse_decode(&mut deserializer);
+            let api_preview_only = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::test_mod_reaction_effect(
+                            api_mod_id,
+                            api_effect_id,
+                            api_params_json,
+                            api_preview_only,
+                        )
+                        .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__test_obs_rule_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -4798,6 +5208,42 @@ fn wire__crate__api__toggle_connection_history_favorite_impl(
                         let output_ok =
                             crate::api::toggle_connection_history_favorite(api_id, api_favorite)
                                 .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__uninstall_mod_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "uninstall_mod",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_mod_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::uninstall_mod(api_mod_id).await?;
                         std::result::Result::Ok(output_ok)
                     })()
                     .await,
@@ -4941,6 +5387,7 @@ impl SseDecode for crate::models::AppEvent {
         let mut var_obsWsStatus = <Option<crate::models::ObsWsStatus>>::sse_decode(deserializer);
         let mut var_profiles =
             <Option<Vec<crate::models::StreamProfileSummary>>>::sse_decode(deserializer);
+        let mut var_mods = <Option<Vec<crate::models::InstalledMod>>>::sse_decode(deserializer);
         let mut var_noticeLevel = <Option<String>>::sse_decode(deserializer);
         let mut var_noticeMessage = <Option<String>>::sse_decode(deserializer);
         return crate::models::AppEvent {
@@ -4966,6 +5413,7 @@ impl SseDecode for crate::models::AppEvent {
             feature_flags: var_featureFlags,
             obs_ws_status: var_obsWsStatus,
             profiles: var_profiles,
+            mods: var_mods,
             notice_level: var_noticeLevel,
             notice_message: var_noticeMessage,
         };
@@ -5000,7 +5448,8 @@ impl SseDecode for crate::models::AppEventKind {
             20 => crate::models::AppEventKind::ObsWsStatusChanged,
             21 => crate::models::AppEventKind::ProfilesUpdated,
             22 => crate::models::AppEventKind::ConnectionHistoryUpdated,
-            23 => crate::models::AppEventKind::SystemNotice,
+            23 => crate::models::AppEventKind::ModsUpdated,
+            24 => crate::models::AppEventKind::SystemNotice,
             _ => unreachable!("Invalid variant for AppEventKind: {}", inner),
         };
     }
@@ -5283,6 +5732,13 @@ impl SseDecode for crate::models::ConnectionStatus {
     }
 }
 
+impl SseDecode for f64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_f64::<NativeEndian>().unwrap()
+    }
+}
+
 impl SseDecode for crate::models::FeatureFlags {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5467,6 +5923,52 @@ impl SseDecode for crate::models::ImportedMediaFile {
     }
 }
 
+impl SseDecode for crate::models::InstalledMod {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_version = <String>::sse_decode(deserializer);
+        let mut var_author = <String>::sse_decode(deserializer);
+        let mut var_description = <String>::sse_decode(deserializer);
+        let mut var_minStosupVersion = <String>::sse_decode(deserializer);
+        let mut var_homepage = <String>::sse_decode(deserializer);
+        let mut var_license = <String>::sse_decode(deserializer);
+        let mut var_iconUrl = <String>::sse_decode(deserializer);
+        let mut var_folderName = <String>::sse_decode(deserializer);
+        let mut var_enabled = <bool>::sse_decode(deserializer);
+        let mut var_installedAtMs = <i64>::sse_decode(deserializer);
+        let mut var_loadError = <Option<String>>::sse_decode(deserializer);
+        let mut var_reactionEffects =
+            <Vec<crate::models::ModReactionEffectDef>>::sse_decode(deserializer);
+        let mut var_overlayThemes =
+            <Vec<crate::models::ModOverlayThemeDef>>::sse_decode(deserializer);
+        let mut var_customOverlays =
+            <Vec<crate::models::ModCustomOverlayDef>>::sse_decode(deserializer);
+        let mut var_logicScripts =
+            <Vec<crate::models::ModLogicScriptDef>>::sse_decode(deserializer);
+        return crate::models::InstalledMod {
+            id: var_id,
+            name: var_name,
+            version: var_version,
+            author: var_author,
+            description: var_description,
+            min_stosup_version: var_minStosupVersion,
+            homepage: var_homepage,
+            license: var_license,
+            icon_url: var_iconUrl,
+            folder_name: var_folderName,
+            enabled: var_enabled,
+            installed_at_ms: var_installedAtMs,
+            load_error: var_loadError,
+            reaction_effects: var_reactionEffects,
+            overlay_themes: var_overlayThemes,
+            custom_overlays: var_customOverlays,
+            logic_scripts: var_logicScripts,
+        };
+    }
+}
+
 impl SseDecode for crate::models::LicenseAgreementStatus {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5595,6 +6097,18 @@ impl SseDecode for Vec<crate::models::HotkeyBinding> {
     }
 }
 
+impl SseDecode for Vec<crate::models::InstalledMod> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::InstalledMod>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::models::LotteryResult> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5638,6 +6152,84 @@ impl SseDecode for Vec<crate::models::MessageRun> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<crate::models::MessageRun>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::ModCustomOverlayDef> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::ModCustomOverlayDef>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::ModLogicScriptDef> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::ModLogicScriptDef>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::ModOverlayThemeDef> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::ModOverlayThemeDef>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::ModParamSchema> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::ModParamSchema>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::ModReactionEffectDef> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::ModReactionEffectDef>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::ModScriptLogEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::ModScriptLogEntry>::sse_decode(deserializer));
         }
         return ans_;
     }
@@ -5944,6 +6536,7 @@ impl SseDecode for crate::models::MediaEffectType {
             3 => crate::models::MediaEffectType::Confetti,
             4 => crate::models::MediaEffectType::Throw,
             5 => crate::models::MediaEffectType::Ambient,
+            6 => crate::models::MediaEffectType::Mod,
             _ => unreachable!("Invalid variant for MediaEffectType: {}", inner),
         };
     }
@@ -6040,6 +6633,9 @@ impl SseDecode for crate::models::MediaReactionRule {
         let mut var_excludeBanned = <bool>::sse_decode(deserializer);
         let mut var_captionTemplate = <String>::sse_decode(deserializer);
         let mut var_enabled = <bool>::sse_decode(deserializer);
+        let mut var_modId = <String>::sse_decode(deserializer);
+        let mut var_modEffectId = <String>::sse_decode(deserializer);
+        let mut var_modParamsJson = <String>::sse_decode(deserializer);
         return crate::models::MediaReactionRule {
             id: var_id,
             name: var_name,
@@ -6071,6 +6667,9 @@ impl SseDecode for crate::models::MediaReactionRule {
             exclude_banned: var_excludeBanned,
             caption_template: var_captionTemplate,
             enabled: var_enabled,
+            mod_id: var_modId,
+            mod_effect_id: var_modEffectId,
+            mod_params_json: var_modParamsJson,
         };
     }
 }
@@ -6100,6 +6699,9 @@ impl SseDecode for crate::models::MediaTriggerEvent {
         let mut var_caption = <String>::sse_decode(deserializer);
         let mut var_triggeredBy = <String>::sse_decode(deserializer);
         let mut var_triggeredAtMs = <i64>::sse_decode(deserializer);
+        let mut var_modId = <String>::sse_decode(deserializer);
+        let mut var_modEffectId = <String>::sse_decode(deserializer);
+        let mut var_modParamsJson = <String>::sse_decode(deserializer);
         return crate::models::MediaTriggerEvent {
             event_id: var_eventId,
             rule_id: var_ruleId,
@@ -6123,6 +6725,9 @@ impl SseDecode for crate::models::MediaTriggerEvent {
             caption: var_caption,
             triggered_by: var_triggeredBy,
             triggered_at_ms: var_triggeredAtMs,
+            mod_id: var_modId,
+            mod_effect_id: var_modEffectId,
+            mod_params_json: var_modParamsJson,
         };
     }
 }
@@ -6168,6 +6773,175 @@ impl SseDecode for crate::models::MessageRunKind {
             0 => crate::models::MessageRunKind::Text,
             1 => crate::models::MessageRunKind::Emoji,
             _ => unreachable!("Invalid variant for MessageRunKind: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::ModCustomOverlayDef {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_modId = <String>::sse_decode(deserializer);
+        let mut var_modName = <String>::sse_decode(deserializer);
+        let mut var_overlayId = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_description = <String>::sse_decode(deserializer);
+        let mut var_entry = <String>::sse_decode(deserializer);
+        let mut var_channels = <Vec<String>>::sse_decode(deserializer);
+        let mut var_recommendedWidth = <u32>::sse_decode(deserializer);
+        let mut var_recommendedHeight = <u32>::sse_decode(deserializer);
+        let mut var_overlayPath = <String>::sse_decode(deserializer);
+        let mut var_previewPath = <String>::sse_decode(deserializer);
+        return crate::models::ModCustomOverlayDef {
+            mod_id: var_modId,
+            mod_name: var_modName,
+            overlay_id: var_overlayId,
+            name: var_name,
+            description: var_description,
+            entry: var_entry,
+            channels: var_channels,
+            recommended_width: var_recommendedWidth,
+            recommended_height: var_recommendedHeight,
+            overlay_path: var_overlayPath,
+            preview_path: var_previewPath,
+        };
+    }
+}
+
+impl SseDecode for crate::models::ModLogicScriptDef {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_modId = <String>::sse_decode(deserializer);
+        let mut var_modName = <String>::sse_decode(deserializer);
+        let mut var_scriptId = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_description = <String>::sse_decode(deserializer);
+        let mut var_entry = <String>::sse_decode(deserializer);
+        let mut var_events = <Vec<String>>::sse_decode(deserializer);
+        return crate::models::ModLogicScriptDef {
+            mod_id: var_modId,
+            mod_name: var_modName,
+            script_id: var_scriptId,
+            name: var_name,
+            description: var_description,
+            entry: var_entry,
+            events: var_events,
+        };
+    }
+}
+
+impl SseDecode for crate::models::ModOverlayThemeDef {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_modId = <String>::sse_decode(deserializer);
+        let mut var_modName = <String>::sse_decode(deserializer);
+        let mut var_themeId = <String>::sse_decode(deserializer);
+        let mut var_fullThemeId = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_description = <String>::sse_decode(deserializer);
+        let mut var_targets = <Vec<String>>::sse_decode(deserializer);
+        let mut var_css = <String>::sse_decode(deserializer);
+        let mut var_script = <String>::sse_decode(deserializer);
+        let mut var_previewBg = <String>::sse_decode(deserializer);
+        let mut var_previewFg = <String>::sse_decode(deserializer);
+        let mut var_previewBorder = <String>::sse_decode(deserializer);
+        return crate::models::ModOverlayThemeDef {
+            mod_id: var_modId,
+            mod_name: var_modName,
+            theme_id: var_themeId,
+            full_theme_id: var_fullThemeId,
+            name: var_name,
+            description: var_description,
+            targets: var_targets,
+            css: var_css,
+            script: var_script,
+            preview_bg: var_previewBg,
+            preview_fg: var_previewFg,
+            preview_border: var_previewBorder,
+        };
+    }
+}
+
+impl SseDecode for crate::models::ModParamKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::models::ModParamKind::String,
+            1 => crate::models::ModParamKind::Number,
+            2 => crate::models::ModParamKind::Color,
+            3 => crate::models::ModParamKind::Bool,
+            4 => crate::models::ModParamKind::Select,
+            _ => unreachable!("Invalid variant for ModParamKind: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for crate::models::ModParamSchema {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_key = <String>::sse_decode(deserializer);
+        let mut var_label = <String>::sse_decode(deserializer);
+        let mut var_kind = <crate::models::ModParamKind>::sse_decode(deserializer);
+        let mut var_defaultValue = <String>::sse_decode(deserializer);
+        let mut var_min = <Option<f64>>::sse_decode(deserializer);
+        let mut var_max = <Option<f64>>::sse_decode(deserializer);
+        let mut var_step = <Option<f64>>::sse_decode(deserializer);
+        let mut var_options = <Vec<String>>::sse_decode(deserializer);
+        let mut var_description = <String>::sse_decode(deserializer);
+        return crate::models::ModParamSchema {
+            key: var_key,
+            label: var_label,
+            kind: var_kind,
+            default_value: var_defaultValue,
+            min: var_min,
+            max: var_max,
+            step: var_step,
+            options: var_options,
+            description: var_description,
+        };
+    }
+}
+
+impl SseDecode for crate::models::ModReactionEffectDef {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_modId = <String>::sse_decode(deserializer);
+        let mut var_modName = <String>::sse_decode(deserializer);
+        let mut var_effectId = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_description = <String>::sse_decode(deserializer);
+        let mut var_entry = <String>::sse_decode(deserializer);
+        let mut var_css = <String>::sse_decode(deserializer);
+        let mut var_defaultDurationMs = <u32>::sse_decode(deserializer);
+        let mut var_params = <Vec<crate::models::ModParamSchema>>::sse_decode(deserializer);
+        return crate::models::ModReactionEffectDef {
+            mod_id: var_modId,
+            mod_name: var_modName,
+            effect_id: var_effectId,
+            name: var_name,
+            description: var_description,
+            entry: var_entry,
+            css: var_css,
+            default_duration_ms: var_defaultDurationMs,
+            params: var_params,
+        };
+    }
+}
+
+impl SseDecode for crate::models::ModScriptLogEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_timestampMs = <i64>::sse_decode(deserializer);
+        let mut var_modId = <String>::sse_decode(deserializer);
+        let mut var_scriptId = <String>::sse_decode(deserializer);
+        let mut var_level = <String>::sse_decode(deserializer);
+        let mut var_message = <String>::sse_decode(deserializer);
+        return crate::models::ModScriptLogEntry {
+            timestamp_ms: var_timestampMs,
+            mod_id: var_modId,
+            script_id: var_scriptId,
+            level: var_level,
+            message: var_message,
         };
     }
 }
@@ -6446,6 +7220,17 @@ impl SseDecode for Option<crate::models::ConnectionStateDto> {
     }
 }
 
+impl SseDecode for Option<f64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<f64>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<crate::models::FeatureFlags> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -6648,6 +7433,17 @@ impl SseDecode for Option<Vec<crate::models::HighlightRule>> {
             return Some(<Vec<crate::models::HighlightRule>>::sse_decode(
                 deserializer,
             ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<Vec<crate::models::InstalledMod>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<Vec<crate::models::InstalledMod>>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -7496,146 +8292,158 @@ fn pde_ffi_dispatcher_primary_impl(
         4 => wire__crate__api__apply_stream_profile_impl(port, ptr, rust_vec_len, data_len),
         5 => wire__crate__api__check_for_updates_impl(port, ptr, rust_vec_len, data_len),
         6 => wire__crate__api__check_license_status_impl(port, ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__clear_monetization_events_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__clear_overlay_lottery_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__clear_overlay_media_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__clear_overlay_poll_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__clear_picked_comment_impl(port, ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__clear_recent_comments_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__connect_demo_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__connect_obs_ws_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__connect_youtube_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__create_template_profile_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__delete_connection_history_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__delete_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__delete_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__delete_monetization_event_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__delete_ng_word_rule_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__delete_saved_channel_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__delete_stream_profile_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__delete_stream_session_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__delete_user_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__delete_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__disconnect_obs_ws_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__disconnect_stream_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__disconnect_youtube_oauth_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__download_update_installer_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__draw_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__draw_user_lottery_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__execute_automation_action_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__export_backup_zip_impl(port, ptr, rust_vec_len, data_len),
-        35 => {
+        7 => wire__crate__api__clear_mod_script_logs_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__clear_monetization_events_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__clear_overlay_lottery_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__clear_overlay_media_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__clear_overlay_poll_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__clear_picked_comment_impl(port, ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__clear_recent_comments_impl(port, ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__connect_demo_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__connect_obs_ws_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__connect_youtube_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__create_template_profile_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__delete_connection_history_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__delete_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__delete_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__delete_monetization_event_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__delete_ng_word_rule_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__delete_saved_channel_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__delete_stream_profile_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__delete_stream_session_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__delete_user_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__delete_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__disconnect_obs_ws_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__disconnect_stream_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__disconnect_youtube_oauth_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__download_update_installer_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__draw_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__draw_user_lottery_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__execute_automation_action_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__export_backup_zip_impl(port, ptr, rust_vec_len, data_len),
+        36 => {
             wire__crate__api__export_report_csv_with_dialog_impl(port, ptr, rust_vec_len, data_len)
         }
-        36 => {
+        37 => {
             wire__crate__api__export_report_json_with_dialog_impl(port, ptr, rust_vec_len, data_len)
         }
-        38 => wire__crate__api__get_comment_lottery_state_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__get_connection_state_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__get_current_release_notes_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__get_feature_flags_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__get_first_time_state_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__get_media_reaction_config_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__get_obs_ws_config_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__get_obs_ws_status_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__get_on_air_report_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__get_overlay_config_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__get_picked_comment_impl(port, ptr, rust_vec_len, data_len),
-        49 => wire__crate__api__get_poll_state_impl(port, ptr, rust_vec_len, data_len),
-        50 => wire__crate__api__get_queue_state_impl(port, ptr, rust_vec_len, data_len),
-        51 => wire__crate__api__get_recent_comments_impl(port, ptr, rust_vec_len, data_len),
-        52 => wire__crate__api__get_remote_access_status_impl(port, ptr, rust_vec_len, data_len),
-        53 => wire__crate__api__get_startup_release_notes_impl(port, ptr, rust_vec_len, data_len),
-        54 => wire__crate__api__get_theme_mode_impl(port, ptr, rust_vec_len, data_len),
-        55 => wire__crate__api__get_user_lottery_won_ids_impl(port, ptr, rust_vec_len, data_len),
-        56 => wire__crate__api__get_youtube_oauth_status_impl(port, ptr, rust_vec_len, data_len),
-        57 => wire__crate__api__import_backup_zip_impl(port, ptr, rust_vec_len, data_len),
-        58 => wire__crate__api__import_media_file_impl(port, ptr, rust_vec_len, data_len),
-        59 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
-        60 => wire__crate__api__launch_update_installer_impl(port, ptr, rust_vec_len, data_len),
-        61 => wire__crate__api__list_connection_history_impl(port, ptr, rust_vec_len, data_len),
-        62 => wire__crate__api__list_highlight_rules_impl(port, ptr, rust_vec_len, data_len),
-        63 => wire__crate__api__list_hotkey_bindings_impl(port, ptr, rust_vec_len, data_len),
-        64 => wire__crate__api__list_lottery_history_impl(port, ptr, rust_vec_len, data_len),
-        65 => wire__crate__api__list_media_reaction_rules_impl(port, ptr, rust_vec_len, data_len),
-        66 => wire__crate__api__list_monetization_events_impl(port, ptr, rust_vec_len, data_len),
-        67 => wire__crate__api__list_ng_word_rules_impl(port, ptr, rust_vec_len, data_len),
-        68 => wire__crate__api__list_saved_channels_impl(port, ptr, rust_vec_len, data_len),
-        69 => wire__crate__api__list_stream_profiles_impl(port, ptr, rust_vec_len, data_len),
-        70 => wire__crate__api__list_stream_sessions_impl(port, ptr, rust_vec_len, data_len),
-        71 => wire__crate__api__list_system_fonts_impl(port, ptr, rust_vec_len, data_len),
-        72 => wire__crate__api__list_users_impl(port, ptr, rust_vec_len, data_len),
-        73 => wire__crate__api__list_word_counters_impl(port, ptr, rust_vec_len, data_len),
-        74 => {
+        39 => wire__crate__api__get_comment_lottery_state_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__get_connection_state_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__get_current_release_notes_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__get_feature_flags_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__get_first_time_state_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__get_media_reaction_config_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__get_mods_folder_path_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__get_obs_ws_config_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__get_obs_ws_status_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__get_on_air_report_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__get_overlay_config_impl(port, ptr, rust_vec_len, data_len),
+        50 => wire__crate__api__get_picked_comment_impl(port, ptr, rust_vec_len, data_len),
+        51 => wire__crate__api__get_poll_state_impl(port, ptr, rust_vec_len, data_len),
+        52 => wire__crate__api__get_queue_state_impl(port, ptr, rust_vec_len, data_len),
+        53 => wire__crate__api__get_recent_comments_impl(port, ptr, rust_vec_len, data_len),
+        54 => wire__crate__api__get_remote_access_status_impl(port, ptr, rust_vec_len, data_len),
+        55 => wire__crate__api__get_startup_release_notes_impl(port, ptr, rust_vec_len, data_len),
+        56 => wire__crate__api__get_theme_mode_impl(port, ptr, rust_vec_len, data_len),
+        57 => wire__crate__api__get_user_lottery_won_ids_impl(port, ptr, rust_vec_len, data_len),
+        58 => wire__crate__api__get_youtube_oauth_status_impl(port, ptr, rust_vec_len, data_len),
+        59 => wire__crate__api__import_backup_zip_impl(port, ptr, rust_vec_len, data_len),
+        60 => wire__crate__api__import_media_file_impl(port, ptr, rust_vec_len, data_len),
+        61 => wire__crate__api__import_mod_archive_impl(port, ptr, rust_vec_len, data_len),
+        62 => wire__crate__api__init_app_impl(port, ptr, rust_vec_len, data_len),
+        63 => wire__crate__api__launch_update_installer_impl(port, ptr, rust_vec_len, data_len),
+        64 => wire__crate__api__list_connection_history_impl(port, ptr, rust_vec_len, data_len),
+        65 => wire__crate__api__list_highlight_rules_impl(port, ptr, rust_vec_len, data_len),
+        66 => wire__crate__api__list_hotkey_bindings_impl(port, ptr, rust_vec_len, data_len),
+        67 => wire__crate__api__list_installed_mods_impl(port, ptr, rust_vec_len, data_len),
+        68 => wire__crate__api__list_lottery_history_impl(port, ptr, rust_vec_len, data_len),
+        69 => wire__crate__api__list_media_reaction_rules_impl(port, ptr, rust_vec_len, data_len),
+        70 => wire__crate__api__list_mod_script_logs_impl(port, ptr, rust_vec_len, data_len),
+        71 => wire__crate__api__list_monetization_events_impl(port, ptr, rust_vec_len, data_len),
+        72 => wire__crate__api__list_ng_word_rules_impl(port, ptr, rust_vec_len, data_len),
+        73 => wire__crate__api__list_saved_channels_impl(port, ptr, rust_vec_len, data_len),
+        74 => wire__crate__api__list_stream_profiles_impl(port, ptr, rust_vec_len, data_len),
+        75 => wire__crate__api__list_stream_sessions_impl(port, ptr, rust_vec_len, data_len),
+        76 => wire__crate__api__list_system_fonts_impl(port, ptr, rust_vec_len, data_len),
+        77 => wire__crate__api__list_users_impl(port, ptr, rust_vec_len, data_len),
+        78 => wire__crate__api__list_word_counters_impl(port, ptr, rust_vec_len, data_len),
+        79 => {
             wire__crate__api__mark_all_monetization_checked_impl(port, ptr, rust_vec_len, data_len)
         }
-        75 => wire__crate__api__mark_release_notes_seen_impl(port, ptr, rust_vec_len, data_len),
-        76 => wire__crate__api__open_external_url_impl(port, ptr, rust_vec_len, data_len),
-        77 => wire__crate__api__pick_backup_open_path_impl(port, ptr, rust_vec_len, data_len),
-        78 => wire__crate__api__pick_backup_save_path_impl(port, ptr, rust_vec_len, data_len),
-        79 => wire__crate__api__pick_comment_impl(port, ptr, rust_vec_len, data_len),
-        80 => wire__crate__api__pick_media_file_dialog_impl(port, ptr, rust_vec_len, data_len),
-        81 => wire__crate__api__pick_sound_file_dialog_impl(port, ptr, rust_vec_len, data_len),
-        82 => wire__crate__api__post_chat_message_impl(port, ptr, rust_vec_len, data_len),
-        83 => wire__crate__api__queue_add_manual_impl(port, ptr, rust_vec_len, data_len),
-        84 => wire__crate__api__queue_move_entry_impl(port, ptr, rust_vec_len, data_len),
-        85 => wire__crate__api__queue_promote_next_impl(port, ptr, rust_vec_len, data_len),
-        86 => wire__crate__api__queue_remove_entry_impl(port, ptr, rust_vec_len, data_len),
-        87 => wire__crate__api__queue_reset_impl(port, ptr, rust_vec_len, data_len),
-        88 => wire__crate__api__queue_rotate_active_impl(port, ptr, rust_vec_len, data_len),
-        89 => wire__crate__api__queue_set_status_impl(port, ptr, rust_vec_len, data_len),
-        90 => wire__crate__api__refresh_obs_scenes_impl(port, ptr, rust_vec_len, data_len),
-        91 => wire__crate__api__regenerate_remote_pin_impl(port, ptr, rust_vec_len, data_len),
-        92 => wire__crate__api__reset_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        93 => {
+        80 => wire__crate__api__mark_release_notes_seen_impl(port, ptr, rust_vec_len, data_len),
+        81 => wire__crate__api__open_external_url_impl(port, ptr, rust_vec_len, data_len),
+        82 => wire__crate__api__open_mods_folder_impl(port, ptr, rust_vec_len, data_len),
+        83 => wire__crate__api__pick_backup_open_path_impl(port, ptr, rust_vec_len, data_len),
+        84 => wire__crate__api__pick_backup_save_path_impl(port, ptr, rust_vec_len, data_len),
+        85 => wire__crate__api__pick_comment_impl(port, ptr, rust_vec_len, data_len),
+        86 => wire__crate__api__pick_media_file_dialog_impl(port, ptr, rust_vec_len, data_len),
+        87 => wire__crate__api__pick_mod_archive_dialog_impl(port, ptr, rust_vec_len, data_len),
+        88 => wire__crate__api__pick_sound_file_dialog_impl(port, ptr, rust_vec_len, data_len),
+        89 => wire__crate__api__post_chat_message_impl(port, ptr, rust_vec_len, data_len),
+        90 => wire__crate__api__queue_add_manual_impl(port, ptr, rust_vec_len, data_len),
+        91 => wire__crate__api__queue_move_entry_impl(port, ptr, rust_vec_len, data_len),
+        92 => wire__crate__api__queue_promote_next_impl(port, ptr, rust_vec_len, data_len),
+        93 => wire__crate__api__queue_remove_entry_impl(port, ptr, rust_vec_len, data_len),
+        94 => wire__crate__api__queue_reset_impl(port, ptr, rust_vec_len, data_len),
+        95 => wire__crate__api__queue_rotate_active_impl(port, ptr, rust_vec_len, data_len),
+        96 => wire__crate__api__queue_set_status_impl(port, ptr, rust_vec_len, data_len),
+        97 => wire__crate__api__refresh_obs_scenes_impl(port, ptr, rust_vec_len, data_len),
+        98 => wire__crate__api__regenerate_remote_pin_impl(port, ptr, rust_vec_len, data_len),
+        99 => wire__crate__api__reload_mods_impl(port, ptr, rust_vec_len, data_len),
+        100 => wire__crate__api__reset_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        101 => {
             wire__crate__api__reset_first_time_all_history_impl(port, ptr, rust_vec_len, data_len)
         }
-        94 => {
+        102 => {
             wire__crate__api__reset_first_time_session_count_impl(port, ptr, rust_vec_len, data_len)
         }
-        95 => wire__crate__api__reset_poll_impl(port, ptr, rust_vec_len, data_len),
-        96 => wire__crate__api__reset_user_lottery_winners_impl(port, ptr, rust_vec_len, data_len),
-        97 => wire__crate__api__reset_users_impl(port, ptr, rust_vec_len, data_len),
-        98 => wire__crate__api__reset_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        99 => wire__crate__api__resolve_youtube_live_impl(port, ptr, rust_vec_len, data_len),
-        100 => wire__crate__api__save_current_as_profile_impl(port, ptr, rust_vec_len, data_len),
-        101 => wire__crate__api__save_feature_flags_impl(port, ptr, rust_vec_len, data_len),
-        102 => wire__crate__api__save_first_time_config_impl(port, ptr, rust_vec_len, data_len),
-        103 => wire__crate__api__save_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
-        104 => wire__crate__api__save_hotkey_bindings_impl(port, ptr, rust_vec_len, data_len),
-        105 => wire__crate__api__save_media_reaction_config_impl(port, ptr, rust_vec_len, data_len),
-        106 => wire__crate__api__save_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
-        107 => wire__crate__api__save_ng_word_rule_impl(port, ptr, rust_vec_len, data_len),
-        108 => wire__crate__api__save_obs_ws_config_impl(port, ptr, rust_vec_len, data_len),
-        109 => wire__crate__api__save_overlay_config_impl(port, ptr, rust_vec_len, data_len),
-        110 => wire__crate__api__save_poll_config_impl(port, ptr, rust_vec_len, data_len),
-        111 => wire__crate__api__save_queue_config_impl(port, ptr, rust_vec_len, data_len),
-        112 => wire__crate__api__save_remote_access_config_impl(port, ptr, rust_vec_len, data_len),
-        113 => wire__crate__api__save_saved_channel_impl(port, ptr, rust_vec_len, data_len),
-        114 => wire__crate__api__save_theme_mode_impl(port, ptr, rust_vec_len, data_len),
-        115 => wire__crate__api__save_word_counter_impl(port, ptr, rust_vec_len, data_len),
-        116 => wire__crate__api__save_youtube_oauth_client_impl(port, ptr, rust_vec_len, data_len),
-        117 => wire__crate__api__send_demo_comment_impl(port, ptr, rust_vec_len, data_len),
-        118 => wire__crate__api__send_demo_monetization_impl(port, ptr, rust_vec_len, data_len),
-        119 => wire__crate__api__send_overlay_test_event_impl(port, ptr, rust_vec_len, data_len),
-        120 => wire__crate__api__set_monetization_checked_impl(port, ptr, rust_vec_len, data_len),
-        121 => wire__crate__api__set_user_ban_impl(port, ptr, rust_vec_len, data_len),
-        122 => wire__crate__api__set_user_memo_impl(port, ptr, rust_vec_len, data_len),
-        123 => wire__crate__api__start_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        124 => wire__crate__api__start_poll_impl(port, ptr, rust_vec_len, data_len),
-        125 => wire__crate__api__start_youtube_oauth_login_impl(port, ptr, rust_vec_len, data_len),
-        126 => wire__crate__api__stop_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
-        127 => wire__crate__api__stop_poll_impl(port, ptr, rust_vec_len, data_len),
-        128 => wire__crate__api__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
-        130 => wire__crate__api__test_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
-        131 => wire__crate__api__test_obs_rule_impl(port, ptr, rust_vec_len, data_len),
-        132 => wire__crate__api__toggle_connection_history_favorite_impl(
+        103 => wire__crate__api__reset_poll_impl(port, ptr, rust_vec_len, data_len),
+        104 => wire__crate__api__reset_user_lottery_winners_impl(port, ptr, rust_vec_len, data_len),
+        105 => wire__crate__api__reset_users_impl(port, ptr, rust_vec_len, data_len),
+        106 => wire__crate__api__reset_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        107 => wire__crate__api__resolve_youtube_live_impl(port, ptr, rust_vec_len, data_len),
+        108 => wire__crate__api__save_current_as_profile_impl(port, ptr, rust_vec_len, data_len),
+        109 => wire__crate__api__save_feature_flags_impl(port, ptr, rust_vec_len, data_len),
+        110 => wire__crate__api__save_first_time_config_impl(port, ptr, rust_vec_len, data_len),
+        111 => wire__crate__api__save_highlight_rule_impl(port, ptr, rust_vec_len, data_len),
+        112 => wire__crate__api__save_hotkey_bindings_impl(port, ptr, rust_vec_len, data_len),
+        113 => wire__crate__api__save_media_reaction_config_impl(port, ptr, rust_vec_len, data_len),
+        114 => wire__crate__api__save_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
+        115 => wire__crate__api__save_ng_word_rule_impl(port, ptr, rust_vec_len, data_len),
+        116 => wire__crate__api__save_obs_ws_config_impl(port, ptr, rust_vec_len, data_len),
+        117 => wire__crate__api__save_overlay_config_impl(port, ptr, rust_vec_len, data_len),
+        118 => wire__crate__api__save_poll_config_impl(port, ptr, rust_vec_len, data_len),
+        119 => wire__crate__api__save_queue_config_impl(port, ptr, rust_vec_len, data_len),
+        120 => wire__crate__api__save_remote_access_config_impl(port, ptr, rust_vec_len, data_len),
+        121 => wire__crate__api__save_saved_channel_impl(port, ptr, rust_vec_len, data_len),
+        122 => wire__crate__api__save_theme_mode_impl(port, ptr, rust_vec_len, data_len),
+        123 => wire__crate__api__save_word_counter_impl(port, ptr, rust_vec_len, data_len),
+        124 => wire__crate__api__save_youtube_oauth_client_impl(port, ptr, rust_vec_len, data_len),
+        125 => wire__crate__api__send_demo_comment_impl(port, ptr, rust_vec_len, data_len),
+        126 => wire__crate__api__send_demo_monetization_impl(port, ptr, rust_vec_len, data_len),
+        127 => wire__crate__api__send_overlay_test_event_impl(port, ptr, rust_vec_len, data_len),
+        128 => wire__crate__api__set_mod_enabled_impl(port, ptr, rust_vec_len, data_len),
+        129 => wire__crate__api__set_monetization_checked_impl(port, ptr, rust_vec_len, data_len),
+        130 => wire__crate__api__set_user_ban_impl(port, ptr, rust_vec_len, data_len),
+        131 => wire__crate__api__set_user_memo_impl(port, ptr, rust_vec_len, data_len),
+        132 => wire__crate__api__start_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        133 => wire__crate__api__start_poll_impl(port, ptr, rust_vec_len, data_len),
+        134 => wire__crate__api__start_youtube_oauth_login_impl(port, ptr, rust_vec_len, data_len),
+        135 => wire__crate__api__stop_comment_lottery_impl(port, ptr, rust_vec_len, data_len),
+        136 => wire__crate__api__stop_poll_impl(port, ptr, rust_vec_len, data_len),
+        137 => wire__crate__api__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
+        139 => wire__crate__api__test_media_reaction_rule_impl(port, ptr, rust_vec_len, data_len),
+        140 => wire__crate__api__test_mod_logic_script_impl(port, ptr, rust_vec_len, data_len),
+        141 => wire__crate__api__test_mod_reaction_effect_impl(port, ptr, rust_vec_len, data_len),
+        142 => wire__crate__api__test_obs_rule_impl(port, ptr, rust_vec_len, data_len),
+        143 => wire__crate__api__toggle_connection_history_favorite_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        133 => {
+        144 => wire__crate__api__uninstall_mod_impl(port, ptr, rust_vec_len, data_len),
+        145 => {
             wire__crate__api__update_comment_lottery_config_impl(port, ptr, rust_vec_len, data_len)
         }
         _ => unreachable!(),
@@ -7650,8 +8458,8 @@ fn pde_ffi_dispatcher_sync_impl(
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        37 => wire__crate__api__get_app_version_impl(ptr, rust_vec_len, data_len),
-        129 => wire__crate__api__terminate_app_process_impl(ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__get_app_version_impl(ptr, rust_vec_len, data_len),
+        138 => wire__crate__api__terminate_app_process_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -7684,6 +8492,7 @@ impl flutter_rust_bridge::IntoDart for crate::models::AppEvent {
             self.feature_flags.into_into_dart().into_dart(),
             self.obs_ws_status.into_into_dart().into_dart(),
             self.profiles.into_into_dart().into_dart(),
+            self.mods.into_into_dart().into_dart(),
             self.notice_level.into_into_dart().into_dart(),
             self.notice_message.into_into_dart().into_dart(),
         ]
@@ -7723,7 +8532,8 @@ impl flutter_rust_bridge::IntoDart for crate::models::AppEventKind {
             Self::ObsWsStatusChanged => 20.into_dart(),
             Self::ProfilesUpdated => 21.into_dart(),
             Self::ConnectionHistoryUpdated => 22.into_dart(),
-            Self::SystemNotice => 23.into_dart(),
+            Self::ModsUpdated => 23.into_dart(),
+            Self::SystemNotice => 24.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -8225,6 +9035,39 @@ impl flutter_rust_bridge::IntoIntoDart<crate::models::ImportedMediaFile>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::InstalledMod {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.version.into_into_dart().into_dart(),
+            self.author.into_into_dart().into_dart(),
+            self.description.into_into_dart().into_dart(),
+            self.min_stosup_version.into_into_dart().into_dart(),
+            self.homepage.into_into_dart().into_dart(),
+            self.license.into_into_dart().into_dart(),
+            self.icon_url.into_into_dart().into_dart(),
+            self.folder_name.into_into_dart().into_dart(),
+            self.enabled.into_into_dart().into_dart(),
+            self.installed_at_ms.into_into_dart().into_dart(),
+            self.load_error.into_into_dart().into_dart(),
+            self.reaction_effects.into_into_dart().into_dart(),
+            self.overlay_themes.into_into_dart().into_dart(),
+            self.custom_overlays.into_into_dart().into_dart(),
+            self.logic_scripts.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::InstalledMod {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::InstalledMod>
+    for crate::models::InstalledMod
+{
+    fn into_into_dart(self) -> crate::models::InstalledMod {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::models::LicenseAgreementStatus {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -8369,6 +9212,7 @@ impl flutter_rust_bridge::IntoDart for crate::models::MediaEffectType {
             Self::Confetti => 3.into_dart(),
             Self::Throw => 4.into_dart(),
             Self::Ambient => 5.into_dart(),
+            Self::Mod => 6.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -8502,6 +9346,9 @@ impl flutter_rust_bridge::IntoDart for crate::models::MediaReactionRule {
             self.exclude_banned.into_into_dart().into_dart(),
             self.caption_template.into_into_dart().into_dart(),
             self.enabled.into_into_dart().into_dart(),
+            self.mod_id.into_into_dart().into_dart(),
+            self.mod_effect_id.into_into_dart().into_dart(),
+            self.mod_params_json.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -8543,6 +9390,9 @@ impl flutter_rust_bridge::IntoDart for crate::models::MediaTriggerEvent {
             self.caption.into_into_dart().into_dart(),
             self.triggered_by.into_into_dart().into_dart(),
             self.triggered_at_ms.into_into_dart().into_dart(),
+            self.mod_id.into_into_dart().into_dart(),
+            self.mod_effect_id.into_into_dart().into_dart(),
+            self.mod_params_json.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -8616,6 +9466,191 @@ impl flutter_rust_bridge::IntoIntoDart<crate::models::MessageRunKind>
     for crate::models::MessageRunKind
 {
     fn into_into_dart(self) -> crate::models::MessageRunKind {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::ModCustomOverlayDef {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.mod_id.into_into_dart().into_dart(),
+            self.mod_name.into_into_dart().into_dart(),
+            self.overlay_id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.description.into_into_dart().into_dart(),
+            self.entry.into_into_dart().into_dart(),
+            self.channels.into_into_dart().into_dart(),
+            self.recommended_width.into_into_dart().into_dart(),
+            self.recommended_height.into_into_dart().into_dart(),
+            self.overlay_path.into_into_dart().into_dart(),
+            self.preview_path.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::ModCustomOverlayDef
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::ModCustomOverlayDef>
+    for crate::models::ModCustomOverlayDef
+{
+    fn into_into_dart(self) -> crate::models::ModCustomOverlayDef {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::ModLogicScriptDef {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.mod_id.into_into_dart().into_dart(),
+            self.mod_name.into_into_dart().into_dart(),
+            self.script_id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.description.into_into_dart().into_dart(),
+            self.entry.into_into_dart().into_dart(),
+            self.events.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::ModLogicScriptDef
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::ModLogicScriptDef>
+    for crate::models::ModLogicScriptDef
+{
+    fn into_into_dart(self) -> crate::models::ModLogicScriptDef {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::ModOverlayThemeDef {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.mod_id.into_into_dart().into_dart(),
+            self.mod_name.into_into_dart().into_dart(),
+            self.theme_id.into_into_dart().into_dart(),
+            self.full_theme_id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.description.into_into_dart().into_dart(),
+            self.targets.into_into_dart().into_dart(),
+            self.css.into_into_dart().into_dart(),
+            self.script.into_into_dart().into_dart(),
+            self.preview_bg.into_into_dart().into_dart(),
+            self.preview_fg.into_into_dart().into_dart(),
+            self.preview_border.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::ModOverlayThemeDef
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::ModOverlayThemeDef>
+    for crate::models::ModOverlayThemeDef
+{
+    fn into_into_dart(self) -> crate::models::ModOverlayThemeDef {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::ModParamKind {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::String => 0.into_dart(),
+            Self::Number => 1.into_dart(),
+            Self::Color => 2.into_dart(),
+            Self::Bool => 3.into_dart(),
+            Self::Select => 4.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::ModParamKind {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::ModParamKind>
+    for crate::models::ModParamKind
+{
+    fn into_into_dart(self) -> crate::models::ModParamKind {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::ModParamSchema {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.key.into_into_dart().into_dart(),
+            self.label.into_into_dart().into_dart(),
+            self.kind.into_into_dart().into_dart(),
+            self.default_value.into_into_dart().into_dart(),
+            self.min.into_into_dart().into_dart(),
+            self.max.into_into_dart().into_dart(),
+            self.step.into_into_dart().into_dart(),
+            self.options.into_into_dart().into_dart(),
+            self.description.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::models::ModParamSchema {}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::ModParamSchema>
+    for crate::models::ModParamSchema
+{
+    fn into_into_dart(self) -> crate::models::ModParamSchema {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::ModReactionEffectDef {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.mod_id.into_into_dart().into_dart(),
+            self.mod_name.into_into_dart().into_dart(),
+            self.effect_id.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.description.into_into_dart().into_dart(),
+            self.entry.into_into_dart().into_dart(),
+            self.css.into_into_dart().into_dart(),
+            self.default_duration_ms.into_into_dart().into_dart(),
+            self.params.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::ModReactionEffectDef
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::ModReactionEffectDef>
+    for crate::models::ModReactionEffectDef
+{
+    fn into_into_dart(self) -> crate::models::ModReactionEffectDef {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::ModScriptLogEntry {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.timestamp_ms.into_into_dart().into_dart(),
+            self.mod_id.into_into_dart().into_dart(),
+            self.script_id.into_into_dart().into_dart(),
+            self.level.into_into_dart().into_dart(),
+            self.message.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::ModScriptLogEntry
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::ModScriptLogEntry>
+    for crate::models::ModScriptLogEntry
+{
+    fn into_into_dart(self) -> crate::models::ModScriptLogEntry {
         self
     }
 }
@@ -9696,6 +10731,7 @@ impl SseEncode for crate::models::AppEvent {
         <Option<crate::models::FeatureFlags>>::sse_encode(self.feature_flags, serializer);
         <Option<crate::models::ObsWsStatus>>::sse_encode(self.obs_ws_status, serializer);
         <Option<Vec<crate::models::StreamProfileSummary>>>::sse_encode(self.profiles, serializer);
+        <Option<Vec<crate::models::InstalledMod>>>::sse_encode(self.mods, serializer);
         <Option<String>>::sse_encode(self.notice_level, serializer);
         <Option<String>>::sse_encode(self.notice_message, serializer);
     }
@@ -9729,7 +10765,8 @@ impl SseEncode for crate::models::AppEventKind {
                 crate::models::AppEventKind::ObsWsStatusChanged => 20,
                 crate::models::AppEventKind::ProfilesUpdated => 21,
                 crate::models::AppEventKind::ConnectionHistoryUpdated => 22,
-                crate::models::AppEventKind::SystemNotice => 23,
+                crate::models::AppEventKind::ModsUpdated => 23,
+                crate::models::AppEventKind::SystemNotice => 24,
                 _ => {
                     unimplemented!("");
                 }
@@ -9943,6 +10980,13 @@ impl SseEncode for crate::models::ConnectionStatus {
     }
 }
 
+impl SseEncode for f64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_f64::<NativeEndian>(self).unwrap();
+    }
+}
+
 impl SseEncode for crate::models::FeatureFlags {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -10056,6 +11100,29 @@ impl SseEncode for crate::models::ImportedMediaFile {
     }
 }
 
+impl SseEncode for crate::models::InstalledMod {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.version, serializer);
+        <String>::sse_encode(self.author, serializer);
+        <String>::sse_encode(self.description, serializer);
+        <String>::sse_encode(self.min_stosup_version, serializer);
+        <String>::sse_encode(self.homepage, serializer);
+        <String>::sse_encode(self.license, serializer);
+        <String>::sse_encode(self.icon_url, serializer);
+        <String>::sse_encode(self.folder_name, serializer);
+        <bool>::sse_encode(self.enabled, serializer);
+        <i64>::sse_encode(self.installed_at_ms, serializer);
+        <Option<String>>::sse_encode(self.load_error, serializer);
+        <Vec<crate::models::ModReactionEffectDef>>::sse_encode(self.reaction_effects, serializer);
+        <Vec<crate::models::ModOverlayThemeDef>>::sse_encode(self.overlay_themes, serializer);
+        <Vec<crate::models::ModCustomOverlayDef>>::sse_encode(self.custom_overlays, serializer);
+        <Vec<crate::models::ModLogicScriptDef>>::sse_encode(self.logic_scripts, serializer);
+    }
+}
+
 impl SseEncode for crate::models::LicenseAgreementStatus {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -10152,6 +11219,16 @@ impl SseEncode for Vec<crate::models::HotkeyBinding> {
     }
 }
 
+impl SseEncode for Vec<crate::models::InstalledMod> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::InstalledMod>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::models::LotteryResult> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -10188,6 +11265,66 @@ impl SseEncode for Vec<crate::models::MessageRun> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::models::MessageRun>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::ModCustomOverlayDef> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::ModCustomOverlayDef>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::ModLogicScriptDef> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::ModLogicScriptDef>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::ModOverlayThemeDef> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::ModOverlayThemeDef>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::ModParamSchema> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::ModParamSchema>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::ModReactionEffectDef> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::ModReactionEffectDef>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::ModScriptLogEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::ModScriptLogEntry>::sse_encode(item, serializer);
         }
     }
 }
@@ -10449,6 +11586,7 @@ impl SseEncode for crate::models::MediaEffectType {
                 crate::models::MediaEffectType::Confetti => 3,
                 crate::models::MediaEffectType::Throw => 4,
                 crate::models::MediaEffectType::Ambient => 5,
+                crate::models::MediaEffectType::Mod => 6,
                 _ => {
                     unimplemented!("");
                 }
@@ -10555,6 +11693,9 @@ impl SseEncode for crate::models::MediaReactionRule {
         <bool>::sse_encode(self.exclude_banned, serializer);
         <String>::sse_encode(self.caption_template, serializer);
         <bool>::sse_encode(self.enabled, serializer);
+        <String>::sse_encode(self.mod_id, serializer);
+        <String>::sse_encode(self.mod_effect_id, serializer);
+        <String>::sse_encode(self.mod_params_json, serializer);
     }
 }
 
@@ -10583,6 +11724,9 @@ impl SseEncode for crate::models::MediaTriggerEvent {
         <String>::sse_encode(self.caption, serializer);
         <String>::sse_encode(self.triggered_by, serializer);
         <i64>::sse_encode(self.triggered_at_ms, serializer);
+        <String>::sse_encode(self.mod_id, serializer);
+        <String>::sse_encode(self.mod_effect_id, serializer);
+        <String>::sse_encode(self.mod_params_json, serializer);
     }
 }
 
@@ -10629,6 +11773,114 @@ impl SseEncode for crate::models::MessageRunKind {
             },
             serializer,
         );
+    }
+}
+
+impl SseEncode for crate::models::ModCustomOverlayDef {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.mod_id, serializer);
+        <String>::sse_encode(self.mod_name, serializer);
+        <String>::sse_encode(self.overlay_id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.description, serializer);
+        <String>::sse_encode(self.entry, serializer);
+        <Vec<String>>::sse_encode(self.channels, serializer);
+        <u32>::sse_encode(self.recommended_width, serializer);
+        <u32>::sse_encode(self.recommended_height, serializer);
+        <String>::sse_encode(self.overlay_path, serializer);
+        <String>::sse_encode(self.preview_path, serializer);
+    }
+}
+
+impl SseEncode for crate::models::ModLogicScriptDef {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.mod_id, serializer);
+        <String>::sse_encode(self.mod_name, serializer);
+        <String>::sse_encode(self.script_id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.description, serializer);
+        <String>::sse_encode(self.entry, serializer);
+        <Vec<String>>::sse_encode(self.events, serializer);
+    }
+}
+
+impl SseEncode for crate::models::ModOverlayThemeDef {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.mod_id, serializer);
+        <String>::sse_encode(self.mod_name, serializer);
+        <String>::sse_encode(self.theme_id, serializer);
+        <String>::sse_encode(self.full_theme_id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.description, serializer);
+        <Vec<String>>::sse_encode(self.targets, serializer);
+        <String>::sse_encode(self.css, serializer);
+        <String>::sse_encode(self.script, serializer);
+        <String>::sse_encode(self.preview_bg, serializer);
+        <String>::sse_encode(self.preview_fg, serializer);
+        <String>::sse_encode(self.preview_border, serializer);
+    }
+}
+
+impl SseEncode for crate::models::ModParamKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::models::ModParamKind::String => 0,
+                crate::models::ModParamKind::Number => 1,
+                crate::models::ModParamKind::Color => 2,
+                crate::models::ModParamKind::Bool => 3,
+                crate::models::ModParamKind::Select => 4,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::ModParamSchema {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.key, serializer);
+        <String>::sse_encode(self.label, serializer);
+        <crate::models::ModParamKind>::sse_encode(self.kind, serializer);
+        <String>::sse_encode(self.default_value, serializer);
+        <Option<f64>>::sse_encode(self.min, serializer);
+        <Option<f64>>::sse_encode(self.max, serializer);
+        <Option<f64>>::sse_encode(self.step, serializer);
+        <Vec<String>>::sse_encode(self.options, serializer);
+        <String>::sse_encode(self.description, serializer);
+    }
+}
+
+impl SseEncode for crate::models::ModReactionEffectDef {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.mod_id, serializer);
+        <String>::sse_encode(self.mod_name, serializer);
+        <String>::sse_encode(self.effect_id, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.description, serializer);
+        <String>::sse_encode(self.entry, serializer);
+        <String>::sse_encode(self.css, serializer);
+        <u32>::sse_encode(self.default_duration_ms, serializer);
+        <Vec<crate::models::ModParamSchema>>::sse_encode(self.params, serializer);
+    }
+}
+
+impl SseEncode for crate::models::ModScriptLogEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.timestamp_ms, serializer);
+        <String>::sse_encode(self.mod_id, serializer);
+        <String>::sse_encode(self.script_id, serializer);
+        <String>::sse_encode(self.level, serializer);
+        <String>::sse_encode(self.message, serializer);
     }
 }
 
@@ -10844,6 +12096,16 @@ impl SseEncode for Option<crate::models::ConnectionStateDto> {
     }
 }
 
+impl SseEncode for Option<f64> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <f64>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<crate::models::FeatureFlags> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -11020,6 +12282,16 @@ impl SseEncode for Option<Vec<crate::models::HighlightRule>> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <Vec<crate::models::HighlightRule>>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<Vec<crate::models::InstalledMod>> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <Vec<crate::models::InstalledMod>>::sse_encode(value, serializer);
         }
     }
 }

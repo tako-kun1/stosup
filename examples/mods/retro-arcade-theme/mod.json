@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "retro-arcade-theme",
+  "name": "レトロ・アーケード テーマ",
+  "version": "1.0.0",
+  "author": "Stosup Sample",
+  "description": "全 9 種類の OBS オーバーレイをドット枠・走査線アクセント・シアン＆マゼンタのアーケード筐体風に彩る追加テーマ MOD サンプル。",
+  "min_stosup_version": "0.5.1",
+  "homepage": "https://github.com/tako-kun1/stosup",
+  "license": "MIT",
+  "overlay_themes": [
+    {
+      "id": "retro_arcade",
+      "name": "レトロ・アーケード",
+      "description": "アーケード筐体風の角張り枠＋シアン＆マゼンタ計器デザイン",
+      "targets": [
+        "comments",
+        "superchat",
+        "pickup",
+        "poll",
+        "queue",
+        "media",
+        "lottery",
+        "counter",
+        "first_time"
+      ],
+      "css": "theme.css",
+      "script": "theme.js",
+      "preview_bg": "#111322",
+      "preview_fg": "#F8FAFC",
+      "preview_border": "#F43F5E"
+    }
+  ]
+}

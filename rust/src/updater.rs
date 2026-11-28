@@ -634,7 +634,13 @@ mod tests {
         assert!(!is_newer_version("0.5.1", "v0.5.1pre"));
         assert!(is_pre_version_tag("v0.5.1-pre"));
         assert!(is_pre_version_tag("0.5.1pre1"));
+        assert!(is_pre_version_tag("0.6.0-pre01"));
+        assert!(is_pre_version_tag("v0.6.0-pre01"));
         assert!(!is_pre_version_tag("v0.5.1"));
+        assert!(is_newer_version("0.5.1", "v0.6.0-pre01"));
+        assert!(is_newer_version("0.6.0-pre01", "v0.6.0-pre02"));
+        assert!(is_newer_version("0.6.0-pre01", "v0.6.0"));
+        assert!(!is_newer_version("0.6.0", "v0.6.0-pre01"));
     }
 
     #[test]

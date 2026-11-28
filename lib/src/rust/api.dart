@@ -541,3 +541,59 @@ Future<String?> exportReportJsonWithDialog({required String sessionId}) =>
 
 Future<String> sendOverlayTestEvent({required String target}) =>
     RustLib.instance.api.crateApiSendOverlayTestEvent(target: target);
+
+Future<List<InstalledMod>> listInstalledMods() =>
+    RustLib.instance.api.crateApiListInstalledMods();
+
+Future<List<InstalledMod>> reloadMods() =>
+    RustLib.instance.api.crateApiReloadMods();
+
+Future<String?> pickModArchiveDialog() =>
+    RustLib.instance.api.crateApiPickModArchiveDialog();
+
+Future<InstalledMod> importModArchive({required String archivePath}) =>
+    RustLib.instance.api.crateApiImportModArchive(archivePath: archivePath);
+
+Future<List<InstalledMod>> setModEnabled({
+  required String modId,
+  required bool enabled,
+}) =>
+    RustLib.instance.api.crateApiSetModEnabled(modId: modId, enabled: enabled);
+
+Future<List<InstalledMod>> uninstallMod({required String modId}) =>
+    RustLib.instance.api.crateApiUninstallMod(modId: modId);
+
+Future<void> openModsFolder() => RustLib.instance.api.crateApiOpenModsFolder();
+
+Future<String> getModsFolderPath() =>
+    RustLib.instance.api.crateApiGetModsFolderPath();
+
+Future<void> testModReactionEffect({
+  required String modId,
+  required String effectId,
+  required String paramsJson,
+  required bool previewOnly,
+}) => RustLib.instance.api.crateApiTestModReactionEffect(
+  modId: modId,
+  effectId: effectId,
+  paramsJson: paramsJson,
+  previewOnly: previewOnly,
+);
+
+Future<List<String>> testModLogicScript({
+  required String modId,
+  required String scriptId,
+  required String sampleMessage,
+  required bool previewOnly,
+}) => RustLib.instance.api.crateApiTestModLogicScript(
+  modId: modId,
+  scriptId: scriptId,
+  sampleMessage: sampleMessage,
+  previewOnly: previewOnly,
+);
+
+Future<List<ModScriptLogEntry>> listModScriptLogs({required int limit}) =>
+    RustLib.instance.api.crateApiListModScriptLogs(limit: limit);
+
+Future<void> clearModScriptLogs() =>
+    RustLib.instance.api.crateApiClearModScriptLogs();

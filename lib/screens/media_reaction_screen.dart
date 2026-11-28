@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -53,6 +55,8 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
         return '投てき';
       case MediaEffectType.ambient:
         return '環境演出';
+      case MediaEffectType.mod:
+        return 'カスタム MOD';
     }
   }
 
@@ -70,6 +74,8 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
         return Icons.sports_baseball_outlined;
       case MediaEffectType.ambient:
         return Icons.ac_unit;
+      case MediaEffectType.mod:
+        return Icons.extension_outlined;
     }
   }
 
@@ -158,6 +164,9 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
           excludeBanned: true,
           captionTemplate: '',
           enabled: true,
+          modId: '',
+          modEffectId: '',
+          modParamsJson: '{}',
         );
       case 'kusa':
         rule = MediaReactionRule(
@@ -191,6 +200,9 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
           excludeBanned: true,
           captionTemplate: '',
           enabled: true,
+          modId: '',
+          modEffectId: '',
+          modParamsJson: '{}',
         );
       case 'confetti':
         rule = MediaReactionRule(
@@ -224,6 +236,9 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
           excludeBanned: true,
           captionTemplate: '',
           enabled: true,
+          modId: '',
+          modEffectId: '',
+          modParamsJson: '{}',
         );
       case 'throw':
         rule = MediaReactionRule(
@@ -257,6 +272,9 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
           excludeBanned: true,
           captionTemplate: '',
           enabled: true,
+          modId: '',
+          modEffectId: '',
+          modParamsJson: '{}',
         );
       case 'superchat_sakura':
         rule = MediaReactionRule(
@@ -290,6 +308,9 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
           excludeBanned: true,
           captionTemplate: '{user} さんスパチャありがとう！',
           enabled: true,
+          modId: '',
+          modEffectId: '',
+          modParamsJson: '{}',
         );
       default:
         rule = MediaReactionRule(
@@ -323,6 +344,9 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
           excludeBanned: true,
           captionTemplate: '',
           enabled: true,
+          modId: '',
+          modEffectId: '',
+          modParamsJson: '{}',
         );
     }
     await widget.controller.saveMediaReactionRule(rule);
@@ -364,6 +388,9 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
       excludeBanned: r.excludeBanned,
       captionTemplate: r.captionTemplate,
       enabled: enabled ?? r.enabled,
+      modId: r.modId,
+      modEffectId: r.modEffectId,
+      modParamsJson: r.modParamsJson,
     );
   }
 
@@ -676,13 +703,15 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                           .map((e) => e.trim())
                           .where((e) => e.isNotEmpty)
                           .join(' / ');
-                      final assetSummary = r.originalFileName.isNotEmpty
-                          ? '素材: ${r.originalFileName}'
-                          : (r.effectType == MediaEffectType.ambient
-                              ? '環境: ${ambientLabel(r.ambientPreset)}'
-                              : (r.particleText.isNotEmpty
-                                  ? '文字/絵文字: ${r.particleText}'
-                                  : '標準パーティクル'));
+                      final assetSummary = r.effectType == MediaEffectType.mod
+                          ? 'MOD: ${r.modId} / ${r.modEffectId}'
+                          : (r.originalFileName.isNotEmpty
+                              ? '素材: ${r.originalFileName}'
+                              : (r.effectType == MediaEffectType.ambient
+                                  ? '環境: ${ambientLabel(r.ambientPreset)}'
+                                  : (r.particleText.isNotEmpty
+                                      ? '文字/絵文字: ${r.particleText}'
+                                      : '標準パーティクル')));
                       final seSummary = r.soundOriginalFileName.isNotEmpty
                           ? '  |  SE: ${r.soundOriginalFileName}'
                           : '';
@@ -755,9 +784,9 @@ class _MediaReactionScreenState extends State<MediaReactionScreen> {
                                         ],
                                       ),
                                       const SizedBox(height: 4),
-                                      Text(
+                                        Text(
                                         '$assetSummary$seSummary  |  '
-                                        '${r.effectType == MediaEffectType.fixed ? "幅${r.widthPercent}%" : "個数${r.particleCount} / サイズ${r.particleSize}px"}  |  '
+                                        '${r.effectType == MediaEffectType.mod ? "カスタムMOD演出" : (r.effectType == MediaEffectType.fixed ? "幅${r.widthPercent}%" : "個数${r.particleCount} / サイズ${r.particleSize}px")}  |  '
                                         '時間: ${r.durationMs == 0 ? "動画終了まで" : "${(r.durationMs / 1000).toStringAsFixed(1)}秒"}  |  CD: ${r.cooldownSec}秒',
                                         style: TextStyle(
                                             fontSize: 12,
@@ -911,6 +940,9 @@ class _ReactionStageRuleEditorDialogState
   late String _ambientPreset;
   late bool _excludeBanned;
   late bool _enabled;
+  late String _modId;
+  late String _modEffectId;
+  late Map<String, dynamic> _modParams;
   bool _importingMedia = false;
   bool _importingSound = false;
 
@@ -953,6 +985,53 @@ class _ReactionStageRuleEditorDialogState
     _ambientPreset = r?.ambientPreset ?? 'snow';
     _excludeBanned = r?.excludeBanned ?? true;
     _enabled = r?.enabled ?? true;
+    _modId = r?.modId ?? '';
+    _modEffectId = r?.modEffectId ?? '';
+    _modParams = {};
+    if (r != null && r.modParamsJson.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(r.modParamsJson);
+        if (decoded is Map<String, dynamic>) {
+          _modParams = Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {}
+    }
+    _ensureModSelectionDefault();
+  }
+
+  void _ensureModSelectionDefault() {
+    final available = widget.controller.enabledModReactionEffects;
+    if (available.isEmpty) return;
+    final hasMatch = available.any(
+      (e) => e.modId == _modId && e.effectId == _modEffectId,
+    );
+    if (!hasMatch && _modId.isEmpty && _modEffectId.isEmpty) {
+      final first = available.first;
+      _modId = first.modId;
+      _modEffectId = first.effectId;
+      _seedModParamDefaults(first, overwrite: false);
+    }
+  }
+
+  void _seedModParamDefaults(
+    ModReactionEffectDef ef, {
+    required bool overwrite,
+  }) {
+    for (final param in ef.params) {
+      if (!overwrite && _modParams.containsKey(param.key)) continue;
+      switch (param.kind) {
+        case ModParamKind.number:
+          _modParams[param.key] = double.tryParse(param.defaultValue) ?? 0;
+        case ModParamKind.bool:
+          _modParams[param.key] =
+              param.defaultValue.toLowerCase() == 'true' ||
+                  param.defaultValue == '1';
+        case ModParamKind.string:
+        case ModParamKind.color:
+        case ModParamKind.select:
+          _modParams[param.key] = param.defaultValue;
+      }
+    }
   }
 
   @override
@@ -1011,6 +1090,15 @@ class _ReactionStageRuleEditorDialogState
   }
 
   Future<void> _save() async {
+    if (_effectType == MediaEffectType.mod &&
+        (_modId.trim().isEmpty || _modEffectId.trim().isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('カスタム MOD 演出を選択してください（未導入の場合は「MOD 管理」画面から導入できます）'),
+        ),
+      );
+      return;
+    }
     if (_effectType == MediaEffectType.fixed &&
         _storedFileName.isEmpty &&
         _soundStoredFileName.isEmpty &&
@@ -1071,10 +1159,246 @@ class _ReactionStageRuleEditorDialogState
       excludeBanned: _excludeBanned,
       captionTemplate: _captionCtrl.text.trim(),
       enabled: _enabled,
+      modId: _effectType == MediaEffectType.mod ? _modId : '',
+      modEffectId: _effectType == MediaEffectType.mod ? _modEffectId : '',
+      modParamsJson: _effectType == MediaEffectType.mod
+          ? jsonEncode(_modParams)
+          : '{}',
     );
     final nav = Navigator.of(context);
     await widget.controller.saveMediaReactionRule(rule);
     nav.pop();
+  }
+
+  Widget _buildModEffectSelectorSection(StosupPalette p) {
+    final available = widget.controller.enabledModReactionEffects;
+    if (available.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: p.subtleBg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: p.border),
+        ),
+        child: Text(
+          '有効なリアクション演出 MOD がまだ導入されていません。\n左メニューの「MOD 管理」画面から .stosupmod / .zip を導入してください。',
+          style: TextStyle(fontSize: 12.5, color: p.textSecondary),
+        ),
+      );
+    }
+
+    final currentKey = '$_modId:$_modEffectId';
+    final selectedDef = available.cast<ModReactionEffectDef?>().firstWhere(
+          (e) => e != null && '${e.modId}:${e.effectId}' == currentKey,
+          orElse: () => null,
+        );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: p.subtleBg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: p.accent.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<String>(
+            initialValue: selectedDef != null ? currentKey : null,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: '使用するカスタム MOD 演出',
+            ),
+            items: available
+                .map(
+                  (e) => DropdownMenuItem<String>(
+                    value: '${e.modId}:${e.effectId}',
+                    child: Text('${e.name}（${e.modName}）'),
+                  ),
+                )
+                .toList(),
+            onChanged: (val) {
+              if (val == null) return;
+              final found = available.firstWhere(
+                (e) => '${e.modId}:${e.effectId}' == val,
+              );
+              setState(() {
+                _modId = found.modId;
+                _modEffectId = found.effectId;
+                _modParams = {};
+                _seedModParamDefaults(found, overwrite: true);
+                if (widget.initial == null) {
+                  _durationSecCtrl.text =
+                      (found.defaultDurationMs / 1000).toString();
+                  if (_nameCtrl.text.trim().isEmpty) {
+                    _nameCtrl.text = found.name;
+                  }
+                }
+              });
+            },
+          ),
+          if (selectedDef != null && selectedDef.description.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              selectedDef.description,
+              style: TextStyle(fontSize: 12, color: p.textSecondary),
+            ),
+          ],
+          if (selectedDef != null && selectedDef.params.isNotEmpty) ...[
+            const Divider(height: 20),
+            const Text(
+              'MOD カスタムパラメータ',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+            ),
+            const SizedBox(height: 8),
+            ...selectedDef.params.map((param) => _buildModParamField(p, param)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModParamField(StosupPalette p, ModParamSchema param) {
+    final cur = _modParams[param.key];
+    switch (param.kind) {
+      case ModParamKind.bool:
+        final bVal = cur is bool
+            ? cur
+            : (cur?.toString().toLowerCase() == 'true' ||
+                (cur == null && param.defaultValue.toLowerCase() == 'true'));
+        return SwitchListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          title: Text(param.label, style: const TextStyle(fontSize: 13)),
+          subtitle: param.description.isNotEmpty
+              ? Text(param.description,
+                  style: TextStyle(fontSize: 11, color: p.textSecondary))
+              : null,
+          value: bVal,
+          onChanged: (v) => setState(() => _modParams[param.key] = v),
+        );
+      case ModParamKind.select:
+        final opts = param.options.isEmpty ? [param.defaultValue] : param.options;
+        final sVal = cur?.toString() ?? param.defaultValue;
+        final effective = opts.contains(sVal) ? sVal : opts.first;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: DropdownButtonFormField<String>(
+            initialValue: effective,
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: param.label,
+              helperText: param.description.isEmpty ? null : param.description,
+            ),
+            items: opts
+                .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) setState(() => _modParams[param.key] = v);
+            },
+          ),
+        );
+      case ModParamKind.number:
+        final numVal = cur is num
+            ? cur.toDouble()
+            : (double.tryParse(cur?.toString() ?? param.defaultValue) ?? 0);
+        if (param.min != null && param.max != null && param.max! > param.min!) {
+          final minV = param.min!;
+          final maxV = param.max!;
+          final clamped = numVal.clamp(minV, maxV);
+          final step = (param.step != null && param.step! > 0)
+              ? param.step!
+              : ((maxV - minV) >= 20 ? 1.0 : (maxV - minV) / 20.0);
+          final divs = ((maxV - minV) / step).round().clamp(1, 200);
+          final display = clamped == clamped.roundToDouble()
+              ? clamped.round().toString()
+              : clamped.toStringAsFixed(1);
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${param.label}: $display${param.description.isNotEmpty ? "（${param.description}）" : ""}',
+                  style: TextStyle(fontSize: 12, color: p.textSecondary),
+                ),
+                Slider(
+                  value: clamped,
+                  min: minV,
+                  max: maxV,
+                  divisions: divs,
+                  onChanged: (v) => setState(() => _modParams[param.key] = v),
+                ),
+              ],
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: TextFormField(
+            initialValue: numVal.toString(),
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: param.label,
+              helperText: param.description.isEmpty ? null : param.description,
+            ),
+            onChanged: (v) {
+              final parsed = double.tryParse(v.trim());
+              if (parsed != null) _modParams[param.key] = parsed;
+            },
+          ),
+        );
+      case ModParamKind.color:
+        final cVal = (cur?.toString() ?? param.defaultValue).trim();
+        final previewColor = AppTheme.parseCssHex(
+          cVal.isEmpty ? '#38BDF8' : cVal,
+        );
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: previewColor,
+                  borderRadius: BorderRadius.circular(5),
+                  border: Border.all(color: p.border),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextFormField(
+                  initialValue: cVal,
+                  decoration: InputDecoration(
+                    labelText: '${param.label}（HEX 色コード）',
+                    hintText: '#38BDF8',
+                    helperText:
+                        param.description.isEmpty ? null : param.description,
+                  ),
+                  onChanged: (v) => setState(() => _modParams[param.key] = v.trim()),
+                ),
+              ),
+            ],
+          ),
+        );
+      case ModParamKind.string:
+        final strVal = cur?.toString() ?? param.defaultValue;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: TextFormField(
+            initialValue: strVal,
+            decoration: InputDecoration(
+              labelText: param.label,
+              helperText: param.description.isEmpty ? null : param.description,
+            ),
+            onChanged: (v) => _modParams[param.key] = v,
+          ),
+        );
+    }
   }
 
   @override
@@ -1082,6 +1406,7 @@ class _ReactionStageRuleEditorDialogState
     final p = context.palette;
     final isFixed = _effectType == MediaEffectType.fixed;
     final isAmbient = _effectType == MediaEffectType.ambient;
+    final isMod = _effectType == MediaEffectType.mod;
 
     return AlertDialog(
       title: Text(widget.initial == null
@@ -1363,7 +1688,10 @@ class _ReactionStageRuleEditorDialogState
               const SizedBox(height: 12),
 
               // 4. 演出別パラメータ
-              if (isAmbient) ...[
+              if (isMod) ...[
+                _buildModEffectSelectorSection(p),
+                const SizedBox(height: 10),
+              ] else if (isAmbient) ...[
                 DropdownButtonFormField<String>(
                   initialValue: _ambientPreset,
                   isExpanded: true,
@@ -1386,7 +1714,7 @@ class _ReactionStageRuleEditorDialogState
                 const SizedBox(height: 10),
               ],
 
-              if (!isFixed && !isAmbient) ...[
+              if (!isFixed && !isAmbient && !isMod) ...[
                 TextField(
                   controller: _particleTextCtrl,
                   decoration: const InputDecoration(
@@ -1397,7 +1725,9 @@ class _ReactionStageRuleEditorDialogState
                 const SizedBox(height: 10),
               ],
 
-              if (isFixed) ...[
+              if (isMod) ...[
+                const SizedBox.shrink(),
+              ] else if (isFixed) ...[
                 Row(
                   children: [
                     Expanded(

@@ -3,7 +3,7 @@ mod remote_api;
 use std::collections::{HashMap, VecDeque};
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -12,23 +12,25 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{DefaultBodyLimit, Path, Query, State};
 use axum::http::{header, HeaderMap, Response, StatusCode};
 use axum::middleware;
-use axum::response::{Html, IntoResponse};
+use axum::response::{Html, IntoResponse, Json};
 use axum::routing::{get, post};
 use axum::Router;
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
+use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, SeekFrom};
 use tokio::sync::{broadcast, oneshot, watch, RwLock};
 use tower_http::cors::CorsLayer;
 
 use crate::media::{content_type_for_file_name, is_safe_stored_file_name};
 use crate::models::{
-    CommentItem, FirstTimeCounterConfig, FirstTimeCounterState, FirstTimeUser, LotteryResult,
-    LotteryWinner, MatchMode, MediaReactionConfig, MediaTriggerEvent, MessageRun, MessageRunKind,
-    MonetizationEventKind, MonetizationItem, OverlayConfig, PickedCommentState, PlatformKind,
-    PollState, QueueConfig, QueueEntry, QueueEntryStatus, QueueState, RemoteAccessConfig,
-    WordCounterConfig,
+    CommentItem, FirstTimeCounterConfig, FirstTimeCounterState, FirstTimeUser, InstalledMod,
+    LotteryResult, LotteryWinner, MatchMode, MediaReactionConfig, MediaTriggerEvent, MessageRun,
+    MessageRunKind, MonetizationEventKind, MonetizationItem, OverlayConfig, PickedCommentState,
+    PlatformKind, PollState, QueueConfig, QueueEntry, QueueEntryStatus, QueueState,
+    RemoteAccessConfig, WordCounterConfig,
 };
+use crate::mods::{content_type_for_mod_asset, resolve_mod_asset_path};
 use crate::platform::demo;
 
 const COMMENTS_HTML: &str = include_str!("comments.html");
@@ -41,6 +43,7 @@ const PICKUP_HTML: &str = include_str!("pickup.html");
 const QUEUE_HTML: &str = include_str!("queue.html");
 const MEDIA_HTML: &str = include_str!("media.html");
 const OVERLAY_COMMON_JS: &str = include_str!("stosup_overlay.js");
+const OVERLAY_MOD_SDK_JS: &str = include_str!("stosup_mod_sdk.js");
 const APP_ICON_ICO: &[u8] = include_bytes!("../../../windows/runner/resources/app_icon.ico");
 
 /// OBS オーバーレイ WebSocket の購読チャンネル種別
@@ -111,6 +114,8 @@ pub struct OverlaySnapshotPayload {
     pub queue_enabled: bool,
     pub media_config: MediaReactionConfig,
     pub media_enabled: bool,
+    pub mods: Vec<InstalledMod>,
+    pub mods_revision: u64,
 }
 
 /// オーバーレイ画面へ WebSocket で送信するメッセージ
@@ -160,14 +165,18 @@ pub enum OverlayMessage {
     ConfigUpdated {
         config: Box<OverlayConfig>,
     },
+    ModsUpdated {
+        mods: Vec<InstalledMod>,
+        revision: u64,
+    },
 }
 
 impl OverlayMessage {
     pub fn channel(&self) -> OverlayChannel {
         match self {
-            OverlayMessage::Snapshot(_) | OverlayMessage::ConfigUpdated { .. } => {
-                OverlayChannel::All
-            }
+            OverlayMessage::Snapshot(_)
+            | OverlayMessage::ConfigUpdated { .. }
+            | OverlayMessage::ModsUpdated { .. } => OverlayChannel::All,
             OverlayMessage::Comment { .. } => OverlayChannel::Comments,
             OverlayMessage::Counters { .. } => OverlayChannel::Counter,
             OverlayMessage::FirstTime { .. } => OverlayChannel::FirstTime,
@@ -535,6 +544,9 @@ fn has_subscriber_for_channel(
 
 pub struct OverlaySharedState {
     pub media_dir: PathBuf,
+    pub mods_dir: PathBuf,
+    pub installed_mods: RwLock<Vec<InstalledMod>>,
+    pub mods_revision: AtomicU64,
     pub remote_config: RwLock<RemoteAccessConfig>,
     allow_lan_access: AtomicBool,
     pub config: RwLock<OverlayConfig>,
@@ -567,6 +579,8 @@ impl OverlaySharedState {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         media_dir: PathBuf,
+        mods_dir: PathBuf,
+        installed_mods: Vec<InstalledMod>,
         remote_config: RemoteAccessConfig,
         config: OverlayConfig,
         counters: Vec<WordCounterConfig>,
@@ -588,6 +602,9 @@ impl OverlaySharedState {
         let initial_allow_lan = remote_config.allow_lan_access;
         Self {
             media_dir,
+            mods_dir,
+            installed_mods: RwLock::new(installed_mods),
+            mods_revision: AtomicU64::new(1),
             remote_config: RwLock::new(remote_config),
             allow_lan_access: AtomicBool::new(initial_allow_lan),
             config: RwLock::new(config),
@@ -733,6 +750,8 @@ impl OverlaySharedState {
                 MediaReactionConfig::default()
             },
             media_enabled: include(OverlayChannel::Media),
+            mods: self.enabled_mods_snapshot().await,
+            mods_revision: self.mods_revision.load(Ordering::Acquire),
         }))
     }
 
@@ -816,7 +835,41 @@ impl OverlaySharedState {
             } else {
                 false
             },
+            mods: self.enabled_mods_snapshot().await,
+            mods_revision: self.mods_revision.load(Ordering::Acquire),
         }))
+    }
+
+    /// 有効かつエラーのない導入済み MOD の一覧スナップショットを返す
+    pub async fn enabled_mods_snapshot(&self) -> Vec<InstalledMod> {
+        self.installed_mods
+            .read()
+            .await
+            .iter()
+            .filter(|m| m.enabled && m.load_error.is_none())
+            .cloned()
+            .collect()
+    }
+
+    /// MOD 一覧を更新し、本番・プレビュー双方の接続中オーバーレイへ即時配信する
+    pub async fn update_mods(&self, mods: Vec<InstalledMod>) {
+        *self.installed_mods.write().await = mods;
+        let rev = self.mods_revision.fetch_add(1, Ordering::AcqRel) + 1;
+        let send_prod = self.should_broadcast(OverlayChannel::All);
+        let send_prev = self.should_broadcast_preview(OverlayChannel::All);
+        if send_prod || send_prev {
+            let enabled_mods = self.enabled_mods_snapshot().await;
+            let msg = OverlayMessage::ModsUpdated {
+                mods: enabled_mods,
+                revision: rev,
+            };
+            if send_prod {
+                self.broadcast(&msg);
+            }
+            if send_prev {
+                self.broadcast_preview(&msg);
+            }
+        }
     }
 
     pub async fn push_comment(&self, comment: CommentItem) {
@@ -1087,6 +1140,20 @@ pub fn start_overlay_server(
                 get(overlay_common_js_handler),
             )
             .route(
+                "/overlay/stosup-mod-sdk.js",
+                get(overlay_mod_sdk_js_handler),
+            )
+            .route("/api/mods/runtime", get(mods_runtime_api_handler))
+            .route("/mods/{mod_id}/{*asset_path}", get(mod_asset_handler))
+            .route(
+                "/overlay/mod/{mod_id}/{overlay_id}",
+                get(mod_custom_overlay_handler),
+            )
+            .route(
+                "/overlay/preview/mod/{mod_id}/{overlay_id}",
+                get(mod_custom_overlay_handler),
+            )
+            .route(
                 "/overlay/comments",
                 get(|st: State<Arc<OverlaySharedState>>| async move {
                     serve_overlay_html(st, COMMENTS_HTML)
@@ -1253,6 +1320,173 @@ async fn overlay_common_js_handler() -> impl IntoResponse {
         [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
         OVERLAY_COMMON_JS,
     )
+}
+
+async fn overlay_mod_sdk_js_handler() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        OVERLAY_MOD_SDK_JS,
+    )
+}
+
+async fn mods_runtime_api_handler(
+    State(state): State<Arc<OverlaySharedState>>,
+) -> impl IntoResponse {
+    let mods = state.enabled_mods_snapshot().await;
+    let rev = state.mods_revision.load(Ordering::Acquire);
+    (
+        [(header::CACHE_CONTROL, "no-store")],
+        Json(json!({
+            "revision": rev,
+            "mods": mods,
+        })),
+    )
+}
+
+/// 独立カスタムオーバーレイ HTML の `<head>` へ `<base>` および Stosup SDK を自動注入する
+fn inject_mod_overlay_head(raw_html: &str, mod_id: &str) -> String {
+    let lower = raw_html.to_ascii_lowercase();
+    let mut injection = String::new();
+    if !lower.contains("<base ") {
+        injection.push_str(&format!("\n<base href=\"/mods/{}/\" />", mod_id));
+    }
+    if !lower.contains("stosup-overlay.js") {
+        injection.push_str("\n<script src=\"/overlay/stosup-overlay.js\"></script>");
+    }
+    if !lower.contains("stosup-mod-sdk.js") {
+        injection.push_str("\n<script src=\"/overlay/stosup-mod-sdk.js\"></script>");
+    }
+    if injection.is_empty() {
+        return raw_html.to_string();
+    }
+    if let Some(head_pos) = lower.find("<head") {
+        if let Some(gt_rel) = lower[head_pos..].find('>') {
+            let insert_at = head_pos + gt_rel + 1;
+            let mut out = String::with_capacity(raw_html.len() + injection.len() + 2);
+            out.push_str(&raw_html[..insert_at]);
+            out.push_str(&injection);
+            out.push_str(&raw_html[insert_at..]);
+            return out;
+        }
+    }
+    format!("{}\n{}", injection, raw_html)
+}
+
+async fn mod_custom_overlay_handler(
+    Path((mod_id, overlay_id)): Path<(String, String)>,
+    State(state): State<Arc<OverlaySharedState>>,
+) -> Response<Body> {
+    if !state.is_obs_overlay_enabled() {
+        return Response::builder()
+            .status(StatusCode::SERVICE_UNAVAILABLE)
+            .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+            .body(Body::from(
+                "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'></head>\
+                 <body style='margin:0;background:transparent;color:#a1a1aa;font-family:sans-serif;padding:12px;font-size:13px'>\
+                 Stosup のオーバーレイスタジオ機能は現在オフになっています。</body></html>",
+            ))
+            .unwrap();
+    }
+
+    let entry_rel = {
+        let mods = state.installed_mods.read().await;
+        mods.iter()
+            .find(|m| m.id == mod_id && m.enabled && m.load_error.is_none())
+            .and_then(|m| {
+                m.custom_overlays
+                    .iter()
+                    .find(|o| o.overlay_id == overlay_id)
+                    .map(|o| o.entry.clone())
+            })
+    };
+
+    let Some(entry_rel) = entry_rel else {
+        return Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+            .body(Body::from(
+                "<!DOCTYPE html><html lang='ja'><head><meta charset='utf-8'></head>\
+                 <body style='margin:0;background:transparent;color:#fca5a5;font-family:sans-serif;padding:12px;font-size:13px'>\
+                 指定された MOD オーバーレイが見つからないか、現在無効になっています。</body></html>",
+            ))
+            .unwrap();
+    };
+
+    let Ok(html_path) = resolve_mod_asset_path(&state.mods_dir, &mod_id, &entry_rel) else {
+        return Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("Mod overlay entry not found"))
+            .unwrap();
+    };
+
+    let Ok(raw_html) = tokio::fs::read_to_string(&html_path).await else {
+        return Response::builder()
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .body(Body::from("Failed to read mod overlay HTML"))
+            .unwrap();
+    };
+
+    let final_html = inject_mod_overlay_head(&raw_html, &mod_id);
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+        .header(header::CACHE_CONTROL, "no-cache")
+        .body(Body::from(final_html))
+        .unwrap()
+}
+
+/// 導入済み MOD ディレクトリ配下の静的アセット（CSS/JS/画像/動画/音声/フォント等）を安全に配信する
+async fn mod_asset_handler(
+    Path((mod_id, asset_path)): Path<(String, String)>,
+    State(state): State<Arc<OverlaySharedState>>,
+) -> Response<Body> {
+    if !state.is_obs_overlay_enabled() {
+        return Response::builder()
+            .status(StatusCode::SERVICE_UNAVAILABLE)
+            .body(Body::from("OBS overlay is disabled"))
+            .unwrap();
+    }
+
+    // 有効な MOD のみ配信（ただし MOD 管理画面用アイコン表示も考慮し、ロード済み存在チェック）
+    let is_enabled_or_icon = {
+        let mods = state.installed_mods.read().await;
+        mods.iter().any(|m| {
+            m.id == mod_id
+                && m.load_error.is_none()
+                && (m.enabled
+                    || (!m.icon_url.is_empty()
+                        && m.icon_url == format!("/mods/{}/{}", mod_id, asset_path)))
+        })
+    };
+    if !is_enabled_or_icon {
+        return Response::builder()
+            .status(StatusCode::FORBIDDEN)
+            .body(Body::from("Mod is disabled or not installed"))
+            .unwrap();
+    }
+
+    let Ok(resolved) = resolve_mod_asset_path(&state.mods_dir, &mod_id, &asset_path) else {
+        return Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::from("Mod asset not found"))
+            .unwrap();
+    };
+
+    let Ok(data) = tokio::fs::read(&resolved).await else {
+        return Response::builder()
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .body(Body::from("Failed to read mod asset"))
+            .unwrap();
+    };
+
+    let content_type = content_type_for_mod_asset(&asset_path);
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CACHE_CONTROL, "no-cache")
+        .header(header::CONTENT_LENGTH, data.len())
+        .body(Body::from(data))
+        .unwrap()
 }
 
 /// ローカル保存済みメディアファイルを配信する（Range シーク読み出し対応で大容量動画も高速・省メモリ）
@@ -1498,6 +1732,8 @@ mod tests {
     fn make_test_state() -> OverlaySharedState {
         OverlaySharedState::new(
             PathBuf::from("."),
+            PathBuf::from("."),
+            Vec::new(),
             RemoteAccessConfig::default(),
             OverlayConfig::default(),
             Vec::new(),

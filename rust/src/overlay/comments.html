@@ -407,10 +407,14 @@
       try {
         const data = JSON.parse(ev.data);
         if (data.type === 'snapshot') {
+          if (data.mods) window.StosupOverlay.syncMods(data.mods, data.mods_revision);
           config = Object.assign(config, data.config || {});
           comments = data.comments || [];
           applyConfig();
           renderAll();
+        } else if (data.type === 'mods_updated') {
+          window.StosupOverlay.syncMods(data.mods, data.revision);
+          applyConfig();
         } else if (data.type === 'comment') {
           if (data.comment) appendComment(data.comment);
         } else if (data.type === 'config_updated') {

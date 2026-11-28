@@ -21,6 +21,7 @@ enum StosupTopic {
   lottery,
   users,
   overlay,
+  mods,
   automation,
   report,
   settings,
@@ -77,6 +78,34 @@ class StosupController extends ChangeNotifier {
   List<ConnectionHistoryItem> connectionHistory = [];
   List<SavedChannelItem> savedChannels = [];
   List<NgWordRule> ngWordRules = [];
+  List<InstalledMod> installedMods = [];
+  List<ModScriptLogEntry> modScriptLogs = [];
+  String modsFolderPath = '';
+
+  int get enabledModCount =>
+      installedMods.where((m) => m.enabled && m.loadError == null).length;
+
+  List<ModReactionEffectDef> get enabledModReactionEffects => installedMods
+      .where((m) => m.enabled && m.loadError == null)
+      .expand((m) => m.reactionEffects)
+      .toList();
+
+  List<ModOverlayThemeDef> enabledModOverlayThemesFor(String overlayKey) =>
+      installedMods
+          .where((m) => m.enabled && m.loadError == null)
+          .expand((m) => m.overlayThemes)
+          .where((t) => t.targets.contains(overlayKey))
+          .toList();
+
+  List<ModCustomOverlayDef> get enabledModCustomOverlays => installedMods
+      .where((m) => m.enabled && m.loadError == null)
+      .expand((m) => m.customOverlays)
+      .toList();
+
+  List<ModLogicScriptDef> get enabledModLogicScripts => installedMods
+      .where((m) => m.enabled && m.loadError == null)
+      .expand((m) => m.logicScripts)
+      .toList();
   ObsWsConfig obsWsConfig = const ObsWsConfig(
     enabled: false,
     host: '127.0.0.1',
@@ -417,6 +446,8 @@ class StosupController extends ChangeNotifier {
       api.getObsWsStatus(),
       api.listHotkeyBindings(),
       api.listStreamProfiles(),
+      api.listInstalledMods(),
+      api.getModsFolderPath(),
     ]);
 
     connectionState = results[0] as ConnectionStateDto;
@@ -442,6 +473,8 @@ class StosupController extends ChangeNotifier {
     obsWsStatus = results[20] as ObsWsStatus;
     hotkeyBindings = results[21] as List<HotkeyBinding>;
     streamProfiles = results[22] as List<StreamProfileSummary>;
+    installedMods = results[23] as List<InstalledMod>;
+    modsFolderPath = results[24] as String;
   }
 
   /// 起動直後のバックグラウンドで重い補助データ（フォント列挙・ipconfig・全ユーザー・抽選履歴）を個別に非同期ロード
@@ -600,6 +633,8 @@ class StosupController extends ChangeNotifier {
       api.listHotkeyBindings(),
       api.listStreamProfiles(),
       api.listStreamSessions(limit: 40),
+      api.listInstalledMods(),
+      api.getModsFolderPath(),
     ]);
 
     connectionState = results[0] as ConnectionStateDto;
@@ -636,6 +671,8 @@ class StosupController extends ChangeNotifier {
     hotkeyBindings = results[26] as List<HotkeyBinding>;
     streamProfiles = results[27] as List<StreamProfileSummary>;
     streamSessions = results[28] as List<StreamSessionSummary>;
+    installedMods = results[29] as List<InstalledMod>;
+    modsFolderPath = results[30] as String;
     if (notify) {
       notifyListeners();
     }
@@ -803,6 +840,16 @@ class StosupController extends ChangeNotifier {
         }
       case AppEventKind.connectionHistoryUpdated:
         unawaited(refreshConnectionHistory());
+      case AppEventKind.modsUpdated:
+        if (ev.mods != null) {
+          installedMods = List<InstalledMod>.from(ev.mods!);
+          _notifyTopics(const [
+            StosupTopic.shell,
+            StosupTopic.mods,
+            StosupTopic.media,
+            StosupTopic.overlay,
+          ]);
+        }
       case AppEventKind.systemNotice:
         if (ev.noticeMessage != null) {
           onNotice?.call(ev.noticeLevel ?? 'info', ev.noticeMessage!);
@@ -2184,6 +2231,168 @@ class StosupController extends ChangeNotifier {
       final msg = await api.sendOverlayTestEvent(target: target);
       onNotice?.call('info', msg);
     } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  // ==================== 演出 MOD 管理 ====================
+
+  Future<void> reloadMods({bool notifyUser = true}) async {
+    try {
+      installedMods = await api.reloadMods();
+      _notifyTopics(const [
+        StosupTopic.shell,
+        StosupTopic.mods,
+        StosupTopic.media,
+        StosupTopic.overlay,
+      ]);
+      if (notifyUser) {
+        onNotice?.call('info', 'MOD 一覧を再読み込みしました（${installedMods.length} 件）');
+      }
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<InstalledMod?> pickAndImportMod() async {
+    try {
+      final path = await api.pickModArchiveDialog();
+      if (path == null || path.trim().isEmpty) return null;
+      return await importModArchive(path);
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+      return null;
+    }
+  }
+
+  Future<InstalledMod?> importModArchive(String archivePath) async {
+    try {
+      final mod = await api.importModArchive(archivePath: archivePath);
+      installedMods = await api.listInstalledMods();
+      _notifyTopics(const [
+        StosupTopic.shell,
+        StosupTopic.mods,
+        StosupTopic.media,
+        StosupTopic.overlay,
+      ]);
+      onNotice?.call('success', 'MOD「${mod.name}」(v${mod.version}) を導入しました');
+      return mod;
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+      return null;
+    }
+  }
+
+  Future<void> setModEnabled(String modId, bool enabled) async {
+    try {
+      installedMods = await api.setModEnabled(modId: modId, enabled: enabled);
+      _notifyTopics(const [
+        StosupTopic.shell,
+        StosupTopic.mods,
+        StosupTopic.media,
+        StosupTopic.overlay,
+      ]);
+      onNotice?.call(
+        'info',
+        'MOD「$modId」を ${enabled ? "オン" : "オフ"} にしました',
+      );
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> uninstallMod(String modId, {String? modName}) async {
+    try {
+      installedMods = await api.uninstallMod(modId: modId);
+      _notifyTopics(const [
+        StosupTopic.shell,
+        StosupTopic.mods,
+        StosupTopic.media,
+        StosupTopic.overlay,
+      ]);
+      onNotice?.call('info', 'MOD「${modName ?? modId}」を削除しました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> openModsFolder() async {
+    try {
+      await api.openModsFolder();
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> testModReactionEffect({
+    required String modId,
+    required String effectId,
+    String paramsJson = '{}',
+    bool previewOnly = true,
+  }) async {
+    try {
+      await api.testModReactionEffect(
+        modId: modId,
+        effectId: effectId,
+        paramsJson: paramsJson,
+        previewOnly: previewOnly,
+      );
+      onNotice?.call(
+        'info',
+        previewOnly
+            ? 'MOD 演出をプレビュー画面 (/overlay/preview/media) へテスト送信しました'
+            : 'MOD 演出をリアクションステージへテスト送信しました',
+      );
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> refreshModScriptLogs({int limit = 100}) async {
+    try {
+      modScriptLogs = await api.listModScriptLogs(limit: limit);
+      _notifyTopics(const [StosupTopic.mods]);
+    } catch (_) {}
+  }
+
+  Future<void> clearModScriptLogs() async {
+    try {
+      await api.clearModScriptLogs();
+      modScriptLogs = [];
+      _notifyTopics(const [StosupTopic.mods]);
+      onNotice?.call('info', 'スクリプト実行ログをクリアしました');
+    } catch (e) {
+      onNotice?.call('error', e.toString());
+    }
+  }
+
+  Future<void> testModLogicScript({
+    required String modId,
+    required String scriptId,
+    String sampleMessage = '',
+    bool previewOnly = true,
+  }) async {
+    try {
+      final actions = await api.testModLogicScript(
+        modId: modId,
+        scriptId: scriptId,
+        sampleMessage: sampleMessage,
+        previewOnly: previewOnly,
+      );
+      await refreshModScriptLogs();
+      if (actions.isEmpty) {
+        onNotice?.call(
+          'info',
+          'スクリプト「$scriptId」をテスト実行しました（発火アクションなし・実行ログをご確認ください）',
+        );
+      } else {
+        onNotice?.call(
+          'success',
+          'スクリプト「$scriptId」テスト実行完了: ${actions.join(" / ")}',
+        );
+      }
+    } catch (e) {
+      await refreshModScriptLogs();
       onNotice?.call('error', e.toString());
     }
   }

@@ -78,6 +78,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ConnectionStateDto dco_decode_box_autoadd_connection_state_dto(dynamic raw);
 
   @protected
+  double dco_decode_box_autoadd_f_64(dynamic raw);
+
+  @protected
   FeatureFlags dco_decode_box_autoadd_feature_flags(dynamic raw);
 
   @protected
@@ -186,6 +189,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ConnectionStatus dco_decode_connection_status(dynamic raw);
 
   @protected
+  double dco_decode_f_64(dynamic raw);
+
+  @protected
   FeatureFlags dco_decode_feature_flags(dynamic raw);
 
   @protected
@@ -211,6 +217,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ImportedMediaFile dco_decode_imported_media_file(dynamic raw);
+
+  @protected
+  InstalledMod dco_decode_installed_mod(dynamic raw);
 
   @protected
   LicenseAgreementStatus dco_decode_license_agreement_status(dynamic raw);
@@ -242,6 +251,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<HotkeyBinding> dco_decode_list_hotkey_binding(dynamic raw);
 
   @protected
+  List<InstalledMod> dco_decode_list_installed_mod(dynamic raw);
+
+  @protected
   List<LotteryResult> dco_decode_list_lottery_result(dynamic raw);
 
   @protected
@@ -252,6 +264,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<MessageRun> dco_decode_list_message_run(dynamic raw);
+
+  @protected
+  List<ModCustomOverlayDef> dco_decode_list_mod_custom_overlay_def(dynamic raw);
+
+  @protected
+  List<ModLogicScriptDef> dco_decode_list_mod_logic_script_def(dynamic raw);
+
+  @protected
+  List<ModOverlayThemeDef> dco_decode_list_mod_overlay_theme_def(dynamic raw);
+
+  @protected
+  List<ModParamSchema> dco_decode_list_mod_param_schema(dynamic raw);
+
+  @protected
+  List<ModReactionEffectDef> dco_decode_list_mod_reaction_effect_def(
+    dynamic raw,
+  );
+
+  @protected
+  List<ModScriptLogEntry> dco_decode_list_mod_script_log_entry(dynamic raw);
 
   @protected
   List<MonetizationItem> dco_decode_list_monetization_item(dynamic raw);
@@ -357,6 +389,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MessageRunKind dco_decode_message_run_kind(dynamic raw);
 
   @protected
+  ModCustomOverlayDef dco_decode_mod_custom_overlay_def(dynamic raw);
+
+  @protected
+  ModLogicScriptDef dco_decode_mod_logic_script_def(dynamic raw);
+
+  @protected
+  ModOverlayThemeDef dco_decode_mod_overlay_theme_def(dynamic raw);
+
+  @protected
+  ModParamKind dco_decode_mod_param_kind(dynamic raw);
+
+  @protected
+  ModParamSchema dco_decode_mod_param_schema(dynamic raw);
+
+  @protected
+  ModReactionEffectDef dco_decode_mod_reaction_effect_def(dynamic raw);
+
+  @protected
+  ModScriptLogEntry dco_decode_mod_script_log_entry(dynamic raw);
+
+  @protected
   MonetizationEventKind dco_decode_monetization_event_kind(dynamic raw);
 
   @protected
@@ -401,6 +454,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ConnectionStateDto? dco_decode_opt_box_autoadd_connection_state_dto(
     dynamic raw,
   );
+
+  @protected
+  double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
 
   @protected
   FeatureFlags? dco_decode_opt_box_autoadd_feature_flags(dynamic raw);
@@ -465,6 +521,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<HighlightRule>? dco_decode_opt_list_highlight_rule(dynamic raw);
+
+  @protected
+  List<InstalledMod>? dco_decode_opt_list_installed_mod(dynamic raw);
 
   @protected
   List<MediaReactionRule>? dco_decode_opt_list_media_reaction_rule(dynamic raw);
@@ -668,6 +727,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
+
+  @protected
   FeatureFlags sse_decode_box_autoadd_feature_flags(
     SseDeserializer deserializer,
   );
@@ -816,6 +878,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ConnectionStatus sse_decode_connection_status(SseDeserializer deserializer);
 
   @protected
+  double sse_decode_f_64(SseDeserializer deserializer);
+
+  @protected
   FeatureFlags sse_decode_feature_flags(SseDeserializer deserializer);
 
   @protected
@@ -847,6 +912,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImportedMediaFile sse_decode_imported_media_file(
     SseDeserializer deserializer,
   );
+
+  @protected
+  InstalledMod sse_decode_installed_mod(SseDeserializer deserializer);
 
   @protected
   LicenseAgreementStatus sse_decode_license_agreement_status(
@@ -888,6 +956,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<InstalledMod> sse_decode_list_installed_mod(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<LotteryResult> sse_decode_list_lottery_result(
     SseDeserializer deserializer,
   );
@@ -904,6 +977,36 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<MessageRun> sse_decode_list_message_run(SseDeserializer deserializer);
+
+  @protected
+  List<ModCustomOverlayDef> sse_decode_list_mod_custom_overlay_def(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ModLogicScriptDef> sse_decode_list_mod_logic_script_def(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ModOverlayThemeDef> sse_decode_list_mod_overlay_theme_def(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ModParamSchema> sse_decode_list_mod_param_schema(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ModReactionEffectDef> sse_decode_list_mod_reaction_effect_def(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ModScriptLogEntry> sse_decode_list_mod_script_log_entry(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<MonetizationItem> sse_decode_list_monetization_item(
@@ -1039,6 +1142,37 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MessageRunKind sse_decode_message_run_kind(SseDeserializer deserializer);
 
   @protected
+  ModCustomOverlayDef sse_decode_mod_custom_overlay_def(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ModLogicScriptDef sse_decode_mod_logic_script_def(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ModOverlayThemeDef sse_decode_mod_overlay_theme_def(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ModParamKind sse_decode_mod_param_kind(SseDeserializer deserializer);
+
+  @protected
+  ModParamSchema sse_decode_mod_param_schema(SseDeserializer deserializer);
+
+  @protected
+  ModReactionEffectDef sse_decode_mod_reaction_effect_def(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ModScriptLogEntry sse_decode_mod_script_log_entry(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   MonetizationEventKind sse_decode_monetization_event_kind(
     SseDeserializer deserializer,
   );
@@ -1089,6 +1223,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ConnectionStateDto? sse_decode_opt_box_autoadd_connection_state_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
 
   @protected
   FeatureFlags? sse_decode_opt_box_autoadd_feature_flags(
@@ -1169,6 +1306,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<HighlightRule>? sse_decode_opt_list_highlight_rule(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<InstalledMod>? sse_decode_opt_list_installed_mod(
     SseDeserializer deserializer,
   );
 
@@ -1424,6 +1566,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_feature_flags(
     FeatureFlags self,
     SseSerializer serializer,
@@ -1619,6 +1764,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_f_64(double self, SseSerializer serializer);
+
+  @protected
   void sse_encode_feature_flags(FeatureFlags self, SseSerializer serializer);
 
   @protected
@@ -1653,6 +1801,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     ImportedMediaFile self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_installed_mod(InstalledMod self, SseSerializer serializer);
 
   @protected
   void sse_encode_license_agreement_status(
@@ -1703,6 +1854,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_installed_mod(
+    List<InstalledMod> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_lottery_result(
     List<LotteryResult> self,
     SseSerializer serializer,
@@ -1723,6 +1880,42 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_message_run(
     List<MessageRun> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mod_custom_overlay_def(
+    List<ModCustomOverlayDef> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mod_logic_script_def(
+    List<ModLogicScriptDef> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mod_overlay_theme_def(
+    List<ModOverlayThemeDef> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mod_param_schema(
+    List<ModParamSchema> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mod_reaction_effect_def(
+    List<ModReactionEffectDef> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mod_script_log_entry(
+    List<ModScriptLogEntry> self,
     SseSerializer serializer,
   );
 
@@ -1901,6 +2094,45 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_mod_custom_overlay_def(
+    ModCustomOverlayDef self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mod_logic_script_def(
+    ModLogicScriptDef self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mod_overlay_theme_def(
+    ModOverlayThemeDef self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mod_param_kind(ModParamKind self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_mod_param_schema(
+    ModParamSchema self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mod_reaction_effect_def(
+    ModReactionEffectDef self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mod_script_log_entry(
+    ModScriptLogEntry self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_monetization_event_kind(
     MonetizationEventKind self,
     SseSerializer serializer,
@@ -1965,6 +2197,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     ConnectionStateDto? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_feature_flags(
@@ -2062,6 +2297,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_list_highlight_rule(
     List<HighlightRule>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_list_installed_mod(
+    List<InstalledMod>? self,
     SseSerializer serializer,
   );
 

@@ -20,19 +20,22 @@ use crate::engine::{counter, highlight, lottery, matches_pattern};
 use crate::hotkeys::HotkeyManager;
 use crate::license;
 use crate::media;
+use crate::mod_script::{ModScriptAction, ModScriptRuntime};
 use crate::models::{
     AppEvent, AutomationActionKind, BackupExportResult, BackupImportResult, CommentItem,
     CommentLotteryConfig, CommentLotteryState, ConnectionHistoryItem, ConnectionMode,
     ConnectionStateDto, ConnectionStatus, FeatureFlags, FirstTimeCounterConfig,
     FirstTimeCounterState, FirstTimeUser, HighlightRule, HotkeyBinding, ImportedMediaFile,
-    LotteryResult, LotteryWinner, MatchMode, MediaReactionConfig, MediaReactionRule, MessageRun,
-    MessageRunKind, MonetizationEventKind, MonetizationItem, NgWordRule, ObsActionType,
-    ObsAutomationRule, ObsTriggerType, ObsWsConfig, ObsWsStatus, OnAirReportDto, OverlayConfig,
-    PickedCommentState, PlatformKind, PollConfig, PollState, QueueConfig, QueueEntryStatus,
-    QueueState, RawIncomingComment, ReleaseNotesInfo, RemoteAccessConfig, RemoteAccessStatus,
-    ResolvedYouTubeLive, SavedChannelItem, StreamProfile, StreamProfileSummary,
-    StreamSessionSummary, UserLotteryRequest, UserRecord, WordCounterConfig,
+    InstalledMod, LotteryResult, LotteryWinner, MatchMode, MediaAnimationKind, MediaEffectType,
+    MediaKind, MediaPosition, MediaReactionConfig, MediaReactionRule, MediaTriggerEvent,
+    MessageRun, MessageRunKind, ModSavedState, ModScriptLogEntry, MonetizationEventKind,
+    MonetizationItem, NgWordRule, ObsActionType, ObsAutomationRule, ObsTriggerType, ObsWsConfig,
+    ObsWsStatus, OnAirReportDto, OverlayConfig, PickedCommentState, PlatformKind, PollConfig,
+    PollState, QueueConfig, QueueEntryStatus, QueueState, RawIncomingComment, ReleaseNotesInfo,
+    RemoteAccessConfig, RemoteAccessStatus, ResolvedYouTubeLive, SavedChannelItem, StreamProfile,
+    StreamProfileSummary, StreamSessionSummary, UserLotteryRequest, UserRecord, WordCounterConfig,
 };
+use crate::mods;
 use crate::obs_ws::{ObsIncomingEvent, ObsWsManager};
 use crate::overlay::{start_overlay_server, OverlayServerHandle, OverlaySharedState};
 use crate::platform::{demo, youtube, ProviderConnection};
@@ -47,6 +50,9 @@ pub struct AppRuntime {
     pub db: Arc<Mutex<Database>>,
     pub db_path: PathBuf,
     pub media_dir: PathBuf,
+    pub mods_dir: PathBuf,
+    pub installed_mods: RwLock<Vec<InstalledMod>>,
+    pub mod_script_runtime: Arc<Mutex<ModScriptRuntime>>,
     pub overlay_state: Arc<OverlaySharedState>,
     pub overlay_server: Mutex<Option<OverlayServerHandle>>,
     pub remote_config: RwLock<RemoteAccessConfig>,
@@ -106,7 +112,13 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
         .unwrap_or_else(|| PathBuf::from("."));
     let media_dir = data_dir.join("media");
     let _ = std::fs::create_dir_all(&media_dir);
+    let mods_dir = data_dir.join("mods");
+    let _ = std::fs::create_dir_all(&mods_dir);
     let db = Database::open(&db_path)?;
+    let initial_mod_states = db.get_mod_states()?;
+    let initial_mods = mods::scan_installed_mods(&mods_dir, &initial_mod_states);
+    let mut initial_script_rt = ModScriptRuntime::new();
+    initial_script_rt.reload_from_mods(&mods_dir, &initial_mods);
 
     let overlay_config = db.get_overlay_config()?;
     let remote_config = db.get_remote_access_config()?;
@@ -142,6 +154,8 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
     let db_arc = Arc::new(Mutex::new(db));
     let overlay_state = Arc::new(OverlaySharedState::new(
         media_dir.clone(),
+        mods_dir.clone(),
+        initial_mods.clone(),
         remote_config.clone(),
         overlay_config.clone(),
         counters,
@@ -205,6 +219,9 @@ pub async fn initialize_runtime(after_update: bool) -> Result<Arc<AppRuntime>> {
         db: db_arc,
         db_path,
         media_dir,
+        mods_dir,
+        installed_mods: RwLock::new(initial_mods),
+        mod_script_runtime: Arc::new(Mutex::new(initial_script_rt)),
         overlay_state,
         overlay_server: Mutex::new(server_handle),
         remote_config: RwLock::new(remote_config),
@@ -773,6 +790,10 @@ impl AppRuntime {
 
         // OBS WebSocket 自動連動ルールの評価（非同期実行）
         self.evaluate_obs_rules_for_comment(&item, raw.amount_micros, is_first_time)
+            .await;
+
+        // MOD ロジックスクリプト（.rhai）のイベント評価
+        self.evaluate_mod_scripts_for_comment(&item, raw.amount_micros, is_first_time)
             .await;
 
         Ok(())
@@ -1620,6 +1641,7 @@ impl AppRuntime {
         if flags.obs_overlay_enabled {
             self.overlay_state.show_lottery(result.clone()).await;
         }
+        self.evaluate_mod_scripts_for_lottery(&result).await;
         self.emit(AppEvent::user_lottery_winners_updated(won_ids));
         self.emit(AppEvent::lottery_drawn(result.clone()));
         Ok(result)
@@ -1712,6 +1734,7 @@ impl AppRuntime {
             self.overlay_state.show_lottery(result.clone()).await;
         }
         self.evaluate_obs_rules_for_lottery().await;
+        self.evaluate_mod_scripts_for_lottery(&result).await;
         self.emit(AppEvent::comment_lottery_updated(updated_state));
         self.emit(AppEvent::lottery_drawn(result.clone()));
         Ok(result)
@@ -2932,8 +2955,482 @@ impl AppRuntime {
         if let Ok(profs) = self.list_stream_profiles().await {
             self.emit(AppEvent::profiles_updated(profs));
         }
+        let _ = self.reload_mods().await;
 
         Ok(res)
+    }
+
+    // ==================== 演出 MOD 管理（リアクション / テーマ / 独自オーバーレイ） ====================
+
+    pub async fn list_installed_mods(&self) -> Vec<InstalledMod> {
+        self.installed_mods.read().await.clone()
+    }
+
+    pub fn mods_folder_path_string(&self) -> String {
+        self.mods_dir.to_string_lossy().to_string()
+    }
+
+    pub async fn reload_mods(&self) -> Result<Vec<InstalledMod>> {
+        let states = {
+            let db = self.db.lock().await;
+            db.get_mod_states()?
+        };
+        let mods_dir = self.mods_dir.clone();
+        let scanned = tokio::task::spawn_blocking(move || mods::scan_installed_mods(&mods_dir, &states))
+            .await
+            .map_err(|e| anyhow!("MOD スキャンに失敗しました: {}", e))?;
+        *self.installed_mods.write().await = scanned.clone();
+        {
+            let mut script_rt = self.mod_script_runtime.lock().await;
+            script_rt.reload_from_mods(&self.mods_dir, &scanned);
+        }
+        self.overlay_state.update_mods(scanned.clone()).await;
+        self.emit(AppEvent::mods_updated(scanned.clone()));
+        Ok(scanned)
+    }
+
+    pub async fn import_mod_archive(&self, archive_path: &str) -> Result<InstalledMod> {
+        let mut states = {
+            let db = self.db.lock().await;
+            db.get_mod_states()?
+        };
+        let mods_dir = self.mods_dir.clone();
+        let archive = PathBuf::from(archive_path.trim().trim_matches('"'));
+        let (imported, updated_states) = tokio::task::spawn_blocking(move || {
+            let m = mods::import_mod_archive(&mods_dir, &archive, &mut states)?;
+            Ok::<(InstalledMod, HashMap<String, ModSavedState>), anyhow::Error>((m, states))
+        })
+        .await
+        .map_err(|e| anyhow!("MOD 導入処理に失敗しました: {}", e))??;
+
+        {
+            let db = self.db.lock().await;
+            db.set_mod_states(&updated_states)?;
+        }
+        let _ = self.reload_mods().await?;
+        Ok(imported)
+    }
+
+    pub async fn set_mod_enabled(&self, mod_id: &str, enabled: bool) -> Result<Vec<InstalledMod>> {
+        let mut states = {
+            let db = self.db.lock().await;
+            db.get_mod_states()?
+        };
+        let entry = states.entry(mod_id.to_string()).or_insert(ModSavedState {
+            enabled,
+            installed_at_ms: Utc::now().timestamp_millis(),
+        });
+        entry.enabled = enabled;
+        {
+            let db = self.db.lock().await;
+            db.set_mod_states(&states)?;
+        }
+        self.reload_mods().await
+    }
+
+    pub async fn uninstall_mod(&self, mod_id: &str) -> Result<Vec<InstalledMod>> {
+        let mut states = {
+            let db = self.db.lock().await;
+            db.get_mod_states()?
+        };
+        let mods_dir = self.mods_dir.clone();
+        let id = mod_id.to_string();
+        let updated_states = tokio::task::spawn_blocking(move || {
+            mods::uninstall_mod(&mods_dir, &id, &mut states)?;
+            Ok::<HashMap<String, ModSavedState>, anyhow::Error>(states)
+        })
+        .await
+        .map_err(|e| anyhow!("MOD 削除処理に失敗しました: {}", e))??;
+
+        {
+            let db = self.db.lock().await;
+            db.set_mod_states(&updated_states)?;
+        }
+        self.reload_mods().await
+    }
+
+    pub async fn test_mod_reaction_effect(
+        &self,
+        mod_id: &str,
+        effect_id: &str,
+        params_json: &str,
+        preview_only: bool,
+    ) -> Result<()> {
+        let (mod_name, ef_name, default_dur) = {
+            let mods = self.installed_mods.read().await;
+            let m = mods
+                .iter()
+                .find(|x| x.id == mod_id && x.enabled && x.load_error.is_none())
+                .ok_or_else(|| anyhow!("有効な MOD が見つかりません: {}", mod_id))?;
+            let ef = m
+                .reaction_effects
+                .iter()
+                .find(|e| e.effect_id == effect_id)
+                .ok_or_else(|| anyhow!("指定された演出が見つかりません: {}", effect_id))?;
+            (m.name.clone(), ef.name.clone(), ef.default_duration_ms)
+        };
+
+        let now_ms = Utc::now().timestamp_millis();
+        let trigger = crate::models::MediaTriggerEvent {
+            event_id: format!("mod-test-{}", uuid::Uuid::new_v4()),
+            rule_id: format!("mod-test:{}:{}", mod_id, effect_id),
+            rule_name: format!("{} / {}", mod_name, ef_name),
+            effect_type: crate::models::MediaEffectType::Mod,
+            media_url: String::new(),
+            media_kind: crate::models::MediaKind::Image,
+            sound_url: None,
+            sound_volume: 85,
+            animation: crate::models::MediaAnimationKind::PopIn,
+            position: crate::models::MediaPosition::Center,
+            duration_ms: default_dur,
+            width_percent: 45,
+            volume: 80,
+            particle_count: 24,
+            particle_size: 64,
+            particle_speed: 100,
+            gravity: 100,
+            particle_text: String::new(),
+            ambient_preset: "snow".to_string(),
+            caption: format!("{} テスト再生", ef_name),
+            triggered_by: "テスト配信者".to_string(),
+            triggered_at_ms: now_ms,
+            mod_id: mod_id.to_string(),
+            mod_effect_id: effect_id.to_string(),
+            mod_params_json: if params_json.trim().is_empty() {
+                "{}".to_string()
+            } else {
+                params_json.to_string()
+            },
+        };
+
+        if preview_only {
+            self.overlay_state.trigger_preview_media(trigger);
+        } else {
+            self.overlay_state.trigger_media(trigger.clone());
+            self.emit(AppEvent::media_triggered(trigger));
+        }
+        Ok(())
+    }
+
+    /// コメント・スパチャ・初見イベントに対する MOD ロジックスクリプト評価
+    async fn evaluate_mod_scripts_for_comment(
+        &self,
+        item: &CommentItem,
+        amount_micros: u64,
+        is_first_time: bool,
+    ) {
+        let actions = {
+            let mut rt = self.mod_script_runtime.lock().await;
+            if !rt.has_any_scripts() {
+                return;
+            }
+            rt.dispatch_comment(item, amount_micros, is_first_time)
+        };
+        if !actions.is_empty() {
+            self.execute_mod_script_actions(actions, Some(item), false)
+                .await;
+        }
+    }
+
+    /// 抽選当選イベントに対する MOD ロジックスクリプト評価
+    async fn evaluate_mod_scripts_for_lottery(&self, result: &LotteryResult) {
+        let actions = {
+            let mut rt = self.mod_script_runtime.lock().await;
+            if !rt.has_any_scripts() {
+                return;
+            }
+            rt.dispatch_lottery(result)
+        };
+        if !actions.is_empty() {
+            self.execute_mod_script_actions(actions, None, false).await;
+        }
+    }
+
+    /// ロジックスクリプトが生成したアクション群を安全に Stosup 各機能へ反映する
+    async fn execute_mod_script_actions(
+        &self,
+        actions: Vec<ModScriptAction>,
+        source_comment: Option<&CommentItem>,
+        preview_only: bool,
+    ) {
+        let flags = self.feature_flags.read().await.clone();
+        let now_ms = Utc::now().timestamp_millis();
+        let triggered_by = source_comment
+            .map(|c| c.user_name.clone())
+            .unwrap_or_else(|| "MOD スクリプト".to_string());
+
+        for action in actions {
+            match action {
+                ModScriptAction::TriggerModEffect {
+                    mod_id,
+                    effect_id,
+                    params_json,
+                    caption,
+                    duration_ms,
+                } => {
+                    let found = {
+                        let mods = self.installed_mods.read().await;
+                        mods.iter()
+                            .find(|m| m.id == mod_id && m.enabled && m.load_error.is_none())
+                            .and_then(|m| {
+                                m.reaction_effects
+                                    .iter()
+                                    .find(|e| e.effect_id == effect_id)
+                                    .map(|e| (m.name.clone(), e.name.clone(), e.default_duration_ms))
+                            })
+                    };
+                    let Some((mod_name, ef_name, default_dur)) = found else {
+                        continue;
+                    };
+                    let trigger = MediaTriggerEvent {
+                        event_id: format!("mod-script-{}", uuid::Uuid::new_v4()),
+                        rule_id: format!("mod-script:{}:{}", mod_id, effect_id),
+                        rule_name: format!("{} / {}", mod_name, ef_name),
+                        effect_type: MediaEffectType::Mod,
+                        media_url: String::new(),
+                        media_kind: MediaKind::Image,
+                        sound_url: None,
+                        sound_volume: 85,
+                        animation: MediaAnimationKind::PopIn,
+                        position: MediaPosition::Center,
+                        duration_ms: duration_ms.unwrap_or(default_dur),
+                        width_percent: 45,
+                        volume: 80,
+                        particle_count: 24,
+                        particle_size: 64,
+                        particle_speed: 100,
+                        gravity: 100,
+                        particle_text: String::new(),
+                        ambient_preset: "snow".to_string(),
+                        caption,
+                        triggered_by: triggered_by.clone(),
+                        triggered_at_ms: now_ms,
+                        mod_id,
+                        mod_effect_id: effect_id,
+                        mod_params_json: params_json,
+                    };
+                    if preview_only {
+                        self.overlay_state.trigger_preview_media(trigger);
+                    } else if flags.media_reaction_enabled {
+                        if flags.obs_overlay_enabled {
+                            self.overlay_state.trigger_media(trigger.clone());
+                        }
+                        self.emit(AppEvent::media_triggered(trigger));
+                    }
+                }
+                ModScriptAction::TriggerBuiltinEffect {
+                    effect_type,
+                    caption,
+                    particle_text,
+                    particle_count,
+                    duration_ms,
+                } => {
+                    let parsed = match MediaEffectType::from_str_lossy(&effect_type) {
+                        MediaEffectType::Mod => MediaEffectType::Confetti,
+                        other => other,
+                    };
+                    let p_text = if particle_text.is_empty() {
+                        "🎉,✨,★,👏".to_string()
+                    } else {
+                        particle_text
+                    };
+                    let trigger = MediaTriggerEvent {
+                        event_id: format!("mod-script-builtin-{}", uuid::Uuid::new_v4()),
+                        rule_id: format!("mod-script-builtin:{}", parsed.as_str()),
+                        rule_name: format!("MOD スクリプト ({})", parsed.as_str()),
+                        effect_type: parsed,
+                        media_url: String::new(),
+                        media_kind: MediaKind::Image,
+                        sound_url: None,
+                        sound_volume: 85,
+                        animation: MediaAnimationKind::PopIn,
+                        position: MediaPosition::Center,
+                        duration_ms: duration_ms.unwrap_or(4200),
+                        width_percent: 42,
+                        volume: 80,
+                        particle_count: particle_count.unwrap_or(36),
+                        particle_size: 40,
+                        particle_speed: 80,
+                        gravity: 70,
+                        particle_text: p_text,
+                        ambient_preset: "sparkle".to_string(),
+                        caption,
+                        triggered_by: triggered_by.clone(),
+                        triggered_at_ms: now_ms,
+                        mod_id: String::new(),
+                        mod_effect_id: String::new(),
+                        mod_params_json: "{}".to_string(),
+                    };
+                    if preview_only {
+                        self.overlay_state.trigger_preview_media(trigger);
+                    } else if flags.media_reaction_enabled {
+                        if flags.obs_overlay_enabled {
+                            self.overlay_state.trigger_media(trigger.clone());
+                        }
+                        self.emit(AppEvent::media_triggered(trigger));
+                    }
+                }
+                ModScriptAction::TriggerMediaRule { rule_name_or_id } => {
+                    let needle = rule_name_or_id.to_lowercase();
+                    let found_rule = {
+                        self.cached_media_rules
+                            .read()
+                            .await
+                            .iter()
+                            .find(|r| r.id == rule_name_or_id || r.name.to_lowercase() == needle)
+                            .cloned()
+                    };
+                    if let Some(rule) = found_rule {
+                        if rule_has_playable_content(&rule) {
+                            let sample_msg = source_comment
+                                .map(|c| c.message.as_str())
+                                .unwrap_or(&rule.name);
+                            let trig = build_trigger_event(&rule, &triggered_by, sample_msg, now_ms);
+                            if preview_only {
+                                self.overlay_state.trigger_preview_media(trig);
+                            } else if flags.media_reaction_enabled {
+                                if flags.obs_overlay_enabled {
+                                    self.overlay_state.trigger_media(trig.clone());
+                                }
+                                self.emit(AppEvent::media_triggered(trig));
+                            }
+                        }
+                    }
+                }
+                ModScriptAction::ClearMedia => {
+                    if !preview_only {
+                        self.overlay_state.clear_media();
+                    }
+                }
+                ModScriptAction::PickupCurrentComment => {
+                    if let Some(c) = source_comment {
+                        if preview_only {
+                            self.overlay_state
+                                .update_preview_picked_comment(PickedCommentState {
+                                    comment: Some(c.clone()),
+                                    picked_at_ms: Some(now_ms),
+                                })
+                                .await;
+                        } else if flags.pickup_enabled {
+                            let _ = self.pick_comment(c.clone()).await;
+                        }
+                    }
+                }
+                ModScriptAction::ClearPickup => {
+                    if !preview_only && flags.pickup_enabled {
+                        let _ = self.clear_picked_comment().await;
+                    }
+                }
+                ModScriptAction::ObsSwitchScene { scene_name } => {
+                    if !preview_only && self.obs_ws.is_connected() {
+                        let obs = Arc::clone(&self.obs_ws);
+                        tokio::spawn(async move {
+                            let _ = obs.switch_scene(&scene_name).await;
+                        });
+                    }
+                }
+                ModScriptAction::ObsSetSourceVisible {
+                    scene_name,
+                    source_name,
+                    visible,
+                } => {
+                    if !preview_only && self.obs_ws.is_connected() {
+                        let obs = Arc::clone(&self.obs_ws);
+                        tokio::spawn(async move {
+                            let _ = obs
+                                .set_scene_item_visible(&scene_name, &source_name, Some(visible))
+                                .await;
+                        });
+                    }
+                }
+                ModScriptAction::ObsPulseSource {
+                    scene_name,
+                    source_name,
+                    duration_ms,
+                } => {
+                    if !preview_only && self.obs_ws.is_connected() {
+                        let obs = Arc::clone(&self.obs_ws);
+                        tokio::spawn(async move {
+                            if obs
+                                .set_scene_item_visible(&scene_name, &source_name, Some(true))
+                                .await
+                                .is_ok()
+                            {
+                                tokio::time::sleep(Duration::from_millis(duration_ms)).await;
+                                let _ = obs
+                                    .set_scene_item_visible(&scene_name, &source_name, Some(false))
+                                    .await;
+                            }
+                        });
+                    }
+                }
+                ModScriptAction::Notify { level, message } => {
+                    self.emit(AppEvent::system_notice(level, message));
+                }
+            }
+        }
+    }
+
+    /// ロジックスクリプト（.rhai）を手動テスト実行し、発生したアクション説明一覧を返す
+    pub async fn test_mod_logic_script(
+        &self,
+        mod_id: &str,
+        script_id: &str,
+        sample_message: &str,
+        preview_only: bool,
+    ) -> Result<Vec<String>> {
+        let now_ms = Utc::now().timestamp_millis();
+        let msg = if sample_message.trim().is_empty() {
+            "草 www テストコメント！".to_string()
+        } else {
+            sample_message.trim().to_string()
+        };
+        let sample_comment = CommentItem {
+            id: format!("mod-script-test-{}", now_ms),
+            session_id: "mod-script-test".to_string(),
+            platform: PlatformKind::Demo,
+            user_id: "mod-test-user".to_string(),
+            user_name: "テスト視聴者".to_string(),
+            user_icon_url: demo::make_svg_avatar("%2338bdf8", "テ"),
+            user_memo: String::new(),
+            is_first_time: false,
+            message: msg,
+            message_runs: Vec::new(),
+            timestamp_ms: now_ms,
+            is_owner: false,
+            is_moderator: false,
+            is_member: true,
+            is_banned: false,
+            is_ng_masked: false,
+            hidden_from_overlay: false,
+            highlight_rule_id: None,
+            bubble_bg_color: None,
+            bubble_text_color: None,
+            bubble_border_color: None,
+            event_kind: None,
+            amount_display: None,
+            event_accent_color: None,
+        };
+
+        let actions = {
+            let mut rt = self.mod_script_runtime.lock().await;
+            rt.test_script(mod_id, script_id, &sample_comment, 0)
+                .map_err(|e| anyhow!(e))?
+        };
+        let descriptions: Vec<String> = actions.iter().map(|a| a.describe()).collect();
+        if !actions.is_empty() {
+            self.execute_mod_script_actions(actions, Some(&sample_comment), preview_only)
+                .await;
+        }
+        Ok(descriptions)
+    }
+
+    pub async fn list_mod_script_logs(&self, limit: usize) -> Vec<ModScriptLogEntry> {
+        self.mod_script_runtime.lock().await.list_logs(limit)
+    }
+
+    pub async fn clear_mod_script_logs(&self) {
+        self.mod_script_runtime.lock().await.clear_logs();
     }
 
     // ==================== オンエアレポート ====================
@@ -3337,6 +3834,9 @@ impl AppRuntime {
                     caption: format!("プレビュー演出テスト #{seq}（本番には表示されません）"),
                     triggered_by: "プレビュー視聴者".to_string(),
                     triggered_at_ms: now_ms,
+                    mod_id: String::new(),
+                    mod_effect_id: String::new(),
+                    mod_params_json: "{}".to_string(),
                 };
                 self.overlay_state.trigger_preview_media(trigger);
                 Ok("プレビュー環境 (/overlay/preview/media) へテスト演出を送信しました（本番には影響しません）".to_string())

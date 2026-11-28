@@ -183,6 +183,13 @@ pub fn finalize_backup_zip_from_snapshot(
             }
         }
 
+        // 2b. mods/**（存在すれば導入済み MOD 一式も一緒にバックアップ）
+        if let Some(mods_dir) = media_dir.parent().map(|p| p.join("mods")) {
+            if mods_dir.is_dir() {
+                add_dir_to_backup_zip(&mut zip, &mods_dir, "mods", deflate_opts, store_opts)?;
+            }
+        }
+
         // 3. manifest.json
         let created_at_ms = Utc::now().timestamp_millis();
         let manifest = BackupManifest {
@@ -212,6 +219,21 @@ pub fn finalize_backup_zip_from_snapshot(
     res
 }
 
+fn copy_dir_recursive_backup(src: &Path, dst: &Path) -> Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let s = entry.path();
+        let d = dst.join(entry.file_name());
+        if s.is_dir() {
+            copy_dir_recursive_backup(&s, &d)?;
+        } else if s.is_file() {
+            fs::copy(&s, &d)?;
+        }
+    }
+    Ok(())
+}
+
 /// SQLite データベースと media フォルダ一式を 1 つの ZIP ファイルへエクスポートする
 pub fn export_backup_zip(
     db: &Database,
@@ -222,11 +244,47 @@ pub fn export_backup_zip(
     finalize_backup_zip_from_snapshot(&temp_dir, &temp_db, media_dir, dest_zip_path)
 }
 
+fn add_dir_to_backup_zip<W: Write + std::io::Seek>(
+    zip: &mut ZipWriter<W>,
+    dir: &Path,
+    prefix: &str,
+    deflate_opts: SimpleFileOptions,
+    store_opts: SimpleFileOptions,
+) -> Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if name.starts_with('.') || name.contains("..") || name.contains('/') || name.contains('\\')
+        {
+            continue;
+        }
+        let rel = format!("{}/{}", prefix, name);
+        if path.is_dir() {
+            add_dir_to_backup_zip(zip, &path, &rel, deflate_opts, store_opts)?;
+        } else if path.is_file() {
+            let opts = if is_already_compressed_media(name) {
+                store_opts
+            } else {
+                deflate_opts
+            };
+            zip.start_file(&rel, opts)?;
+            let mut f = File::open(&path)?;
+            std::io::copy(&mut f, zip)?;
+        }
+    }
+    Ok(())
+}
+
 /// 検証済みの復元ステージング結果（Drop 時に一時展開ディレクトリを確実に掃除する）
 pub struct StagedBackupImport {
     stage_dir: PathBuf,
     staged_db: PathBuf,
     stage_media: PathBuf,
+    stage_mods: PathBuf,
+    has_mods: bool,
     zip_path: PathBuf,
     media_count: u32,
 }
@@ -245,11 +303,14 @@ pub fn stage_and_validate_backup_zip(zip_path: &Path) -> Result<StagedBackupImpo
 
     let stage_dir = std::env::temp_dir().join(format!("stosup-imp-{}", uuid::Uuid::new_v4()));
     let stage_media = stage_dir.join("media");
+    let stage_mods = stage_dir.join("mods");
     fs::create_dir_all(&stage_media)?;
 
     let mut staged = StagedBackupImport {
         staged_db: stage_dir.join("stosup.db"),
         stage_media: stage_media.clone(),
+        stage_mods: stage_mods.clone(),
+        has_mods: false,
         stage_dir,
         zip_path: zip_path.to_path_buf(),
         media_count: 0,
@@ -282,6 +343,19 @@ pub fn stage_and_validate_backup_zip(zip_path: &Path) -> Result<StagedBackupImpo
                 std::io::copy(&mut entry, &mut out)?;
                 out.flush()?;
                 media_count += 1;
+            }
+        } else if let Some(rel) = name.strip_prefix("mods/") {
+            let rel_clean = rel.trim_end_matches('/');
+            if !rel_clean.is_empty() && crate::mods::is_safe_relative_asset_path(rel_clean) && !entry.is_dir() {
+                let out_path = staged.stage_mods.join(rel_clean);
+                if let Some(parent) = out_path.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                let out_file = File::create(out_path)?;
+                let mut out = BufWriter::with_capacity(64 * 1024, out_file);
+                std::io::copy(&mut entry, &mut out)?;
+                out.flush()?;
+                staged.has_mods = true;
             }
         }
     }
@@ -347,6 +421,12 @@ pub fn apply_staged_backup_zip(
                 }
             }
         }
+    }
+
+    // mods フォルダを復元（バックアップに mods/ が含まれていた場合）
+    if staged.has_mods && staged.stage_mods.is_dir() {
+        let target_mods_dir = data_dir.join("mods");
+        let _ = copy_dir_recursive_backup(&staged.stage_mods, &target_mods_dir);
     }
 
     let result = BackupImportResult {

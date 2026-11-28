@@ -8,8 +8,8 @@ use crate::models::{
     AppThemeMode, ConnectionHistoryItem, ConnectionMode, FeatureFlags, FirstTimeCounterConfig,
     HighlightRule, HotkeyBinding, LotteryResult, LotteryWinner, MatchMode, MediaAnimationKind,
     MediaEffectType, MediaKind, MediaPosition, MediaReactionConfig, MediaReactionRule,
-    MediaTriggerType, MessageRun, MonetizationEventKind, MonetizationItem, NgWordAction,
-    NgWordRule, ObsWsConfig, OverlayConfig, PlatformKind, PollConfig, QueueState,
+    MediaTriggerType, MessageRun, ModSavedState, MonetizationEventKind, MonetizationItem,
+    NgWordAction, NgWordRule, ObsWsConfig, OverlayConfig, PlatformKind, PollConfig, QueueState,
     RawIncomingComment, RemoteAccessConfig, SavedChannelItem, StreamProfile, StreamSessionSummary,
     UserRecord, WordCounterConfig,
 };
@@ -289,6 +289,9 @@ impl Database {
             "ALTER TABLE media_reaction_rules ADD COLUMN gravity INTEGER NOT NULL DEFAULT 100",
             "ALTER TABLE media_reaction_rules ADD COLUMN particle_text TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE media_reaction_rules ADD COLUMN ambient_preset TEXT NOT NULL DEFAULT 'snow'",
+            "ALTER TABLE media_reaction_rules ADD COLUMN mod_id TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE media_reaction_rules ADD COLUMN mod_effect_id TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE media_reaction_rules ADD COLUMN mod_params_json TEXT NOT NULL DEFAULT '{}'",
         ];
         for sql in media_migrations {
             let _ = self.conn.execute(sql, []);
@@ -1288,6 +1291,23 @@ impl Database {
         Ok(())
     }
 
+    pub fn get_mod_states(&self) -> Result<std::collections::HashMap<String, ModSavedState>> {
+        if let Some(json) = self.get_setting("mod_states")? {
+            if let Ok(map) = serde_json::from_str(&json) {
+                return Ok(map);
+            }
+        }
+        Ok(std::collections::HashMap::new())
+    }
+
+    pub fn set_mod_states(
+        &self,
+        states: &std::collections::HashMap<String, ModSavedState>,
+    ) -> Result<()> {
+        let json = serde_json::to_string(states)?;
+        self.set_setting("mod_states", &json)
+    }
+
     // ==================== 特定ワード反応演出 (WordParty) ====================
 
     pub fn list_media_reaction_rules(&self) -> Result<Vec<MediaReactionRule>> {
@@ -1300,7 +1320,7 @@ impl Database {
                 effect_type, trigger_type, min_superchat_amount, priority,
                 sound_stored_file_name, sound_original_file_name, sound_volume,
                 particle_count, particle_size, particle_speed, gravity,
-                particle_text, ambient_preset
+                particle_text, ambient_preset, mod_id, mod_effect_id, mod_params_json
              FROM media_reaction_rules
              ORDER BY priority DESC, name ASC",
         )?;
@@ -1342,6 +1362,9 @@ impl Database {
                 gravity: row.get::<_, i64>(27)?.clamp(0, 200) as u32,
                 particle_text: row.get(28)?,
                 ambient_preset: row.get(29)?,
+                mod_id: row.get(30)?,
+                mod_effect_id: row.get(31)?,
+                mod_params_json: row.get(32)?,
             })
         })?;
         let mut list = Vec::new();
@@ -1361,12 +1384,12 @@ impl Database {
                 effect_type, trigger_type, min_superchat_amount, priority,
                 sound_stored_file_name, sound_original_file_name, sound_volume,
                 particle_count, particle_size, particle_speed, gravity,
-                particle_text, ambient_preset
+                particle_text, ambient_preset, mod_id, mod_effect_id, mod_params_json
             ) VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
                 ?11, ?12, ?13, ?14, ?15, ?16, ?17,
                 ?18, ?19, ?20, ?21, ?22, ?23, ?24,
-                ?25, ?26, ?27, ?28, ?29, ?30
+                ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33
             )
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
@@ -1397,7 +1420,10 @@ impl Database {
                 particle_speed = excluded.particle_speed,
                 gravity = excluded.gravity,
                 particle_text = excluded.particle_text,
-                ambient_preset = excluded.ambient_preset",
+                ambient_preset = excluded.ambient_preset,
+                mod_id = excluded.mod_id,
+                mod_effect_id = excluded.mod_effect_id,
+                mod_params_json = excluded.mod_params_json",
             params![
                 rule.id,
                 rule.name,
@@ -1429,6 +1455,9 @@ impl Database {
                 rule.gravity as i64,
                 rule.particle_text,
                 rule.ambient_preset,
+                rule.mod_id,
+                rule.mod_effect_id,
+                rule.mod_params_json,
             ],
         )?;
         Ok(())
@@ -2277,6 +2306,9 @@ mod tests {
             exclude_banned: true,
             caption_template: "{user} さんありがとう！".to_string(),
             enabled: true,
+            mod_id: String::new(),
+            mod_effect_id: String::new(),
+            mod_params_json: "{}".to_string(),
         };
         db.upsert_media_reaction_rule(&rule).unwrap();
         let list = db.list_media_reaction_rules().unwrap();

@@ -31,6 +31,7 @@ class AppEvent {
   final FeatureFlags? featureFlags;
   final ObsWsStatus? obsWsStatus;
   final List<StreamProfileSummary>? profiles;
+  final List<InstalledMod>? mods;
   final String? noticeLevel;
   final String? noticeMessage;
 
@@ -57,6 +58,7 @@ class AppEvent {
     this.featureFlags,
     this.obsWsStatus,
     this.profiles,
+    this.mods,
     this.noticeLevel,
     this.noticeMessage,
   });
@@ -85,6 +87,7 @@ class AppEvent {
       featureFlags.hashCode ^
       obsWsStatus.hashCode ^
       profiles.hashCode ^
+      mods.hashCode ^
       noticeLevel.hashCode ^
       noticeMessage.hashCode;
 
@@ -115,6 +118,7 @@ class AppEvent {
           featureFlags == other.featureFlags &&
           obsWsStatus == other.obsWsStatus &&
           profiles == other.profiles &&
+          mods == other.mods &&
           noticeLevel == other.noticeLevel &&
           noticeMessage == other.noticeMessage;
 }
@@ -144,6 +148,7 @@ enum AppEventKind {
   obsWsStatusChanged,
   profilesUpdated,
   connectionHistoryUpdated,
+  modsUpdated,
   systemNotice,
 }
 
@@ -1004,6 +1009,90 @@ class ImportedMediaFile {
           fileSizeBytes == other.fileSizeBytes;
 }
 
+/// 導入済み MOD パッケージ情報
+class InstalledMod {
+  final String id;
+  final String name;
+  final String version;
+  final String author;
+  final String description;
+  final String minStosupVersion;
+  final String homepage;
+  final String license;
+  final String iconUrl;
+  final String folderName;
+  final bool enabled;
+  final PlatformInt64 installedAtMs;
+  final String? loadError;
+  final List<ModReactionEffectDef> reactionEffects;
+  final List<ModOverlayThemeDef> overlayThemes;
+  final List<ModCustomOverlayDef> customOverlays;
+  final List<ModLogicScriptDef> logicScripts;
+
+  const InstalledMod({
+    required this.id,
+    required this.name,
+    required this.version,
+    required this.author,
+    required this.description,
+    required this.minStosupVersion,
+    required this.homepage,
+    required this.license,
+    required this.iconUrl,
+    required this.folderName,
+    required this.enabled,
+    required this.installedAtMs,
+    this.loadError,
+    required this.reactionEffects,
+    required this.overlayThemes,
+    required this.customOverlays,
+    required this.logicScripts,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      version.hashCode ^
+      author.hashCode ^
+      description.hashCode ^
+      minStosupVersion.hashCode ^
+      homepage.hashCode ^
+      license.hashCode ^
+      iconUrl.hashCode ^
+      folderName.hashCode ^
+      enabled.hashCode ^
+      installedAtMs.hashCode ^
+      loadError.hashCode ^
+      reactionEffects.hashCode ^
+      overlayThemes.hashCode ^
+      customOverlays.hashCode ^
+      logicScripts.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InstalledMod &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          version == other.version &&
+          author == other.author &&
+          description == other.description &&
+          minStosupVersion == other.minStosupVersion &&
+          homepage == other.homepage &&
+          license == other.license &&
+          iconUrl == other.iconUrl &&
+          folderName == other.folderName &&
+          enabled == other.enabled &&
+          installedAtMs == other.installedAtMs &&
+          loadError == other.loadError &&
+          reactionEffects == other.reactionEffects &&
+          overlayThemes == other.overlayThemes &&
+          customOverlays == other.customOverlays &&
+          logicScripts == other.logicScripts;
+}
+
 /// 利用規約（ライセンス）の取得・同意状態
 class LicenseAgreementStatus {
   final String title;
@@ -1178,6 +1267,9 @@ enum MediaEffectType {
 
   /// 雪・桜吹雪・雨・キラキラ・ハート・火の粉などの環境演出
   ambient,
+
+  /// ユーザー作成 MOD による独自カスタム演出
+  mod,
 }
 
 /// ワード反応メディア種別
@@ -1314,6 +1406,15 @@ class MediaReactionRule {
   final String captionTemplate;
   final bool enabled;
 
+  /// MOD 演出使用時の MOD ID（例: "starlight-burst-effect"）
+  final String modId;
+
+  /// MOD 演出使用時の演出 ID（例: "starlight_burst"）
+  final String modEffectId;
+
+  /// MOD 演出へ渡すユーザー設定パラメータの JSON 文字列（例: "{}"）
+  final String modParamsJson;
+
   const MediaReactionRule({
     required this.id,
     required this.name,
@@ -1345,6 +1446,9 @@ class MediaReactionRule {
     required this.excludeBanned,
     required this.captionTemplate,
     required this.enabled,
+    required this.modId,
+    required this.modEffectId,
+    required this.modParamsJson,
   });
 
   @override
@@ -1378,7 +1482,10 @@ class MediaReactionRule {
       cooldownSec.hashCode ^
       excludeBanned.hashCode ^
       captionTemplate.hashCode ^
-      enabled.hashCode;
+      enabled.hashCode ^
+      modId.hashCode ^
+      modEffectId.hashCode ^
+      modParamsJson.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1414,7 +1521,10 @@ class MediaReactionRule {
           cooldownSec == other.cooldownSec &&
           excludeBanned == other.excludeBanned &&
           captionTemplate == other.captionTemplate &&
-          enabled == other.enabled;
+          enabled == other.enabled &&
+          modId == other.modId &&
+          modEffectId == other.modEffectId &&
+          modParamsJson == other.modParamsJson;
 }
 
 /// OBS メディアオーバーレイへ送信する再生トリガーイベント
@@ -1442,6 +1552,15 @@ class MediaTriggerEvent {
   final String triggeredBy;
   final PlatformInt64 triggeredAtMs;
 
+  /// MOD 演出発火時の MOD ID
+  final String modId;
+
+  /// MOD 演出発火時の演出 ID
+  final String modEffectId;
+
+  /// MOD 演出へ渡すカスタムパラメータ JSON
+  final String modParamsJson;
+
   const MediaTriggerEvent({
     required this.eventId,
     required this.ruleId,
@@ -1465,6 +1584,9 @@ class MediaTriggerEvent {
     required this.caption,
     required this.triggeredBy,
     required this.triggeredAtMs,
+    required this.modId,
+    required this.modEffectId,
+    required this.modParamsJson,
   });
 
   @override
@@ -1490,7 +1612,10 @@ class MediaTriggerEvent {
       ambientPreset.hashCode ^
       caption.hashCode ^
       triggeredBy.hashCode ^
-      triggeredAtMs.hashCode;
+      triggeredAtMs.hashCode ^
+      modId.hashCode ^
+      modEffectId.hashCode ^
+      modParamsJson.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1518,7 +1643,10 @@ class MediaTriggerEvent {
           ambientPreset == other.ambientPreset &&
           caption == other.caption &&
           triggeredBy == other.triggeredBy &&
-          triggeredAtMs == other.triggeredAtMs;
+          triggeredAtMs == other.triggeredAtMs &&
+          modId == other.modId &&
+          modEffectId == other.modEffectId &&
+          modParamsJson == other.modParamsJson;
 }
 
 /// WordParty 演出の発動トリガー条件
@@ -1576,6 +1704,327 @@ class MessageRun {
 
 /// コメント本文を構成するテキスト / 絵文字・スタンプ要素
 enum MessageRunKind { text, emoji }
+
+/// MOD が提供する独立カスタムオーバーレイ定義
+class ModCustomOverlayDef {
+  final String modId;
+  final String modName;
+  final String overlayId;
+  final String name;
+  final String description;
+  final String entry;
+  final List<String> channels;
+  final int recommendedWidth;
+  final int recommendedHeight;
+
+  /// 本番オーバーレイ相対パス (`/overlay/mod/{mod_id}/{overlay_id}`)
+  final String overlayPath;
+
+  /// 本番非干渉プレビュー相対パス (`/overlay/preview/mod/{mod_id}/{overlay_id}`)
+  final String previewPath;
+
+  const ModCustomOverlayDef({
+    required this.modId,
+    required this.modName,
+    required this.overlayId,
+    required this.name,
+    required this.description,
+    required this.entry,
+    required this.channels,
+    required this.recommendedWidth,
+    required this.recommendedHeight,
+    required this.overlayPath,
+    required this.previewPath,
+  });
+
+  @override
+  int get hashCode =>
+      modId.hashCode ^
+      modName.hashCode ^
+      overlayId.hashCode ^
+      name.hashCode ^
+      description.hashCode ^
+      entry.hashCode ^
+      channels.hashCode ^
+      recommendedWidth.hashCode ^
+      recommendedHeight.hashCode ^
+      overlayPath.hashCode ^
+      previewPath.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ModCustomOverlayDef &&
+          runtimeType == other.runtimeType &&
+          modId == other.modId &&
+          modName == other.modName &&
+          overlayId == other.overlayId &&
+          name == other.name &&
+          description == other.description &&
+          entry == other.entry &&
+          channels == other.channels &&
+          recommendedWidth == other.recommendedWidth &&
+          recommendedHeight == other.recommendedHeight &&
+          overlayPath == other.overlayPath &&
+          previewPath == other.previewPath;
+}
+
+/// MOD が提供する Rhai ロジックスクリプト定義（Rust 不要で裏側の条件判定・演出制御を記述）
+class ModLogicScriptDef {
+  final String modId;
+  final String modName;
+  final String scriptId;
+  final String name;
+  final String description;
+  final String entry;
+
+  /// 購読するイベント一覧 ("comment" / "superchat" / "first_time" / "lottery")
+  final List<String> events;
+
+  const ModLogicScriptDef({
+    required this.modId,
+    required this.modName,
+    required this.scriptId,
+    required this.name,
+    required this.description,
+    required this.entry,
+    required this.events,
+  });
+
+  @override
+  int get hashCode =>
+      modId.hashCode ^
+      modName.hashCode ^
+      scriptId.hashCode ^
+      name.hashCode ^
+      description.hashCode ^
+      entry.hashCode ^
+      events.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ModLogicScriptDef &&
+          runtimeType == other.runtimeType &&
+          modId == other.modId &&
+          modName == other.modName &&
+          scriptId == other.scriptId &&
+          name == other.name &&
+          description == other.description &&
+          entry == other.entry &&
+          events == other.events;
+}
+
+/// MOD が提供する 9 種 OBS オーバーレイ向け追加テーマ定義
+class ModOverlayThemeDef {
+  final String modId;
+  final String modName;
+  final String themeId;
+
+  /// `mod:{mod_id}:{theme_id}` 形式の保存用テーマ ID
+  final String fullThemeId;
+  final String name;
+  final String description;
+  final List<String> targets;
+  final String css;
+  final String script;
+  final String previewBg;
+  final String previewFg;
+  final String previewBorder;
+
+  const ModOverlayThemeDef({
+    required this.modId,
+    required this.modName,
+    required this.themeId,
+    required this.fullThemeId,
+    required this.name,
+    required this.description,
+    required this.targets,
+    required this.css,
+    required this.script,
+    required this.previewBg,
+    required this.previewFg,
+    required this.previewBorder,
+  });
+
+  @override
+  int get hashCode =>
+      modId.hashCode ^
+      modName.hashCode ^
+      themeId.hashCode ^
+      fullThemeId.hashCode ^
+      name.hashCode ^
+      description.hashCode ^
+      targets.hashCode ^
+      css.hashCode ^
+      script.hashCode ^
+      previewBg.hashCode ^
+      previewFg.hashCode ^
+      previewBorder.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ModOverlayThemeDef &&
+          runtimeType == other.runtimeType &&
+          modId == other.modId &&
+          modName == other.modName &&
+          themeId == other.themeId &&
+          fullThemeId == other.fullThemeId &&
+          name == other.name &&
+          description == other.description &&
+          targets == other.targets &&
+          css == other.css &&
+          script == other.script &&
+          previewBg == other.previewBg &&
+          previewFg == other.previewFg &&
+          previewBorder == other.previewBorder;
+}
+
+/// MOD パラメータの入力型
+enum ModParamKind { string, number, color, bool, select }
+
+/// リアクション演出 MOD が公開するカスタム設定パラメータ定義
+class ModParamSchema {
+  final String key;
+  final String label;
+  final ModParamKind kind;
+  final String defaultValue;
+  final double? min;
+  final double? max;
+  final double? step;
+  final List<String> options;
+  final String description;
+
+  const ModParamSchema({
+    required this.key,
+    required this.label,
+    required this.kind,
+    required this.defaultValue,
+    this.min,
+    this.max,
+    this.step,
+    required this.options,
+    required this.description,
+  });
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      label.hashCode ^
+      kind.hashCode ^
+      defaultValue.hashCode ^
+      min.hashCode ^
+      max.hashCode ^
+      step.hashCode ^
+      options.hashCode ^
+      description.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ModParamSchema &&
+          runtimeType == other.runtimeType &&
+          key == other.key &&
+          label == other.label &&
+          kind == other.kind &&
+          defaultValue == other.defaultValue &&
+          min == other.min &&
+          max == other.max &&
+          step == other.step &&
+          options == other.options &&
+          description == other.description;
+}
+
+/// MOD が提供するリアクションステージ独自演出定義
+class ModReactionEffectDef {
+  final String modId;
+  final String modName;
+  final String effectId;
+  final String name;
+  final String description;
+  final String entry;
+  final String css;
+  final int defaultDurationMs;
+  final List<ModParamSchema> params;
+
+  const ModReactionEffectDef({
+    required this.modId,
+    required this.modName,
+    required this.effectId,
+    required this.name,
+    required this.description,
+    required this.entry,
+    required this.css,
+    required this.defaultDurationMs,
+    required this.params,
+  });
+
+  @override
+  int get hashCode =>
+      modId.hashCode ^
+      modName.hashCode ^
+      effectId.hashCode ^
+      name.hashCode ^
+      description.hashCode ^
+      entry.hashCode ^
+      css.hashCode ^
+      defaultDurationMs.hashCode ^
+      params.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ModReactionEffectDef &&
+          runtimeType == other.runtimeType &&
+          modId == other.modId &&
+          modName == other.modName &&
+          effectId == other.effectId &&
+          name == other.name &&
+          description == other.description &&
+          entry == other.entry &&
+          css == other.css &&
+          defaultDurationMs == other.defaultDurationMs &&
+          params == other.params;
+}
+
+/// ロジックスクリプトの実行ログエントリ（MOD 管理画面デバッグコンソール向け）
+class ModScriptLogEntry {
+  final PlatformInt64 timestampMs;
+  final String modId;
+  final String scriptId;
+
+  /// "info" / "warn" / "error" / "action"
+  final String level;
+  final String message;
+
+  const ModScriptLogEntry({
+    required this.timestampMs,
+    required this.modId,
+    required this.scriptId,
+    required this.level,
+    required this.message,
+  });
+
+  @override
+  int get hashCode =>
+      timestampMs.hashCode ^
+      modId.hashCode ^
+      scriptId.hashCode ^
+      level.hashCode ^
+      message.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ModScriptLogEntry &&
+          runtimeType == other.runtimeType &&
+          timestampMs == other.timestampMs &&
+          modId == other.modId &&
+          scriptId == other.scriptId &&
+          level == other.level &&
+          message == other.message;
+}
 
 /// スーパーチャット・メンバーシップ等の支援イベント種別
 enum MonetizationEventKind {

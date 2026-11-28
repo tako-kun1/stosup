@@ -19,6 +19,7 @@ class _PresetMeta {
     required this.bg,
     required this.fg,
     required this.border,
+    this.modBadge,
   });
 
   final String id;
@@ -27,6 +28,7 @@ class _PresetMeta {
   final Color bg;
   final Color fg;
   final Color border;
+  final String? modBadge;
 }
 
 /// OBS オーバーレイ ＆ 各機能デザイン（プリセット・背景色切替・カスタム CSS 編集）画面
@@ -116,7 +118,11 @@ class _OverlayScreenState extends State<OverlayScreen>
   ];
 
   static String _normalizeThemeId(String raw) {
-    switch (raw.trim().toLowerCase()) {
+    final trimmed = raw.trim();
+    if (trimmed.toLowerCase().startsWith('mod:')) {
+      return trimmed;
+    }
+    switch (trimmed.toLowerCase()) {
       case 'editorial':
       case 'pastel':
       case 'cute':
@@ -866,6 +872,33 @@ class _OverlayScreenState extends State<OverlayScreen>
                 ? () => widget.controller.openUrl(firstTimeUrl)
                 : null,
           ),
+          if (widget.controller.enabledModCustomOverlays.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            const Text(
+              'MOD 独自オーバーレイ',
+              style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ...widget.controller.enabledModCustomOverlays.map((ov) {
+              final url = '${widget.controller.overlayBaseUrl}${ov.overlayPath}';
+              final previewUrl =
+                  '${widget.controller.overlayBaseUrl}${ov.previewPath}';
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _OverlayUrlCard(
+                  icon: Icons.extension_outlined,
+                  title: '${ov.name}（MOD: ${ov.modName}）',
+                  description:
+                      '推奨サイズ: 幅 ${ov.recommendedWidth} × 高さ ${ov.recommendedHeight}。${ov.description}',
+                  url: url,
+                  onCopy: () => _copy(url, ov.name),
+                  onOpen: obsEnabled
+                      ? () => widget.controller.openUrl(previewUrl)
+                      : null,
+                ),
+              );
+            }),
+          ],
           const SizedBox(height: 18),
           Card(
             child: Padding(
@@ -1000,9 +1033,24 @@ class _OverlayScreenState extends State<OverlayScreen>
     required String sampleCss,
   }) {
     final p = context.palette;
-    final current = presets.firstWhere(
+    final modThemes = widget.controller.enabledModOverlayThemesFor(overlayKey);
+    final allPresets = <_PresetMeta>[
+      ...presets,
+      ...modThemes.map(
+        (t) => _PresetMeta(
+          id: t.fullThemeId,
+          name: t.name,
+          desc: t.description.isEmpty ? 'MOD「${t.modName}」の追加テーマ' : t.description,
+          bg: AppTheme.parseCssHex(t.previewBg),
+          fg: AppTheme.parseCssHex(t.previewFg),
+          border: AppTheme.parseCssHex(t.previewBorder),
+          modBadge: 'MOD: ${t.modName}',
+        ),
+      ),
+    ];
+    final current = allPresets.firstWhere(
       (e) => e.id == selectedId,
-      orElse: () => presets.first,
+      orElse: () => allPresets.first,
     );
     final effectiveFont = fontFamily.trim().isEmpty ? null : fontFamily.trim();
     final visualStyle = _styleFor(overlayKey);
@@ -1093,14 +1141,18 @@ class _OverlayScreenState extends State<OverlayScreen>
           ),
           const SizedBox(height: 14),
 
-          // 1. プリセット選択（脱AIデザイン 6系統）
-          const Text('1. ベースデザイン（6 系統）を選択',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+          // 1. プリセット選択（標準 6 系統 ＋ 導入済み MOD テーマ）
+          Text(
+            modThemes.isEmpty
+                ? '1. ベースデザイン（6 系統）を選択'
+                : '1. ベースデザイン（標準 6 系統 ＋ MOD テーマ ${modThemes.length} 種）を選択',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: presets.map((meta) {
+            children: allPresets.map((meta) {
               final selected = meta.id == selectedId;
               return InkWell(
                 onTap: () => onSelect(meta.id),
@@ -1143,6 +1195,25 @@ class _OverlayScreenState extends State<OverlayScreen>
                                 size: 16, color: p.accent),
                         ],
                       ),
+                      if (meta.modBadge != null) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: p.accent.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            meta.modBadge!,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: p.accent,
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       Text(
                         meta.desc,

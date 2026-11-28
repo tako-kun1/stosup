@@ -222,7 +222,8 @@ mod tests {
         assert_eq!(s1.source, "bundled");
         assert!(s1.markdown_body.contains("第1条"));
         assert!(s1.markdown_body.contains("先行版（pre バージョン）"));
-        assert_eq!(s1.revision_label, "v1.1 (2026-11-28)");
+        assert!(s1.markdown_body.contains("MOD（ユーザー作成拡張機能）"));
+        assert_eq!(s1.revision_label, "v1.2 (2026-11-28)");
 
         // 2. 同意を記録すると通常起動可能になる
         record_license_acceptance(&db, &s1.content_hash, &s1.revision_label).unwrap();

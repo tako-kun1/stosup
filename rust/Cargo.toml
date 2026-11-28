@@ -1,6 +1,6 @@
 [package]
 name = "stosup_core"
-version = "0.5.1"
+version = "0.6.0-pre01"
 edition = "2021"
 description = "Core backend engine for Stosup streaming assistant software"
 
@@ -32,6 +32,7 @@ qrcode = { version = "0.14", default-features = false }
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 rfd = "0.15"
+rhai = { version = "1", features = ["sync", "serde"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [

@@ -6,6 +6,7 @@
 <title>Stosup リアクションステージ</title>
 <link rel="icon" href="/favicon.ico" />
 <script src="/overlay/stosup-overlay.js"></script>
+<script src="/overlay/stosup-mod-sdk.js"></script>
 <style id="stosup-base-css">
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -1189,25 +1190,280 @@
     showCaptionBanner(trigger);
   }
 
+  // ==================== MOD カスタムリアクション演出ランタイム ====================
+  let installedModsList = [];
+  let installedModsRevision = 0;
+  const loadedModEffectScripts = new Map();
+
+  function syncInstalledMods(mods, revision) {
+    if (Array.isArray(mods)) {
+      installedModsList = mods;
+    }
+    if (typeof revision === 'number') {
+      installedModsRevision = revision;
+    }
+    window.StosupOverlay.syncMods(installedModsList, installedModsRevision);
+  }
+
+  function findModReactionEffect(modId, effectId) {
+    for (const mod of installedModsList) {
+      if (!mod || !mod.enabled || mod.load_error || mod.id !== modId) continue;
+      const list = Array.isArray(mod.reaction_effects) ? mod.reaction_effects : [];
+      for (const ef of list) {
+        if (ef && ef.effect_id === effectId) {
+          return { mod, effect: ef };
+        }
+      }
+    }
+    return null;
+  }
+
+  function parseModParamsWithDefaults(schemaList, rawJson) {
+    let parsed = {};
+    try {
+      const obj = JSON.parse(rawJson || '{}');
+      if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+        parsed = obj;
+      }
+    } catch (_) {}
+
+    const out = Object.assign({}, parsed);
+    if (Array.isArray(schemaList)) {
+      for (const p of schemaList) {
+        if (!p || !p.key) continue;
+        const rawVal = Object.prototype.hasOwnProperty.call(out, p.key)
+          ? out[p.key]
+          : p.default_value;
+        if (p.kind === 'Number') {
+          const n = Number(rawVal);
+          out[p.key] = Number.isFinite(n) ? n : Number(p.default_value) || 0;
+        } else if (p.kind === 'Bool') {
+          if (typeof rawVal === 'boolean') out[p.key] = rawVal;
+          else out[p.key] = String(rawVal).toLowerCase() === 'true' || rawVal === 1 || rawVal === '1';
+        } else {
+          out[p.key] = rawVal == null ? '' : String(rawVal);
+        }
+      }
+    }
+    return out;
+  }
+
+  function ensureModEffectAssetsLoaded(mod, effect) {
+    const rev = installedModsRevision;
+    const base = `/mods/${encodeURIComponent(mod.id)}/`;
+
+    // CSS がある場合は差し替え/追加
+    if (effect.css) {
+      const cssId = `stosup-mod-fx-css-${mod.id}-${effect.effect_id}`;
+      const href = `${base}${effect.css}?v=${rev}`;
+      let link = document.getElementById(cssId);
+      if (!link) {
+        link = document.createElement('link');
+        link.id = cssId;
+        link.rel = 'stylesheet';
+        document.head.appendChild(link);
+      }
+      if (link.getAttribute('href') !== href) {
+        link.setAttribute('href', href);
+      }
+    }
+
+    const scriptUrl = `${base}${effect.entry}?v=${rev}`;
+    if (loadedModEffectScripts.has(scriptUrl)) {
+      return loadedModEffectScripts.get(scriptUrl);
+    }
+
+    const promise = new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = scriptUrl;
+      s.async = false;
+      window.StosupMod._setLoadingContext(mod.id, effect.effect_id);
+      s.onload = () => {
+        window.StosupMod._clearLoadingContext();
+        resolve(true);
+      };
+      s.onerror = () => {
+        window.StosupMod._clearLoadingContext();
+        console.error('[StosupMod] リアクション演出スクリプトの読み込みに失敗しました:', scriptUrl);
+        resolve(false);
+      };
+      document.head.appendChild(s);
+    });
+    loadedModEffectScripts.set(scriptUrl, promise);
+    return promise;
+  }
+
+  async function playModEffect(trigger, onDone) {
+    const modId = String(trigger.mod_id || '').trim();
+    const effectId = String(trigger.mod_effect_id || '').trim();
+    if (!modId || !effectId) {
+      if (onDone) onDone();
+      return;
+    }
+
+    let found = findModReactionEffect(modId, effectId);
+    if (!found) {
+      try {
+        const res = await fetch('/api/mods/runtime', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          syncInstalledMods(data.mods || [], data.revision || installedModsRevision);
+          found = findModReactionEffect(modId, effectId);
+        }
+      } catch (_) {}
+    }
+    if (!found) {
+      console.warn('[StosupMod] 指定された MOD 演出が見つからないか無効化されています:', modId, effectId);
+      if (onDone) onDone();
+      return;
+    }
+
+    const { mod, effect } = found;
+    if (trigger.sound_url) {
+      playAudioFile(trigger.sound_url, trigger.sound_volume);
+    }
+
+    const loaded = await ensureModEffectAssetsLoaded(mod, effect);
+    const handler = loaded ? window.StosupMod._getEffect(mod.id, effect.effect_id) : null;
+    if (typeof handler !== 'function') {
+      console.warn('[StosupMod] registerEffect で登録されたハンドラが見つかりません:', mod.id, effect.effect_id);
+      if (onDone) onDone();
+      return;
+    }
+
+    const root = document.createElement('div');
+    root.className = 'stosup-mod-effect-root';
+    root.dataset.modId = mod.id;
+    root.dataset.effectId = effect.effect_id;
+    root.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;overflow:hidden;';
+    stage.appendChild(root);
+
+    const cleanupFns = [];
+    let finished = false;
+    let safetyTimer = null;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+        safetyTimer = null;
+      }
+      for (const fn of cleanupFns) {
+        try { fn(); } catch (e) { console.error('[StosupMod] cleanup error:', e); }
+      }
+      if (root.parentNode) root.parentNode.removeChild(root);
+      activeSlots = activeSlots.filter((s) => s !== handle);
+      if (onDone) onDone();
+    };
+
+    const handle = { stopNow: finish };
+    activeSlots.push(handle);
+
+    const durationMs = Math.max(500, Number(trigger.duration_ms || effect.default_duration_ms || 4000));
+    // MOD が done() を呼ばない場合でも安全に自動解放するタイマー
+    safetyTimer = setTimeout(finish, durationMs + 500);
+
+    const baseUrl = `/mods/${encodeURIComponent(mod.id)}/`;
+    const paramsObj = parseModParamsWithDefaults(effect.params, trigger.mod_params_json);
+
+    const modCtx = {
+      stage: root,
+      trigger: Object.assign({}, trigger, { duration_ms: durationMs }),
+      params: paramsObj,
+      width: vw,
+      height: vh,
+      mod: {
+        id: mod.id,
+        effectId: effect.effect_id,
+        name: mod.name,
+        version: mod.version,
+        baseUrl,
+        assetUrl: (rel) => `${baseUrl}${String(rel || '').replace(/^\/+/, '')}`,
+      },
+      audio: {
+        play: (url, vol) => playAudioFile(url, vol),
+        get masterVolume() {
+          return mediaConfig.master_volume ?? 80;
+        },
+      },
+      createCanvas() {
+        const c = document.createElement('canvas');
+        c.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        c.width = Math.max(1, Math.floor(vw * dpr));
+        c.height = Math.max(1, Math.floor(vh * dpr));
+        const c2d = c.getContext('2d', { alpha: true });
+        if (c2d) c2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+        root.appendChild(c);
+        return { canvas: c, ctx: c2d, width: vw, height: vh };
+      },
+      showCaption(customText) {
+        const text = customText != null ? String(customText) : trigger.caption;
+        if (text && text.trim()) {
+          showCaptionBanner(Object.assign({}, trigger, { caption: text, duration_ms: durationMs }));
+        }
+      },
+      onCleanup(fn) {
+        if (typeof fn === 'function') cleanupFns.push(fn);
+      },
+      done: finish,
+    };
+
+    try {
+      const ret = handler(modCtx);
+      if (ret && typeof ret.catch === 'function') {
+        ret.catch((err) => {
+          console.error('[StosupMod] async effect error:', mod.id, effect.effect_id, err);
+          finish();
+        });
+      }
+    } catch (err) {
+      console.error('[StosupMod] effect error:', mod.id, effect.effect_id, err);
+      finish();
+    }
+  }
+
   function pumpQueue() {
     if (isQueuePlaying || queueList.length === 0) return;
     isQueuePlaying = true;
     const next = queueList.shift();
-    playFixedOne(next, () => {
+    const onDone = () => {
       isQueuePlaying = false;
       pumpQueue();
-    });
+    };
+    if (next && next.effect_type === 'Mod') {
+      playModEffect(next, onDone);
+    } else {
+      playFixedOne(next, onDone);
+    }
   }
 
   function handleTrigger(trigger) {
     if (!enabled || !trigger) return;
     const mode = mediaConfig.playback_mode || 'Overlay';
+    const isMod = trigger.effect_type === 'Mod';
     const isFixed = !trigger.effect_type || trigger.effect_type === 'Fixed';
 
     if (mode === 'Replace') {
       clearAllPlayback();
-      if (isFixed) playFixedOne(trigger, null);
+      if (isMod) playModEffect(trigger, null);
+      else if (isFixed) playFixedOne(trigger, null);
       else playParticleEffect(trigger);
+      return;
+    }
+
+    if (isMod) {
+      if (mode === 'Queue') {
+        queueList.push(trigger);
+        pumpQueue();
+      } else {
+        const maxC = Math.max(1, mediaConfig.max_concurrent || 8);
+        while (activeSlots.length >= maxC) {
+          activeSlots[0].stopNow();
+        }
+        playModEffect(trigger, null);
+      }
       return;
     }
 
@@ -1235,9 +1491,13 @@
       try {
         const data = JSON.parse(ev.data);
         if (data.type === 'snapshot') {
+          if (data.mods) syncInstalledMods(data.mods, data.mods_revision);
           config = Object.assign(config, data.config || {});
           if (data.media_config) mediaConfig = data.media_config;
           if (typeof data.media_enabled === 'boolean') enabled = data.media_enabled;
+          applyDesign();
+        } else if (data.type === 'mods_updated') {
+          syncInstalledMods(data.mods, data.revision);
           applyDesign();
         } else if (data.type === 'media_trigger') {
           handleTrigger(data.trigger);

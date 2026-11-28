@@ -483,6 +483,8 @@ pub enum MediaEffectType {
     Throw,
     /// 雪・桜吹雪・雨・キラキラ・ハート・火の粉などの環境演出
     Ambient,
+    /// ユーザー作成 MOD による独自カスタム演出
+    Mod,
 }
 
 impl MediaEffectType {
@@ -494,6 +496,7 @@ impl MediaEffectType {
             MediaEffectType::Confetti => "confetti",
             MediaEffectType::Throw => "throw",
             MediaEffectType::Ambient => "ambient",
+            MediaEffectType::Mod => "mod",
         }
     }
 
@@ -504,6 +507,7 @@ impl MediaEffectType {
             "confetti" => MediaEffectType::Confetti,
             "throw" => MediaEffectType::Throw,
             "ambient" => MediaEffectType::Ambient,
+            "mod" => MediaEffectType::Mod,
             _ => MediaEffectType::Fixed,
         }
     }
@@ -721,6 +725,19 @@ pub struct MediaReactionRule {
     /// 任意テロップ（`{user}` で発動者名を置換、空なら非表示）
     pub caption_template: String,
     pub enabled: bool,
+    /// MOD 演出使用時の MOD ID（例: "starlight-burst-effect"）
+    #[serde(default)]
+    pub mod_id: String,
+    /// MOD 演出使用時の演出 ID（例: "starlight_burst"）
+    #[serde(default)]
+    pub mod_effect_id: String,
+    /// MOD 演出へ渡すユーザー設定パラメータの JSON 文字列（例: "{}"）
+    #[serde(default = "default_empty_json_object")]
+    pub mod_params_json: String,
+}
+
+fn default_empty_json_object() -> String {
+    "{}".to_string()
 }
 
 /// アプリ内へインポート完了したメディア情報
@@ -757,6 +774,15 @@ pub struct MediaTriggerEvent {
     pub caption: String,
     pub triggered_by: String,
     pub triggered_at_ms: i64,
+    /// MOD 演出発火時の MOD ID
+    #[serde(default)]
+    pub mod_id: String,
+    /// MOD 演出発火時の演出 ID
+    #[serde(default)]
+    pub mod_effect_id: String,
+    /// MOD 演出へ渡すカスタムパラメータ JSON
+    #[serde(default = "default_empty_json_object")]
+    pub mod_params_json: String,
 }
 
 /// 初見カウンターの設定
@@ -1924,6 +1950,135 @@ impl Default for FeatureFlags {
     }
 }
 
+/// MOD パラメータの入力型
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ModParamKind {
+    String,
+    Number,
+    Color,
+    Bool,
+    Select,
+}
+
+/// リアクション演出 MOD が公開するカスタム設定パラメータ定義
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModParamSchema {
+    pub key: String,
+    pub label: String,
+    pub kind: ModParamKind,
+    pub default_value: String,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+    pub step: Option<f64>,
+    pub options: Vec<String>,
+    pub description: String,
+}
+
+/// MOD が提供するリアクションステージ独自演出定義
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModReactionEffectDef {
+    pub mod_id: String,
+    pub mod_name: String,
+    pub effect_id: String,
+    pub name: String,
+    pub description: String,
+    pub entry: String,
+    pub css: String,
+    pub default_duration_ms: u32,
+    pub params: Vec<ModParamSchema>,
+}
+
+/// MOD が提供する 9 種 OBS オーバーレイ向け追加テーマ定義
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModOverlayThemeDef {
+    pub mod_id: String,
+    pub mod_name: String,
+    pub theme_id: String,
+    /// `mod:{mod_id}:{theme_id}` 形式の保存用テーマ ID
+    pub full_theme_id: String,
+    pub name: String,
+    pub description: String,
+    pub targets: Vec<String>,
+    pub css: String,
+    pub script: String,
+    pub preview_bg: String,
+    pub preview_fg: String,
+    pub preview_border: String,
+}
+
+/// MOD が提供する独立カスタムオーバーレイ定義
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModCustomOverlayDef {
+    pub mod_id: String,
+    pub mod_name: String,
+    pub overlay_id: String,
+    pub name: String,
+    pub description: String,
+    pub entry: String,
+    pub channels: Vec<String>,
+    pub recommended_width: u32,
+    pub recommended_height: u32,
+    /// 本番オーバーレイ相対パス (`/overlay/mod/{mod_id}/{overlay_id}`)
+    pub overlay_path: String,
+    /// 本番非干渉プレビュー相対パス (`/overlay/preview/mod/{mod_id}/{overlay_id}`)
+    pub preview_path: String,
+}
+
+/// MOD が提供する Rhai ロジックスクリプト定義（Rust 不要で裏側の条件判定・演出制御を記述）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModLogicScriptDef {
+    pub mod_id: String,
+    pub mod_name: String,
+    pub script_id: String,
+    pub name: String,
+    pub description: String,
+    pub entry: String,
+    /// 購読するイベント一覧 ("comment" / "superchat" / "first_time" / "lottery")
+    pub events: Vec<String>,
+}
+
+/// ロジックスクリプトの実行ログエントリ（MOD 管理画面デバッグコンソール向け）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModScriptLogEntry {
+    pub timestamp_ms: i64,
+    pub mod_id: String,
+    pub script_id: String,
+    /// "info" / "warn" / "error" / "action"
+    pub level: String,
+    pub message: String,
+}
+
+/// DB 永続化用の MOD 有効/無効および導入日時状態
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModSavedState {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub installed_at_ms: i64,
+}
+
+/// 導入済み MOD パッケージ情報
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstalledMod {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub author: String,
+    pub description: String,
+    pub min_stosup_version: String,
+    pub homepage: String,
+    pub license: String,
+    pub icon_url: String,
+    pub folder_name: String,
+    pub enabled: bool,
+    pub installed_at_ms: i64,
+    pub load_error: Option<String>,
+    pub reaction_effects: Vec<ModReactionEffectDef>,
+    pub overlay_themes: Vec<ModOverlayThemeDef>,
+    pub custom_overlays: Vec<ModCustomOverlayDef>,
+    pub logic_scripts: Vec<ModLogicScriptDef>,
+}
+
 /// リアルタイムイベント種別
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AppEventKind {
@@ -1950,6 +2105,7 @@ pub enum AppEventKind {
     ObsWsStatusChanged,
     ProfilesUpdated,
     ConnectionHistoryUpdated,
+    ModsUpdated,
     SystemNotice,
 }
 
@@ -1978,6 +2134,7 @@ pub struct AppEvent {
     pub feature_flags: Option<FeatureFlags>,
     pub obs_ws_status: Option<ObsWsStatus>,
     pub profiles: Option<Vec<StreamProfileSummary>>,
+    pub mods: Option<Vec<InstalledMod>>,
     pub notice_level: Option<String>,
     pub notice_message: Option<String>,
 }
@@ -2007,6 +2164,7 @@ impl AppEvent {
             feature_flags: None,
             obs_ws_status: None,
             profiles: None,
+            mods: None,
             notice_level: None,
             notice_message: None,
         }
@@ -2144,6 +2302,12 @@ impl AppEvent {
 
     pub fn connection_history_updated() -> Self {
         Self::empty(AppEventKind::ConnectionHistoryUpdated)
+    }
+
+    pub fn mods_updated(mods: Vec<InstalledMod>) -> Self {
+        let mut e = Self::empty(AppEventKind::ModsUpdated);
+        e.mods = Some(mods);
+        e
     }
 
     pub fn system_notice(level: impl Into<String>, message: impl Into<String>) -> Self {

@@ -7,6 +7,7 @@ import 'screens/first_time_screen.dart';
 import 'screens/highlight_rules_screen.dart';
 import 'screens/lottery_screen.dart';
 import 'screens/media_reaction_screen.dart';
+import 'screens/mods_screen.dart';
 import 'screens/overlay_screen.dart';
 import 'screens/poll_screen.dart';
 import 'screens/queue_screen.dart';
@@ -228,10 +229,12 @@ class _StosupShellState extends State<StosupShell> {
       case 10:
         return StosupTopic.overlay;
       case 11:
-        return StosupTopic.automation;
+        return StosupTopic.mods;
       case 12:
-        return StosupTopic.report;
+        return StosupTopic.automation;
       case 13:
+        return StosupTopic.report;
+      case 14:
         return StosupTopic.settings;
       default:
         return StosupTopic.comments;
@@ -268,10 +271,12 @@ class _StosupShellState extends State<StosupShell> {
           case 10:
             return OverlayScreen(controller: c);
           case 11:
-            return AutomationScreen(controller: c);
+            return ModsScreen(controller: c);
           case 12:
-            return ReportScreen(controller: c);
+            return AutomationScreen(controller: c);
           case 13:
+            return ReportScreen(controller: c);
+          case 14:
             return SettingsScreen(controller: c);
           default:
             return CommentsScreen(controller: c);
@@ -607,18 +612,28 @@ class _StosupShellState extends State<StosupShell> {
                               onTap: () => _selectTab(10),
                             ),
                             _NavTile(
+                              icon: Icons.extension_outlined,
+                              label: 'MOD 管理',
+                              selected: _selectedIndex == 11,
+                              badge: ctrl.enabledModCount > 0
+                                  ? '${ctrl.enabledModCount}'
+                                  : null,
+                              badgeColor: p.accent,
+                              onTap: () => _selectTab(11),
+                            ),
+                            _NavTile(
                               icon: Icons.auto_mode_outlined,
                               label: '連携・オートメーション',
-                              selected: _selectedIndex == 11,
+                              selected: _selectedIndex == 12,
                               badge: ctrl.obsWsStatus.connected ? 'OBS' : null,
                               badgeColor: p.success,
-                              onTap: () => _selectTab(11),
+                              onTap: () => _selectTab(12),
                             ),
                             _NavTile(
                               icon: Icons.analytics_outlined,
                               label: 'オンエアレポート',
-                              selected: _selectedIndex == 12,
-                              onTap: () => _selectTab(12),
+                              selected: _selectedIndex == 13,
+                              onTap: () => _selectTab(13),
                             ),
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 8),
@@ -627,14 +642,14 @@ class _StosupShellState extends State<StosupShell> {
                             _NavTile(
                               icon: Icons.settings_outlined,
                               label: '設定・機能管理',
-                              selected: _selectedIndex == 13,
+                              selected: _selectedIndex == 14,
                               badge: updateInfo?.hasUpdate == true
                                   ? (updateInfo!.isPrerelease ? 'PRE' : 'NEW')
                                   : null,
                               badgeColor: updateInfo?.isPrerelease == true
                                   ? p.warning
                                   : p.accent,
-                              onTap: () => _selectTab(13),
+                              onTap: () => _selectTab(14),
                             ),
                           ],
                         ),

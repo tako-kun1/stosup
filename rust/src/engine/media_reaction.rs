@@ -76,6 +76,9 @@ pub fn rule_has_playable_content(rule: &MediaReactionRule) -> bool {
         | MediaEffectType::Throw
         | MediaEffectType::Ambient => true,
         MediaEffectType::Fixed => !rule.caption_template.trim().is_empty(),
+        MediaEffectType::Mod => {
+            !rule.mod_id.trim().is_empty() && !rule.mod_effect_id.trim().is_empty()
+        }
     }
 }
 
@@ -169,6 +172,13 @@ pub fn build_trigger_event(
         caption,
         triggered_by: user_name.to_string(),
         triggered_at_ms: now_ms,
+        mod_id: rule.mod_id.clone(),
+        mod_effect_id: rule.mod_effect_id.clone(),
+        mod_params_json: if rule.mod_params_json.trim().is_empty() {
+            "{}".to_string()
+        } else {
+            rule.mod_params_json.clone()
+        },
     }
 }
 
@@ -209,6 +219,9 @@ mod tests {
             exclude_banned: true,
             caption_template: "{user} さんが発動！".to_string(),
             enabled: true,
+            mod_id: String::new(),
+            mod_effect_id: String::new(),
+            mod_params_json: "{}".to_string(),
         }
     }
 

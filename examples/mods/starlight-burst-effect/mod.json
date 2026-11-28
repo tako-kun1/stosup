@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "id": "starlight-burst-effect",
+  "name": "スターライト・バースト演出",
+  "version": "1.0.0",
+  "author": "Stosup Sample",
+  "description": "コメントやスパチャに反応して流星群・花火バースト・オーロラ光の輪を描く Canvas 60fps リアクション演出サンプル。",
+  "min_stosup_version": "0.5.1",
+  "homepage": "https://github.com/tako-kun1/stosup",
+  "license": "MIT",
+  "reaction_effects": [
+    {
+      "id": "starlight_burst",
+      "name": "スターライト・バースト",
+      "description": "流星群・花火・オーロラの 3 パターンを切り替えられる光のバースト演出",
+      "entry": "effect.js",
+      "css": "effect.css",
+      "default_duration_ms": 4200,
+      "params": [
+        {
+          "key": "starCount",
+          "label": "星・粒子の数",
+          "kind": "number",
+          "default_value": 28,
+          "min": 8,
+          "max": 80,
+          "step": 2,
+          "description": "画面上に舞う光粒子の数"
+        },
+        {
+          "key": "primaryColor",
+          "label": "メイン発光色",
+          "kind": "color",
+          "default_value": "#38BDF8",
+          "description": "中心の光輪・流星カラー"
+        },
+        {
+          "key": "burstMode",
+          "label": "演出パターン",
+          "kind": "select",
+          "default_value": "meteor",
+          "options": ["meteor", "firework", "aurora"],
+          "description": "meteor: 流星群 / firework: 花火バースト / aurora: 上昇光の輪"
+        },
+        {
+          "key": "showFlash",
+          "label": "瞬間フラッシュ演出",
+          "kind": "bool",
+          "default_value": true,
+          "description": "発動直後に画面全体を淡く光らせます"
+        },
+        {
+          "key": "subText",
+          "label": "サブメッセージ",
+          "kind": "string",
+          "default_value": "STARLIGHT!",
+          "description": "空欄にするとサブメッセージを非表示にします"
+        }
+      ]
+    }
+  ]
+}

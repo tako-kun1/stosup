@@ -287,6 +287,7 @@ fn parse_effect_type(s: &str) -> MediaEffectType {
         "Confetti" | "confetti" => MediaEffectType::Confetti,
         "Throw" | "throw" => MediaEffectType::Throw,
         "Ambient" | "ambient" => MediaEffectType::Ambient,
+        "Mod" | "mod" => MediaEffectType::Mod,
         _ => MediaEffectType::Cracker,
     }
 }
@@ -364,6 +365,9 @@ fn build_quick_media_preset(key: &str) -> MediaReactionRule {
         exclude_banned: true,
         caption_template: String::new(),
         enabled: true,
+        mod_id: String::new(),
+        mod_effect_id: String::new(),
+        mod_params_json: "{}".to_string(),
     };
     match key {
         "kusa" => {
@@ -691,6 +695,13 @@ pub async fn remote_action_handler(
                 exclude_banned: r["exclude_banned"].as_bool().unwrap_or(true),
                 caption_template,
                 enabled: r["enabled"].as_bool().unwrap_or(true),
+                mod_id: r["mod_id"].as_str().unwrap_or("").trim().to_string(),
+                mod_effect_id: r["mod_effect_id"].as_str().unwrap_or("").trim().to_string(),
+                mod_params_json: r["mod_params_json"]
+                    .as_str()
+                    .unwrap_or("{}")
+                    .trim()
+                    .to_string(),
             };
             let is_new = rule.id.is_empty();
             runtime

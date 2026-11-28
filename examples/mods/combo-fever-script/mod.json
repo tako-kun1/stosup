@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "id": "combo-fever-script",
+  "name": "コンボ・フィーバー自動演出（Rhai スクリプト連携サンプル）",
+  "version": "1.0.0",
+  "author": "Stosup Team",
+  "description": ".rhai ロジックスクリプトと専用演出を組み合わせ、草/888 コメントの連続コンボ集計・スパチャ金額別ランク演出・初見歓迎を自動制御する実働サンプルです。",
+  "min_stosup_version": "0.6.0-pre01",
+  "license": "MIT",
+  "logic_scripts": [
+    {
+      "id": "combo_controller",
+      "name": "コンボ＆スパチャ自動演出ロジック",
+      "description": "15秒以内の「草/www/888/ナイス」3連打でコンボ演出を自動発火し、スパチャ金額に応じた豪華演出も制御します。",
+      "entry": "logic.rhai",
+      "events": ["comment", "superchat", "first_time"]
+    }
+  ],
+  "reaction_effects": [
+    {
+      "id": "combo_burst",
+      "name": "コンボ・バースト演出",
+      "description": "ロジックスクリプトから受け取ったコンボ数・ラベル・アクセント色で画面中央に衝撃波とバッジを弾けさせます。",
+      "entry": "effect.js",
+      "default_duration_ms": 3600,
+      "params": [
+        {
+          "key": "combo",
+          "label": "コンボ数",
+          "kind": "number",
+          "default_value": 5,
+          "min": 1,
+          "max": 99,
+          "step": 1,
+          "description": "画面に表示するコンボ数（スクリプト実行時は自動で上書きされます）"
+        },
+        {
+          "key": "label",
+          "label": "メインラベル",
+          "kind": "string",
+          "default_value": "COMBO FEVER!"
+        },
+        {
+          "key": "accentColor",
+          "label": "アクセントカラー",
+          "kind": "color",
+          "default_value": "#22C55E"
+        },
+        {
+          "key": "tier",
+          "label": "演出ランク",
+          "kind": "select",
+          "default_value": "normal",
+          "options": ["normal", "fever", "legend"]
+        }
+      ]
+    }
+  ]
+}
