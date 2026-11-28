@@ -5302,6 +5302,7 @@ impl SseDecode for crate::models::FeatureFlags {
         let mut var_ngWordFilterEnabled = <bool>::sse_decode(deserializer);
         let mut var_obsOverlayEnabled = <bool>::sse_decode(deserializer);
         let mut var_autoUpdateCheckEnabled = <bool>::sse_decode(deserializer);
+        let mut var_includePrereleaseUpdates = <bool>::sse_decode(deserializer);
         return crate::models::FeatureFlags {
             comment_display_enabled: var_commentDisplayEnabled,
             word_highlight_enabled: var_wordHighlightEnabled,
@@ -5319,6 +5320,7 @@ impl SseDecode for crate::models::FeatureFlags {
             ng_word_filter_enabled: var_ngWordFilterEnabled,
             obs_overlay_enabled: var_obsOverlayEnabled,
             auto_update_check_enabled: var_autoUpdateCheckEnabled,
+            include_prerelease_updates: var_includePrereleaseUpdates,
         };
     }
 }
@@ -7355,6 +7357,7 @@ impl SseDecode for crate::models::UpdateInfo {
         let mut var_currentVersion = <String>::sse_decode(deserializer);
         let mut var_latestVersion = <String>::sse_decode(deserializer);
         let mut var_hasUpdate = <bool>::sse_decode(deserializer);
+        let mut var_isPrerelease = <bool>::sse_decode(deserializer);
         let mut var_releaseName = <String>::sse_decode(deserializer);
         let mut var_releaseNotes = <String>::sse_decode(deserializer);
         let mut var_publishedAt = <String>::sse_decode(deserializer);
@@ -7366,6 +7369,7 @@ impl SseDecode for crate::models::UpdateInfo {
             current_version: var_currentVersion,
             latest_version: var_latestVersion,
             has_update: var_hasUpdate,
+            is_prerelease: var_isPrerelease,
             release_name: var_releaseName,
             release_notes: var_releaseNotes,
             published_at: var_publishedAt,
@@ -8062,6 +8066,7 @@ impl flutter_rust_bridge::IntoDart for crate::models::FeatureFlags {
             self.ng_word_filter_enabled.into_into_dart().into_dart(),
             self.obs_overlay_enabled.into_into_dart().into_dart(),
             self.auto_update_check_enabled.into_into_dart().into_dart(),
+            self.include_prerelease_updates.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -9484,6 +9489,7 @@ impl flutter_rust_bridge::IntoDart for crate::models::UpdateInfo {
             self.current_version.into_into_dart().into_dart(),
             self.latest_version.into_into_dart().into_dart(),
             self.has_update.into_into_dart().into_dart(),
+            self.is_prerelease.into_into_dart().into_dart(),
             self.release_name.into_into_dart().into_dart(),
             self.release_notes.into_into_dart().into_dart(),
             self.published_at.into_into_dart().into_dart(),
@@ -9956,6 +9962,7 @@ impl SseEncode for crate::models::FeatureFlags {
         <bool>::sse_encode(self.ng_word_filter_enabled, serializer);
         <bool>::sse_encode(self.obs_overlay_enabled, serializer);
         <bool>::sse_encode(self.auto_update_check_enabled, serializer);
+        <bool>::sse_encode(self.include_prerelease_updates, serializer);
     }
 }
 
@@ -11490,6 +11497,7 @@ impl SseEncode for crate::models::UpdateInfo {
         <String>::sse_encode(self.current_version, serializer);
         <String>::sse_encode(self.latest_version, serializer);
         <bool>::sse_encode(self.has_update, serializer);
+        <bool>::sse_encode(self.is_prerelease, serializer);
         <String>::sse_encode(self.release_name, serializer);
         <String>::sse_encode(self.release_notes, serializer);
         <String>::sse_encode(self.published_at, serializer);

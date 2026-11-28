@@ -26,15 +26,44 @@ import 'package:stosup/widgets/overlay_bg_picker.dart';
 import 'package:stosup/widgets/qr_code_view.dart';
 import 'package:stosup/widgets/rich_comment_text.dart';
 import 'package:stosup/widgets/system_font_picker.dart';
+import 'package:stosup/widgets/update_dialog.dart';
 import 'package:stosup/widgets/user_avatar.dart';
 
 class _TestNoFfiController extends StosupController {
+  int checkUpdatesCallCount = 0;
+
   @override
   Future<void> refreshStreamSessions() async {}
 
   @override
   Future<OnAirReportDto?> loadOnAirReport(String sessionId) async =>
       currentReport;
+
+  @override
+  Future<void> updateFeatureFlags(
+    FeatureFlags next, {
+    String? noticeMessage,
+  }) async {
+    final prevIncludePre = featureFlags.includePrereleaseUpdates;
+    featureFlags = next;
+    if (!featureFlags.includePrereleaseUpdates &&
+        availableUpdate?.isPrerelease == true) {
+      availableUpdate = null;
+    }
+    notifyListeners();
+    if (noticeMessage != null) {
+      onNotice?.call('info', noticeMessage);
+    }
+    if (!prevIncludePre && featureFlags.includePrereleaseUpdates) {
+      await checkUpdates(silent: true);
+    }
+  }
+
+  @override
+  Future<UpdateInfo?> checkUpdates({bool silent = false}) async {
+    checkUpdatesCallCount++;
+    return availableUpdate;
+  }
 }
 
 class _FakeUsersController extends StosupController {
@@ -1043,5 +1072,151 @@ void main() {
     );
     await tester.pump();
     expect(find.textContaining('1 名'), findsWidgets);
+  });
+
+  testWidgets('pre バージョンは自動更新 UI を出さずアナウンス表示のみに留める',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    const preInfo = UpdateInfo(
+      currentVersion: '0.5.0',
+      latestVersion: '0.5.1-pre',
+      hasUpdate: true,
+      isPrerelease: true,
+      releaseName: 'Stosup v0.5.1-pre',
+      releaseNotes: '- 試験的機能の追加',
+      publishedAt: '2026-11-28T00:00:00Z',
+      htmlUrl: 'https://github.com/tako-kun1/stosup/releases/tag/v0.5.1-pre',
+    );
+    const stableInfo = UpdateInfo(
+      currentVersion: '0.5.0',
+      latestVersion: '0.5.1',
+      hasUpdate: true,
+      isPrerelease: false,
+      releaseName: 'Stosup v0.5.1',
+      releaseNotes: '- 正式リリース',
+      publishedAt: '2026-11-28T00:00:00Z',
+      installerUrl:
+          'https://github.com/tako-kun1/stosup/releases/download/v0.5.1/Stosup-v0.5.1-x64.msi',
+      installerName: 'Stosup-v0.5.1-x64.msi',
+      htmlUrl: 'https://github.com/tako-kun1/stosup/releases/tag/v0.5.1',
+    );
+
+    final ctrl = _TestNoFfiController()
+      ..isInitialized = true
+      ..availableUpdate = preInfo;
+    addTearDown(ctrl.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: StosupShell(controller: ctrl),
+      ),
+    );
+    await tester.pump();
+
+    // 上部通知バー: pre 版は自動更新対象外のアナウンス + 詳細を見るのみ
+    expect(find.textContaining('0.5.1-pre'), findsOneWidget);
+    expect(find.textContaining('自動更新対象外'), findsOneWidget);
+    expect(find.text('詳細を見る'), findsOneWidget);
+    expect(find.text('詳細・更新'), findsNothing);
+    expect(find.text('PRE'), findsOneWidget);
+
+    // ダイアログを開くと自動更新・サイレント更新 UI が存在しない
+    await tester.tap(find.text('詳細を見る'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('先行版（pre）のお知らせ'), findsOneWidget);
+    expect(find.textContaining('自動更新を行いません'), findsOneWidget);
+    expect(find.text('ダウンロードして更新'), findsNothing);
+    expect(find.textContaining('サイレント更新'), findsNothing);
+    expect(find.text('GitHub リリースページで確認'), findsOneWidget);
+
+    // 正式版では従来どおり自動更新 UI が表示される
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(
+          body: UpdateDialog(controller: ctrl, info: stableInfo),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('アップデート利用可能'), findsOneWidget);
+    expect(find.text('ダウンロードして更新'), findsOneWidget);
+    expect(find.textContaining('サイレント更新'), findsOneWidget);
+  });
+
+  testWidgets('設定画面の先行版（pre）更新アナウンススイッチは既定 OFF で切替・連動が動作する',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final ctrl = _TestNoFfiController()..isInitialized = true;
+    addTearDown(ctrl.dispose);
+
+    // デフォルトでは OFF
+    expect(ctrl.featureFlags.includePrereleaseUpdates, isFalse);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme(),
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: ctrl,
+            builder: (_, _) => SettingsScreen(controller: ctrl),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final switchFinder = find.widgetWithText(
+      SwitchListTile,
+      '先行版（pre）の更新アナウンスを含める',
+    );
+    expect(switchFinder, findsOneWidget);
+    expect(tester.widget<SwitchListTile>(switchFinder).value, isFalse);
+
+    // スイッチが見える位置までスクロールしてから ON へ切替
+    await tester.ensureVisible(switchFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(switchFinder);
+    await tester.pumpAndSettle();
+
+    expect(ctrl.featureFlags.includePrereleaseUpdates, isTrue);
+    expect(tester.widget<SwitchListTile>(switchFinder).value, isTrue);
+    expect(ctrl.checkUpdatesCallCount, 1);
+
+    // pre 版アナウンス表示中に OFF へ戻すとアナウンスも即座に消去される
+    ctrl.availableUpdate = const UpdateInfo(
+      currentVersion: '0.5.0',
+      latestVersion: '0.5.1-pre',
+      hasUpdate: true,
+      isPrerelease: true,
+      releaseName: 'Stosup v0.5.1-pre',
+      releaseNotes: '- 試験的機能',
+      publishedAt: '2026-11-28T00:00:00Z',
+      htmlUrl: 'https://github.com/tako-kun1/stosup/releases/tag/v0.5.1-pre',
+    );
+    await tester.tap(switchFinder);
+    await tester.pumpAndSettle();
+
+    expect(ctrl.featureFlags.includePrereleaseUpdates, isFalse);
+    expect(tester.widget<SwitchListTile>(switchFinder).value, isFalse);
+    expect(ctrl.availableUpdate, isNull);
+
+    // 「すべて ON」一括操作でも先行版アナウンス設定は勝手に ON にならない
+    await ctrl.setAllFeaturesEnabled(true);
+    await tester.pumpAndSettle();
+    expect(ctrl.featureFlags.includePrereleaseUpdates, isFalse);
   });
 }

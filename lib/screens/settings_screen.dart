@@ -859,6 +859,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
+                  const Divider(height: 24),
+                  SwitchListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    secondary: const Icon(Icons.campaign_outlined, size: 20),
+                    title: const Text('先行版（pre）の更新アナウンスを含める'),
+                    subtitle: const Text(
+                      'オンにすると pre 版の公開時にアナウンスのみ表示します（自動更新は行いません）',
+                    ),
+                    value: flags.includePrereleaseUpdates,
+                    onChanged: (v) => ctrl.setFeatureEnabled(
+                      includePrereleaseUpdates: v,
+                      featureLabel: '先行版（pre）の更新アナウンス',
+                    ),
+                  ),
                 ],
               ),
             ),

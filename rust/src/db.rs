@@ -2075,6 +2075,8 @@ mod tests {
         assert!(defaults.comment_display_enabled);
         assert!(defaults.word_highlight_enabled);
         assert!(defaults.obs_overlay_enabled);
+        // 先行版（pre）の更新アナウンスはデフォルト OFF
+        assert!(!defaults.include_prerelease_updates);
 
         let custom = FeatureFlags {
             comment_display_enabled: false,
@@ -2093,9 +2095,20 @@ mod tests {
             ng_word_filter_enabled: false,
             obs_overlay_enabled: false,
             auto_update_check_enabled: false,
+            include_prerelease_updates: true,
         };
         db.set_feature_flags(&custom).unwrap();
         assert_eq!(db.get_feature_flags().unwrap(), custom);
+
+        // 旧バージョン JSON（include_prerelease_updates 欠損）でも後方互換で false になる
+        db.set_setting(
+            "feature_flags",
+            r#"{"comment_display_enabled":true,"auto_update_check_enabled":true}"#,
+        )
+        .unwrap();
+        let migrated = db.get_feature_flags().unwrap();
+        assert!(migrated.auto_update_check_enabled);
+        assert!(!migrated.include_prerelease_updates);
     }
 
     #[test]

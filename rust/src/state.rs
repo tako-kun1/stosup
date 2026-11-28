@@ -2783,11 +2783,14 @@ impl AppRuntime {
         *self.cached_media_rules.write().await = Arc::new(m_rules.clone());
         *self.cached_ng_word_rules.write().await = Arc::new(ng_rules.clone());
 
-        // オーバーレイと機能フラグを反映（ポート番号は現在の値を維持）
+        // オーバーレイと機能フラグを反映（ポート番号と先行版更新アナウンス設定は現在の値を維持）
         let mut next_overlay = prof.overlay_config.clone();
         next_overlay.port = self.overlay_state.config.read().await.port;
         self.save_overlay_config_and_restart(next_overlay).await?;
-        self.update_feature_flags(prof.feature_flags.clone()).await?;
+        let mut next_flags = prof.feature_flags.clone();
+        next_flags.include_prerelease_updates =
+            self.feature_flags.read().await.include_prerelease_updates;
+        self.update_feature_flags(next_flags).await?;
 
         self.emit(AppEvent::highlight_rules_updated(h_rules));
         self.emit(AppEvent::counters_updated(c_list));

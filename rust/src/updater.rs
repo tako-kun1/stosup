@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -18,17 +19,22 @@ pub const CURRENT_APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// アプリ本体に同梱された CHANGELOG.md（オフライン時のフォールバックに使用）
 const BUNDLED_CHANGELOG: &str = include_str!("../../CHANGELOG.md");
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct GitHubRelease {
     tag_name: String,
     name: Option<String>,
     body: Option<String>,
     published_at: Option<String>,
     html_url: String,
+    #[serde(default)]
+    draft: bool,
+    #[serde(default)]
+    prerelease: bool,
+    #[serde(default)]
     assets: Vec<GitHubAsset>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct GitHubAsset {
     name: String,
     browser_download_url: String,
@@ -42,20 +48,232 @@ fn github_client(timeout_secs: u64) -> Result<reqwest::Client> {
         .context("HTTPクライアントの作成に失敗しました")
 }
 
-/// セマンティックバージョンを比較して latest > current か判定する
+/// バージョン文字列（`v0.5.1`, `0.5.1-pre`, `0.5.1pre1`, `0.5.1_pre` 等）を SemVer へ正規化パースする
+pub fn parse_version(raw: &str) -> Option<Version> {
+    let trimmed = raw
+        .trim()
+        .trim_start_matches('v')
+        .trim_start_matches('V');
+    if let Ok(v) = Version::parse(trimmed) {
+        return Some(v);
+    }
+
+    // ハイフン無し・アンダースコア・ドット区切りで pre 等が続く表記（例: 0.5.1pre, 0.5.1_pre, 0.5.1.pre1）を正規化
+    let mut split_idx = None;
+    let mut dot_count = 0usize;
+    for (idx, ch) in trimmed.char_indices() {
+        if ch.is_ascii_digit() {
+            continue;
+        }
+        if ch == '.' && dot_count < 2 {
+            dot_count += 1;
+            continue;
+        }
+        split_idx = Some(idx);
+        break;
+    }
+
+    if let Some(idx) = split_idx {
+        let (core, rest) = trimmed.split_at(idx);
+        let rest_clean = rest.trim_start_matches(|c| c == '-' || c == '_' || c == '.');
+        if !core.is_empty() && !rest_clean.is_empty() {
+            let normalized_pre = rest_clean.replace('_', "-");
+            let candidate = format!("{}-{}", core, normalized_pre);
+            if let Ok(v) = Version::parse(&candidate) {
+                return Some(v);
+            }
+        }
+    }
+    None
+}
+
+/// タグ・バージョン文字列に pre（または SemVer プレリリース識別子）が付いているか判定する
+pub fn is_pre_version_tag(version_or_tag: &str) -> bool {
+    let lower = version_or_tag.trim().to_ascii_lowercase();
+    if lower.contains("pre") {
+        return true;
+    }
+    parse_version(version_or_tag)
+        .map(|v| !v.pre.is_empty())
+        .unwrap_or(false)
+}
+
+fn is_release_prerelease(release: &GitHubRelease) -> bool {
+    release.prerelease || is_pre_version_tag(&release.tag_name)
+}
+
+/// 同一ナンバリング（major.minor.patch）では pre 無し正式版を常に上位とする比較
+/// 例: 0.5.1-pre < 0.5.1 / 0.5.0 < 0.5.1-pre < 0.5.1
+fn compare_version_with_pre(
+    a_ver: &Version,
+    a_is_pre: bool,
+    b_ver: &Version,
+    b_is_pre: bool,
+) -> Ordering {
+    (a_ver.major, a_ver.minor, a_ver.patch, !a_is_pre)
+        .cmp(&(b_ver.major, b_ver.minor, b_ver.patch, !b_is_pre))
+        .then_with(|| a_ver.cmp(b_ver))
+}
+
+/// セマンティックバージョンを比較して latest > current か判定する（例: 0.5.1-pre < 0.5.1）
 pub fn is_newer_version(current: &str, latest_tag: &str) -> bool {
-    let c = current.trim().trim_start_matches('v');
-    let l = latest_tag.trim().trim_start_matches('v');
-    match (Version::parse(c), Version::parse(l)) {
-        (Ok(cv), Ok(lv)) => lv > cv,
+    let cur_pre = is_pre_version_tag(current);
+    let lat_pre = is_pre_version_tag(latest_tag);
+    match (parse_version(current), parse_version(latest_tag)) {
+        (Some(cv), Some(lv)) => {
+            compare_version_with_pre(&lv, lat_pre, &cv, cur_pre) == Ordering::Greater
+        }
         _ => false,
     }
 }
 
-/// GitHub Releases の最新リリースを確認する
-pub async fn check_for_updates() -> Result<UpdateInfo> {
+fn build_update_info_from_release(
+    current_version: &str,
+    release: &GitHubRelease,
+    has_update: bool,
+    is_prerelease: bool,
+) -> UpdateInfo {
+    let latest_clean = release
+        .tag_name
+        .trim()
+        .trim_start_matches('v')
+        .trim_start_matches('V')
+        .to_string();
+
+    // pre が付くプレリリース版は自動更新させないためインストーラー URL を渡さずアナウンス専用にする
+    let (installer_url, installer_name, checksum_url) = if is_prerelease {
+        (None, None, None)
+    } else {
+        let installer_asset = release
+            .assets
+            .iter()
+            .find(|a| a.name.to_lowercase().ends_with(".msi"))
+            .or_else(|| {
+                release
+                    .assets
+                    .iter()
+                    .find(|a| a.name.to_lowercase().ends_with(".exe") && a.name.contains("Setup"))
+            })
+            .or_else(|| {
+                release
+                    .assets
+                    .iter()
+                    .find(|a| a.name.to_lowercase().ends_with(".exe"))
+            });
+
+        let checksum_asset = release
+            .assets
+            .iter()
+            .find(|a| a.name.to_uppercase().contains("SHA256"));
+
+        (
+            installer_asset.map(|a| a.browser_download_url.clone()),
+            installer_asset.map(|a| a.name.clone()),
+            checksum_asset.map(|a| a.browser_download_url.clone()),
+        )
+    };
+
+    UpdateInfo {
+        current_version: current_version.to_string(),
+        latest_version: latest_clean,
+        has_update,
+        is_prerelease,
+        release_name: release
+            .name
+            .clone()
+            .filter(|n| !n.trim().is_empty())
+            .unwrap_or_else(|| release.tag_name.clone()),
+        release_notes: release.body.clone().unwrap_or_default(),
+        published_at: release.published_at.clone().unwrap_or_default(),
+        installer_url,
+        installer_name,
+        checksum_url,
+        html_url: release.html_url.clone(),
+    }
+}
+
+fn empty_update_info(current_version: &str) -> UpdateInfo {
+    UpdateInfo {
+        current_version: current_version.to_string(),
+        latest_version: current_version.to_string(),
+        has_update: false,
+        is_prerelease: false,
+        release_name: format!("v{}", current_version),
+        release_notes: extract_changelog_section(BUNDLED_CHANGELOG, current_version),
+        published_at: String::new(),
+        installer_url: None,
+        installer_name: None,
+        checksum_url: None,
+        html_url: format!(
+            "https://github.com/{}/{}/releases",
+            GITHUB_REPO_OWNER, GITHUB_REPO_NAME
+        ),
+    }
+}
+
+/// 複数リリース一覧から最適な更新候補を選定する
+/// - 同一ナンバリングに pre 無し正式版がある場合は必ず正式版が優先される（0.5.1-pre < 0.5.1）
+/// - 現在より新しい正式版がある場合は自動更新可能な正式版を最優先する
+/// - `include_prerelease` が true かつ新しい正式版がなく、新しい pre 版のみ存在する場合はアナウンス専用（is_prerelease = true）として返す
+/// - `include_prerelease` が false の場合は pre 版を更新・アナウンス対象に含めない
+fn select_update_from_releases(
+    current_version: &str,
+    releases: &[GitHubRelease],
+    include_prerelease: bool,
+) -> UpdateInfo {
+    let cur_ver = parse_version(current_version);
+    let cur_is_pre = is_pre_version_tag(current_version);
+
+    let mut candidates: Vec<(&GitHubRelease, Version, bool)> = releases
+        .iter()
+        .filter(|r| !r.draft)
+        .filter_map(|r| {
+            let ver = parse_version(&r.tag_name)?;
+            let is_pre = is_release_prerelease(r);
+            Some((r, ver, is_pre))
+        })
+        .collect();
+
+    if candidates.is_empty() {
+        return empty_update_info(current_version);
+    }
+
+    // 高いバージョン順（同一ナンバリングは pre 無し正式版が上位）へ降順ソート
+    candidates.sort_by(|(_, av, ap), (_, bv, bp)| compare_version_with_pre(bv, *bp, av, *ap));
+
+    if let Some(ref cv) = cur_ver {
+        // 1. 現在より新しい正式版（pre 無し）があれば最優先で自動更新対象とする
+        if let Some((rel, _, _)) = candidates.iter().find(|(_, ver, is_pre)| {
+            !*is_pre && compare_version_with_pre(ver, false, cv, cur_is_pre) == Ordering::Greater
+        }) {
+            return build_update_info_from_release(current_version, rel, true, false);
+        }
+
+        // 2. 設定が ON の場合のみ、新しい正式版がなく現在より新しい pre 版があればアナウンス専用として通知する
+        if include_prerelease {
+            if let Some((rel, _, _)) = candidates.iter().find(|(_, ver, is_pre)| {
+                *is_pre && compare_version_with_pre(ver, true, cv, cur_is_pre) == Ordering::Greater
+            }) {
+                return build_update_info_from_release(current_version, rel, true, true);
+            }
+        }
+    }
+
+    // 3. 更新なし（正式版が存在すればそれを最新情報として返し、pre 版のみかつ設定 OFF なら現在版情報を返す）
+    if let Some((best_rel, _, _)) = candidates.iter().find(|(_, _, is_pre)| !*is_pre) {
+        return build_update_info_from_release(current_version, best_rel, false, false);
+    }
+    if include_prerelease {
+        let (best_rel, _, best_is_pre) = candidates[0];
+        return build_update_info_from_release(current_version, best_rel, false, best_is_pre);
+    }
+    empty_update_info(current_version)
+}
+
+/// GitHub Releases のリリース一覧を確認し、正式版優先・pre 版アナウンス専用ルールで判定する
+pub async fn check_for_updates(include_prerelease: bool) -> Result<UpdateInfo> {
     let url = format!(
-        "https://api.github.com/repos/{}/{}/releases/latest",
+        "https://api.github.com/repos/{}/{}/releases?per_page=30",
         GITHUB_REPO_OWNER, GITHUB_REPO_NAME
     );
     let client = github_client(15)?;
@@ -68,21 +286,11 @@ pub async fn check_for_updates() -> Result<UpdateInfo> {
 
     // リリースがまだ存在しない場合（初回公開前）
     if resp.status().as_u16() == 404 {
-        return Ok(UpdateInfo {
-            current_version: CURRENT_APP_VERSION.to_string(),
-            latest_version: CURRENT_APP_VERSION.to_string(),
-            has_update: false,
-            release_name: format!("v{}", CURRENT_APP_VERSION),
-            release_notes: extract_changelog_section(BUNDLED_CHANGELOG, CURRENT_APP_VERSION),
-            published_at: String::new(),
-            installer_url: None,
-            installer_name: None,
-            checksum_url: None,
-            html_url: format!(
-                "https://github.com/{}/{}/releases",
-                GITHUB_REPO_OWNER, GITHUB_REPO_NAME
-            ),
-        });
+        return Ok(select_update_from_releases(
+            CURRENT_APP_VERSION,
+            &[],
+            include_prerelease,
+        ));
     }
 
     if !resp.status().is_success() {
@@ -95,44 +303,12 @@ pub async fn check_for_updates() -> Result<UpdateInfo> {
         ));
     }
 
-    let release: GitHubRelease = resp.json().await?;
-    let latest_clean = release.tag_name.trim_start_matches('v').to_string();
-    let has_update = is_newer_version(CURRENT_APP_VERSION, &release.tag_name);
-
-    let installer_asset = release
-        .assets
-        .iter()
-        .find(|a| a.name.to_lowercase().ends_with(".msi"))
-        .or_else(|| {
-            release
-                .assets
-                .iter()
-                .find(|a| a.name.to_lowercase().ends_with(".exe") && a.name.contains("Setup"))
-        })
-        .or_else(|| {
-            release
-                .assets
-                .iter()
-                .find(|a| a.name.to_lowercase().ends_with(".exe"))
-        });
-
-    let checksum_asset = release
-        .assets
-        .iter()
-        .find(|a| a.name.to_uppercase().contains("SHA256"));
-
-    Ok(UpdateInfo {
-        current_version: CURRENT_APP_VERSION.to_string(),
-        latest_version: latest_clean,
-        has_update,
-        release_name: release.name.unwrap_or(release.tag_name),
-        release_notes: release.body.unwrap_or_default(),
-        published_at: release.published_at.unwrap_or_default(),
-        installer_url: installer_asset.map(|a| a.browser_download_url.clone()),
-        installer_name: installer_asset.map(|a| a.name.clone()),
-        checksum_url: checksum_asset.map(|a| a.browser_download_url.clone()),
-        html_url: release.html_url,
-    })
+    let releases: Vec<GitHubRelease> = resp.json().await?;
+    Ok(select_update_from_releases(
+        CURRENT_APP_VERSION,
+        &releases,
+        include_prerelease,
+    ))
 }
 
 /// インストーラーをダウンロードし、チェックサムがある場合は SHA-256 を検証する
@@ -422,6 +598,25 @@ fn parse_sha256_for_file(checksum_content: &str, file_name: &str) -> Option<Stri
 mod tests {
     use super::*;
 
+    fn mock_release(tag: &str, prerelease: bool, draft: bool) -> GitHubRelease {
+        GitHubRelease {
+            tag_name: tag.to_string(),
+            name: Some(format!("Stosup {}", tag)),
+            body: Some(format!("Notes for {}", tag)),
+            published_at: Some("2026-11-28T00:00:00Z".to_string()),
+            html_url: format!("https://github.com/tako-kun1/stosup/releases/tag/{}", tag),
+            draft,
+            prerelease,
+            assets: vec![GitHubAsset {
+                name: format!("Stosup-{}-x64.msi", tag),
+                browser_download_url: format!(
+                    "https://github.com/tako-kun1/stosup/releases/download/{}/Stosup-{}-x64.msi",
+                    tag, tag
+                ),
+            }],
+        }
+    }
+
     #[test]
     fn test_semver_comparison() {
         assert!(is_newer_version("0.1.0", "v0.1.1"));
@@ -429,6 +624,100 @@ mod tests {
         assert!(is_newer_version("0.9.9", "v1.0.0"));
         assert!(!is_newer_version("0.1.0", "v0.1.0"));
         assert!(!is_newer_version("1.0.0", "v0.9.9"));
+
+        // pre バージョン比較: 0.5.0 < 0.5.1-pre < 0.5.1
+        assert!(is_newer_version("0.5.0", "v0.5.1-pre"));
+        assert!(is_newer_version("0.5.1-pre", "v0.5.1"));
+        assert!(!is_newer_version("0.5.1", "v0.5.1-pre"));
+        assert!(is_newer_version("0.5.1-pre.1", "v0.5.1-pre.2"));
+        assert!(is_newer_version("0.5.1pre", "v0.5.1"));
+        assert!(!is_newer_version("0.5.1", "v0.5.1pre"));
+        assert!(is_pre_version_tag("v0.5.1-pre"));
+        assert!(is_pre_version_tag("0.5.1pre1"));
+        assert!(!is_pre_version_tag("v0.5.1"));
+    }
+
+    #[test]
+    fn test_pre_release_is_announcement_only_when_enabled_and_hidden_when_disabled() {
+        let releases = vec![
+            mock_release("v0.5.1-pre", true, false),
+            mock_release("v0.5.0", false, false),
+        ];
+        // デフォルト（OFF）では pre 版を通知対象に含めない
+        let info_disabled = select_update_from_releases("0.5.0", &releases, false);
+        assert!(!info_disabled.has_update);
+        assert!(!info_disabled.is_prerelease);
+        assert_eq!(info_disabled.latest_version, "0.5.0");
+
+        // ON にした場合のみアナウンス専用として返す
+        let info_enabled = select_update_from_releases("0.5.0", &releases, true);
+        assert!(info_enabled.has_update);
+        assert!(info_enabled.is_prerelease);
+        assert_eq!(info_enabled.latest_version, "0.5.1-pre");
+        // 自動更新をさせないためインストーラー URL は渡さない
+        assert!(info_enabled.installer_url.is_none());
+        assert!(info_enabled.installer_name.is_none());
+
+        // pre 版しかリリースされていない状態で OFF の場合は現在版で更新なしを返す
+        let only_pre = vec![mock_release("v0.5.1-pre", true, false)];
+        let only_pre_off = select_update_from_releases("0.5.0", &only_pre, false);
+        assert!(!only_pre_off.has_update);
+        assert!(!only_pre_off.is_prerelease);
+        assert_eq!(only_pre_off.latest_version, "0.5.0");
+    }
+
+    #[test]
+    fn test_stable_prioritized_over_same_number_pre() {
+        // GitHub 上で prerelease フラグが付いていない 0.5.1-pre が混在しても 0.5.1 を優先する
+        let releases = vec![
+            mock_release("v0.5.1-pre", false, false),
+            mock_release("v0.5.1", false, false),
+            mock_release("v0.5.0", false, false),
+        ];
+        let info = select_update_from_releases("0.5.0", &releases, true);
+        assert!(info.has_update);
+        assert!(!info.is_prerelease);
+        assert_eq!(info.latest_version, "0.5.1");
+        assert!(info.installer_url.is_some());
+
+        // 0.5.1-pre 利用中にも同一ナンバリングの正式版 0.5.1 が優先利用される（pre 通知 OFF でも正式版は案内する）
+        let from_pre = select_update_from_releases("0.5.1-pre", &releases, false);
+        assert!(from_pre.has_update);
+        assert!(!from_pre.is_prerelease);
+        assert_eq!(from_pre.latest_version, "0.5.1");
+        assert!(from_pre.installer_url.is_some());
+
+        // すでに 0.5.1 なら 0.5.1-pre は更新扱いにならない
+        let from_stable = select_update_from_releases("0.5.1", &releases, true);
+        assert!(!from_stable.has_update);
+    }
+
+    #[test]
+    fn test_stable_update_prioritized_over_newer_pre_and_ignores_drafts() {
+        let releases = vec![
+            mock_release("v0.6.0", false, true), // draft は無視
+            mock_release("v0.5.2-pre", true, false),
+            mock_release("v0.5.1", false, false),
+            mock_release("v0.5.0", false, false),
+        ];
+        // 0.5.0 からはまず自動更新可能な正式版 0.5.1 が優先される
+        let from_050 = select_update_from_releases("0.5.0", &releases, true);
+        assert!(from_050.has_update);
+        assert!(!from_050.is_prerelease);
+        assert_eq!(from_050.latest_version, "0.5.1");
+
+        // 0.5.1 へ上げた後、pre 通知 OFF なら 0.5.2-pre は通知しない
+        let from_051_off = select_update_from_releases("0.5.1", &releases, false);
+        assert!(!from_051_off.has_update);
+        assert!(!from_051_off.is_prerelease);
+        assert_eq!(from_051_off.latest_version, "0.5.1");
+
+        // 0.5.1 へ上げた後、pre 通知 ON なら 0.5.2-pre がアナウンス専用で通知される
+        let from_051 = select_update_from_releases("0.5.1", &releases, true);
+        assert!(from_051.has_update);
+        assert!(from_051.is_prerelease);
+        assert_eq!(from_051.latest_version, "0.5.2-pre");
+        assert!(from_051.installer_url.is_none());
     }
 
     #[test]

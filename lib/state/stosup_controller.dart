@@ -278,6 +278,7 @@ class StosupController extends ChangeNotifier {
     ngWordFilterEnabled: true,
     obsOverlayEnabled: true,
     autoUpdateCheckEnabled: true,
+    includePrereleaseUpdates: false,
   );
 
   YouTubeOAuthStatus oauthStatus = const YouTubeOAuthStatus(
@@ -780,6 +781,10 @@ class StosupController extends ChangeNotifier {
       case AppEventKind.featureFlagsUpdated:
         if (ev.featureFlags != null) {
           featureFlags = ev.featureFlags!;
+          if (!featureFlags.includePrereleaseUpdates &&
+              availableUpdate?.isPrerelease == true) {
+            availableUpdate = null;
+          }
           notifyListeners();
         }
       case AppEventKind.obsWsStatusChanged:
@@ -1156,6 +1161,7 @@ class StosupController extends ChangeNotifier {
   }) async {
     try {
       final prevObsEnabled = featureFlags.obsOverlayEnabled;
+      final prevIncludePre = featureFlags.includePrereleaseUpdates;
       final prevPort = overlayConfig.port;
       featureFlags = await api.saveFeatureFlags(flags: next);
       // OBS サーバー起動/停止が絡む場合のみポート・LAN 状態を再同期（通常トグル時の ipconfig 起動を回避）
@@ -1167,9 +1173,18 @@ class StosupController extends ChangeNotifier {
         remoteAccessStatus = await api.getRemoteAccessStatus();
         _remoteEpoch++;
       }
+      // 先行版（pre）の更新アナウンス設定を OFF にしたら表示中の pre アナウンスを即座に消去
+      if (!featureFlags.includePrereleaseUpdates &&
+          availableUpdate?.isPrerelease == true) {
+        availableUpdate = null;
+      }
       notifyListeners();
       if (noticeMessage != null) {
         onNotice?.call('info', noticeMessage);
+      }
+      // OFF → ON に切り替えた際はバックグラウンドで最新状態を再確認
+      if (!prevIncludePre && featureFlags.includePrereleaseUpdates) {
+        unawaited(checkUpdates(silent: true));
       }
     } catch (e) {
       onNotice?.call('error', e.toString());
@@ -1193,6 +1208,7 @@ class StosupController extends ChangeNotifier {
     bool? ngWordFilter,
     bool? obsOverlay,
     bool? autoUpdateCheck,
+    bool? includePrereleaseUpdates,
     String? featureLabel,
   }) async {
     final next = FeatureFlags(
@@ -1218,6 +1234,8 @@ class StosupController extends ChangeNotifier {
       obsOverlayEnabled: obsOverlay ?? featureFlags.obsOverlayEnabled,
       autoUpdateCheckEnabled:
           autoUpdateCheck ?? featureFlags.autoUpdateCheckEnabled,
+      includePrereleaseUpdates:
+          includePrereleaseUpdates ?? featureFlags.includePrereleaseUpdates,
     );
     final switchedValue = commentDisplay ??
         wordHighlight ??
@@ -1234,7 +1252,8 @@ class StosupController extends ChangeNotifier {
         mediaReaction ??
         ngWordFilter ??
         obsOverlay ??
-        autoUpdateCheck;
+        autoUpdateCheck ??
+        includePrereleaseUpdates;
     final msg = (featureLabel != null && switchedValue != null)
         ? '「$featureLabel」を ${switchedValue ? "オン" : "オフ"} にしました'
         : null;
@@ -1259,6 +1278,8 @@ class StosupController extends ChangeNotifier {
       ngWordFilterEnabled: enabled,
       obsOverlayEnabled: enabled,
       autoUpdateCheckEnabled: enabled,
+      // 先行版（pre）の更新アナウンスは既定 OFF のオプトイン設定のため一括 ON/OFF で変更しない
+      includePrereleaseUpdates: featureFlags.includePrereleaseUpdates,
     );
     await updateFeatureFlags(
       next,
@@ -1835,6 +1856,11 @@ class StosupController extends ChangeNotifier {
   }
 
   Stream<UpdateDownloadProgress> downloadUpdate(UpdateInfo info) {
+    if (info.isPrerelease || info.installerUrl == null) {
+      return Stream.error(
+        StateError('pre バージョンは自動更新の対象外です'),
+      );
+    }
     return api.downloadUpdateInstaller(
       installerUrl: info.installerUrl!,
       installerName: info.installerName ?? 'Stosup-x64.msi',

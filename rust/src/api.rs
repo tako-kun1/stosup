@@ -550,7 +550,13 @@ pub async fn disconnect_youtube_oauth() -> Result<YouTubeOAuthStatus, String> {
 // ==================== 自動アップデート & リリースノート ====================
 
 pub async fn check_for_updates() -> Result<UpdateInfo, String> {
-    updater::check_for_updates().await.map_err(|e| e.to_string())
+    let include_prerelease = match get_runtime() {
+        Ok(runtime) => runtime.feature_flags.read().await.include_prerelease_updates,
+        Err(_) => false,
+    };
+    updater::check_for_updates(include_prerelease)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn download_update_installer(

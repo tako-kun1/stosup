@@ -37,7 +37,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
   }
 
   void _startDownload() {
-    if (widget.info.installerUrl == null) {
+    if (widget.info.isPrerelease || widget.info.installerUrl == null) {
       widget.controller.openUrl(widget.info.htmlUrl);
       return;
     }
@@ -93,6 +93,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
   Widget build(BuildContext context) {
     final p = context.palette;
     final info = widget.info;
+    final isPre = info.isPrerelease;
     double? fraction;
     if (_progress != null &&
         _progress!.totalBytes != null &&
@@ -104,20 +105,28 @@ class _UpdateDialogState extends State<UpdateDialog> {
     return AlertDialog(
       title: Row(
         children: [
-          Icon(Icons.system_update_alt, color: p.accent),
+          Icon(
+            isPre ? Icons.campaign_outlined : Icons.system_update_alt,
+            color: isPre ? p.warning : p.accent,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'アップデート利用可能 (${info.releaseName})',
+                  isPre
+                      ? '先行版（pre）のお知らせ (${info.releaseName})'
+                      : 'アップデート利用可能 (${info.releaseName})',
                   style: const TextStyle(
                       fontSize: 16.5, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   'v${info.currentVersion} → v${info.latestVersion}',
-                  style: TextStyle(fontSize: 12.5, color: p.success),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: isPre ? p.warning : p.success,
+                  ),
                 ),
               ],
             ),
@@ -130,6 +139,37 @@ class _UpdateDialogState extends State<UpdateDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (isPre) ...[
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: p.warning.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: p.warning.withValues(alpha: 0.45)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, color: p.warning, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'pre が付く先行バージョンは自動更新を行いません（利用可能のアナウンスのみ表示しています）。'
+                        'お試しになりたい場合のみ GitHub リリースページから手動でご利用ください。',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: p.textPrimary,
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             const Text('変更内容（リリースノート）',
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -151,7 +191,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
               ),
             ),
             const SizedBox(height: 10),
-            if (!_isDownloading)
+            if (!isPre && !_isDownloading)
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _silentInstall,
@@ -178,25 +218,38 @@ class _UpdateDialogState extends State<UpdateDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isDownloading
-              ? null
-              : () => widget.controller.openUrl(info.htmlUrl),
-          child: const Text('GitHub で開く'),
-        ),
-        TextButton(
-          onPressed: _isDownloading ? null : () => Navigator.of(context).pop(),
-          child: const Text('あとで'),
-        ),
-        FilledButton.icon(
-          onPressed: _isDownloading ? null : _startDownload,
-          icon: const Icon(Icons.download, size: 18),
-          label: Text(
-            info.installerUrl != null ? 'ダウンロードして更新' : 'リリースページを開く',
-          ),
-        ),
-      ],
+      actions: isPre
+          ? [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('閉じる'),
+              ),
+              FilledButton.icon(
+                onPressed: () => widget.controller.openUrl(info.htmlUrl),
+                icon: const Icon(Icons.open_in_new, size: 17),
+                label: const Text('GitHub リリースページで確認'),
+              ),
+            ]
+          : [
+              TextButton(
+                onPressed: _isDownloading
+                    ? null
+                    : () => widget.controller.openUrl(info.htmlUrl),
+                child: const Text('GitHub で開く'),
+              ),
+              TextButton(
+                onPressed:
+                    _isDownloading ? null : () => Navigator.of(context).pop(),
+                child: const Text('あとで'),
+              ),
+              FilledButton.icon(
+                onPressed: _isDownloading ? null : _startDownload,
+                icon: const Icon(Icons.download, size: 18),
+                label: Text(
+                  info.installerUrl != null ? 'ダウンロードして更新' : 'リリースページを開く',
+                ),
+              ),
+            ],
     );
   }
 }

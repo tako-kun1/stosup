@@ -655,6 +655,9 @@ class FeatureFlags {
   /// 起動時の GitHub 自動アップデート確認
   final bool autoUpdateCheckEnabled;
 
+  /// 先行版（pre）の更新アナウンスを含めるかどうか（デフォルト: OFF）
+  final bool includePrereleaseUpdates;
+
   const FeatureFlags({
     required this.commentDisplayEnabled,
     required this.wordHighlightEnabled,
@@ -672,6 +675,7 @@ class FeatureFlags {
     required this.ngWordFilterEnabled,
     required this.obsOverlayEnabled,
     required this.autoUpdateCheckEnabled,
+    required this.includePrereleaseUpdates,
   });
 
   @override
@@ -691,7 +695,8 @@ class FeatureFlags {
       mediaReactionEnabled.hashCode ^
       ngWordFilterEnabled.hashCode ^
       obsOverlayEnabled.hashCode ^
-      autoUpdateCheckEnabled.hashCode;
+      autoUpdateCheckEnabled.hashCode ^
+      includePrereleaseUpdates.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -713,7 +718,8 @@ class FeatureFlags {
           mediaReactionEnabled == other.mediaReactionEnabled &&
           ngWordFilterEnabled == other.ngWordFilterEnabled &&
           obsOverlayEnabled == other.obsOverlayEnabled &&
-          autoUpdateCheckEnabled == other.autoUpdateCheckEnabled;
+          autoUpdateCheckEnabled == other.autoUpdateCheckEnabled &&
+          includePrereleaseUpdates == other.includePrereleaseUpdates;
 }
 
 /// 初見カウンターの設定
@@ -3140,6 +3146,9 @@ class UpdateInfo {
   final String currentVersion;
   final String latestVersion;
   final bool hasUpdate;
+
+  /// pre が付くプレリリース版かどうか（true の場合は自動更新せず利用可能アナウンスのみ）
+  final bool isPrerelease;
   final String releaseName;
   final String releaseNotes;
   final String publishedAt;
@@ -3152,6 +3161,7 @@ class UpdateInfo {
     required this.currentVersion,
     required this.latestVersion,
     required this.hasUpdate,
+    required this.isPrerelease,
     required this.releaseName,
     required this.releaseNotes,
     required this.publishedAt,
@@ -3166,6 +3176,7 @@ class UpdateInfo {
       currentVersion.hashCode ^
       latestVersion.hashCode ^
       hasUpdate.hashCode ^
+      isPrerelease.hashCode ^
       releaseName.hashCode ^
       releaseNotes.hashCode ^
       publishedAt.hashCode ^
@@ -3182,6 +3193,7 @@ class UpdateInfo {
           currentVersion == other.currentVersion &&
           latestVersion == other.latestVersion &&
           hasUpdate == other.hasUpdate &&
+          isPrerelease == other.isPrerelease &&
           releaseName == other.releaseName &&
           releaseNotes == other.releaseNotes &&
           publishedAt == other.publishedAt &&

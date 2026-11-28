@@ -1469,6 +1469,8 @@ pub struct UpdateInfo {
     pub current_version: String,
     pub latest_version: String,
     pub has_update: bool,
+    /// pre が付くプレリリース版かどうか（true の場合は自動更新せず利用可能アナウンスのみ）
+    pub is_prerelease: bool,
     pub release_name: String,
     pub release_notes: String,
     pub published_at: String,
@@ -1893,6 +1895,9 @@ pub struct FeatureFlags {
     /// 起動時の GitHub 自動アップデート確認
     #[serde(default = "default_true")]
     pub auto_update_check_enabled: bool,
+    /// 先行版（pre）の更新アナウンスを含めるかどうか（デフォルト: OFF）
+    #[serde(default)]
+    pub include_prerelease_updates: bool,
 }
 
 impl Default for FeatureFlags {
@@ -1914,6 +1919,7 @@ impl Default for FeatureFlags {
             ng_word_filter_enabled: true,
             obs_overlay_enabled: true,
             auto_update_check_enabled: true,
+            include_prerelease_updates: false,
         }
     }
 }

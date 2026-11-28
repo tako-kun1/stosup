@@ -37,7 +37,11 @@ jobs:
           }
           echo "version=$raw" >> $env:GITHUB_OUTPUT
           echo "tag=$tag" >> $env:GITHUB_OUTPUT
-          Write-Host "Target release version: $raw (tag: $tag)"
+          $isPre = if ($raw -match '(?i)pre') { "true" } else { "false" }
+          echo "is_prerelease=$isPre" >> $env:GITHUB_OUTPUT
+          $buildName = if ($raw -match '^([0-9]+\.[0-9]+\.[0-9]+)') { $Matches[1] } else { $raw }
+          echo "build_name=$buildName" >> $env:GITHUB_OUTPUT
+          Write-Host "Target release version: $raw (tag: $tag, is_prerelease: $isPre, build_name: $buildName)"
 
       - name: pubspec.yaml と rust/Cargo.toml のバージョンを同期
         shell: pwsh
@@ -76,7 +80,7 @@ jobs:
           flutter test
 
       - name: Flutter Windows (64bit) リリースビルド
-        run: flutter build windows --release --build-name=${{ steps.ver.outputs.version }}
+        run: flutter build windows --release --build-name=${{ steps.ver.outputs.build_name }}
 
       - name: Windows MSI インストーラー生成 ＆ SHA256 算出 (WiX v5)
         shell: pwsh
@@ -111,7 +115,11 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($body)) {
             $body = "## Stosup v$v`n`nこのバージョンの詳細変更履歴はコミットログをご確認ください。"
           }
-          $body += "`n`n---`n### ダウンロード方法`n- **Windows 10/11 (64bit)**: ``Stosup-v$v-x64.msi`` をダウンロードして実行してください。`n- すでに Stosup をインストール済みの場合は、アプリ内の自動アップデート機能からそのまま更新できます。"
+          if ("${{ steps.ver.outputs.is_prerelease }}" -eq "true") {
+            $body += "`n`n---`n### 先行版（pre）について`n- 本リリースは先行検証用のプレリリース版のため、アプリ内からの自動更新は行われません。`n- お試しいただく場合は、事前に Stosup のバックアップ機能でデータを保存したうえで ``Stosup-v$v-x64.msi`` を手動ダウンロードしてご利用ください。"
+          } else {
+            $body += "`n`n---`n### ダウンロード方法`n- **Windows 10/11 (64bit)**: ``Stosup-v$v-x64.msi`` をダウンロードして実行してください。`n- すでに Stosup をインストール済みの場合は、アプリ内の自動アップデート機能からそのまま更新できます。"
+          }
           Set-Content -Path "release_notes.md" -Value $body -Encoding UTF8
           Get-Content "release_notes.md"
 
@@ -121,6 +129,8 @@ jobs:
           tag_name: ${{ steps.ver.outputs.tag }}
           name: "Stosup ${{ steps.ver.outputs.tag }}"
           body_path: release_notes.md
+          prerelease: ${{ steps.ver.outputs.is_prerelease == 'true' }}
+          make_latest: ${{ steps.ver.outputs.is_prerelease == 'true' && 'false' || 'true' }}
           generate_release_notes: false
           files: |
             dist/Stosup-v*-x64.msi

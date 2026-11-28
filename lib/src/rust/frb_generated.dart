@@ -4940,8 +4940,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   FeatureFlags dco_decode_feature_flags(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 16)
-      throw Exception('unexpected arr length: expect 16 but see ${arr.length}');
+    if (arr.length != 17)
+      throw Exception('unexpected arr length: expect 17 but see ${arr.length}');
     return FeatureFlags(
       commentDisplayEnabled: dco_decode_bool(arr[0]),
       wordHighlightEnabled: dco_decode_bool(arr[1]),
@@ -4959,6 +4959,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       ngWordFilterEnabled: dco_decode_bool(arr[13]),
       obsOverlayEnabled: dco_decode_bool(arr[14]),
       autoUpdateCheckEnabled: dco_decode_bool(arr[15]),
+      includePrereleaseUpdates: dco_decode_bool(arr[16]),
     );
   }
 
@@ -6289,19 +6290,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   UpdateInfo dco_decode_update_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 10)
-      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    if (arr.length != 11)
+      throw Exception('unexpected arr length: expect 11 but see ${arr.length}');
     return UpdateInfo(
       currentVersion: dco_decode_String(arr[0]),
       latestVersion: dco_decode_String(arr[1]),
       hasUpdate: dco_decode_bool(arr[2]),
-      releaseName: dco_decode_String(arr[3]),
-      releaseNotes: dco_decode_String(arr[4]),
-      publishedAt: dco_decode_String(arr[5]),
-      installerUrl: dco_decode_opt_String(arr[6]),
-      installerName: dco_decode_opt_String(arr[7]),
-      checksumUrl: dco_decode_opt_String(arr[8]),
-      htmlUrl: dco_decode_String(arr[9]),
+      isPrerelease: dco_decode_bool(arr[3]),
+      releaseName: dco_decode_String(arr[4]),
+      releaseNotes: dco_decode_String(arr[5]),
+      publishedAt: dco_decode_String(arr[6]),
+      installerUrl: dco_decode_opt_String(arr[7]),
+      installerName: dco_decode_opt_String(arr[8]),
+      checksumUrl: dco_decode_opt_String(arr[9]),
+      htmlUrl: dco_decode_String(arr[10]),
     );
   }
 
@@ -7013,6 +7015,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_ngWordFilterEnabled = sse_decode_bool(deserializer);
     var var_obsOverlayEnabled = sse_decode_bool(deserializer);
     var var_autoUpdateCheckEnabled = sse_decode_bool(deserializer);
+    var var_includePrereleaseUpdates = sse_decode_bool(deserializer);
     return FeatureFlags(
       commentDisplayEnabled: var_commentDisplayEnabled,
       wordHighlightEnabled: var_wordHighlightEnabled,
@@ -7030,6 +7033,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       ngWordFilterEnabled: var_ngWordFilterEnabled,
       obsOverlayEnabled: var_obsOverlayEnabled,
       autoUpdateCheckEnabled: var_autoUpdateCheckEnabled,
+      includePrereleaseUpdates: var_includePrereleaseUpdates,
     );
   }
 
@@ -8984,6 +8988,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_currentVersion = sse_decode_String(deserializer);
     var var_latestVersion = sse_decode_String(deserializer);
     var var_hasUpdate = sse_decode_bool(deserializer);
+    var var_isPrerelease = sse_decode_bool(deserializer);
     var var_releaseName = sse_decode_String(deserializer);
     var var_releaseNotes = sse_decode_String(deserializer);
     var var_publishedAt = sse_decode_String(deserializer);
@@ -8995,6 +9000,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       currentVersion: var_currentVersion,
       latestVersion: var_latestVersion,
       hasUpdate: var_hasUpdate,
+      isPrerelease: var_isPrerelease,
       releaseName: var_releaseName,
       releaseNotes: var_releaseNotes,
       publishedAt: var_publishedAt,
@@ -9691,6 +9697,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.ngWordFilterEnabled, serializer);
     sse_encode_bool(self.obsOverlayEnabled, serializer);
     sse_encode_bool(self.autoUpdateCheckEnabled, serializer);
+    sse_encode_bool(self.includePrereleaseUpdates, serializer);
   }
 
   @protected
@@ -11218,6 +11225,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.currentVersion, serializer);
     sse_encode_String(self.latestVersion, serializer);
     sse_encode_bool(self.hasUpdate, serializer);
+    sse_encode_bool(self.isPrerelease, serializer);
     sse_encode_String(self.releaseName, serializer);
     sse_encode_String(self.releaseNotes, serializer);
     sse_encode_String(self.publishedAt, serializer);

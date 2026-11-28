@@ -341,46 +341,78 @@ class _StosupShellState extends State<StosupShell> {
     return Scaffold(
       body: Column(
         children: [
-          // 新バージョン通知バー
+          // 新バージョン通知バー（pre 版は自動更新せず利用可能アナウンスのみ）
           if (updateInfo != null && updateInfo.hasUpdate)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-              decoration: BoxDecoration(
-                color: p.accent.withValues(alpha: 0.12),
-                border: Border(bottom: BorderSide(color: p.border)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.system_update_alt, color: p.accent, size: 17),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '新しいバージョン Stosup v${updateInfo.latestVersion} が利用可能です（現在: v${updateInfo.currentVersion}）',
-                      style: TextStyle(
-                        color: p.textPrimary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12.5,
+            Builder(
+              builder: (context) {
+                final isPre = updateInfo.isPrerelease;
+                final barColor = isPre ? p.warning : p.accent;
+                return Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: barColor.withValues(alpha: 0.12),
+                    border: Border(bottom: BorderSide(color: p.border)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isPre
+                            ? Icons.campaign_outlined
+                            : Icons.system_update_alt,
+                        color: barColor,
+                        size: 17,
                       ),
-                    ),
-                  ),
-                  FilledButton(
-                    style: FilledButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    onPressed: () {
-                      showDialog<void>(
-                        context: context,
-                        builder: (_) => UpdateDialog(
-                          controller: ctrl,
-                          info: updateInfo,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          isPre
+                              ? '先行版（pre）Stosup v${updateInfo.latestVersion} が利用可能です（現在: v${updateInfo.currentVersion} / 自動更新対象外）'
+                              : '新しいバージョン Stosup v${updateInfo.latestVersion} が利用可能です（現在: v${updateInfo.currentVersion}）',
+                          style: TextStyle(
+                            color: p.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12.5,
+                          ),
                         ),
-                      );
-                    },
-                    child: const Text('詳細・更新'),
+                      ),
+                      if (isPre)
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () {
+                            showDialog<void>(
+                              context: context,
+                              builder: (_) => UpdateDialog(
+                                controller: ctrl,
+                                info: updateInfo,
+                              ),
+                            );
+                          },
+                          child: const Text('詳細を見る'),
+                        )
+                      else
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () {
+                            showDialog<void>(
+                              context: context,
+                              builder: (_) => UpdateDialog(
+                                controller: ctrl,
+                                info: updateInfo,
+                              ),
+                            );
+                          },
+                          child: const Text('詳細・更新'),
+                        ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
 
           Expanded(
@@ -596,9 +628,12 @@ class _StosupShellState extends State<StosupShell> {
                               icon: Icons.settings_outlined,
                               label: '設定・機能管理',
                               selected: _selectedIndex == 13,
-                              badge:
-                                  updateInfo?.hasUpdate == true ? 'NEW' : null,
-                              badgeColor: p.accent,
+                              badge: updateInfo?.hasUpdate == true
+                                  ? (updateInfo!.isPrerelease ? 'PRE' : 'NEW')
+                                  : null,
+                              badgeColor: updateInfo?.isPrerelease == true
+                                  ? p.warning
+                                  : p.accent,
                               onTap: () => _selectTab(13),
                             ),
                           ],

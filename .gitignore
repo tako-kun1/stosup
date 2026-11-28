@@ -18,6 +18,7 @@ stosup.md
 oauth_secrets.json
 .env
 .env.local
+/website/
 
 # データベース・ローカルデータ
 *.db

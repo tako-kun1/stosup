@@ -45,7 +45,7 @@ function Convert-Utf8TextToJapaneseRtf {
             } else {
                 # RTF \uN? uses signed 16-bit integer (values >= 32768 wrap by subtracting 65536)
                 $signed = if ($code -gt 32767) { $code - 65536 } else { $code }
-                [void]$sb.Append("\u$signed?")
+                [void]$sb.Append("\u$($signed)?")
             }
         }
 
@@ -108,12 +108,14 @@ try {
     $msiName = "Stosup-v$Version-x64.msi"
     $msiPath = Join-Path $distDir $msiName
     $iconPath = Join-Path $repoRoot "windows\runner\resources\app_icon.ico"
+    # WiX Package Version は major.minor.patch 数値のみ受付のため、pre 等の接尾辞を除いた数値部を渡す
+    $msiProductVersion = if ($Version -match '^([0-9]+\.[0-9]+\.[0-9]+)') { $Matches[1] } else { $Version }
 
     dotnet wix build `
         -arch x64 `
         -ext WixToolset.UI.wixext `
         -culture ja-JP `
-        -d "AppVersion=$Version" `
+        -d "AppVersion=$msiProductVersion" `
         -d "BuildDir=$buildDir" `
         -d "IconPath=$iconPath" `
         -d "LicenseRtfPath=$licenseRtfPath" `
